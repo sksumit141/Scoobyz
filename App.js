@@ -150,14 +150,14 @@ export default function App() {
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
           <Stack.Screen name="AddressBook" component={AddressBookScreen} />
-          
+
           {/* Dog Boarding Flow */}
           <Stack.Screen name="BoardingService" component={BoardingServiceScreen} />
           <Stack.Screen name="BoardingLocation" component={BoardingLocationScreen} />
           <Stack.Screen name="BoardingMealSetup" component={BoardingMealSetupScreen} />
           <Stack.Screen name="BoardingReview" component={BoardingReviewScreen} />
           <Stack.Screen name="BoardingConfirmed" component={BoardingConfirmedScreen} />
-          
+
           {/* Dog Walking Flow */}
           <Stack.Screen name="WalkingService" component={WalkingServiceScreen} />
           <Stack.Screen name="WalkingWalkerList" component={WalkingWalkerListScreen} />
@@ -182,7 +182,7 @@ export default function App() {
 
           {/* Reviews */}
           <Stack.Screen name="RatingReview" component={RatingReviewScreen} />
-          
+
           {/* Tracking */}
           <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
           <Stack.Screen name="VideoCall" component={VideoCallScreen} />
