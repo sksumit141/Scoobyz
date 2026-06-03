@@ -85,12 +85,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
       expert,
     };
 
-    if (serviceName?.toLowerCase() === 'walking') {
-      console.log('[ExplorePackages] Routing to WalkingReviewFinal');
-      navigation.navigate('WalkingReviewFinal', nextParams);
-    } else {
-      navigation.navigate('ReviewDetails', nextParams);
-    }
+    navigation.navigate('BookVendor', { ...nextParams, serviceType: serviceName });
     setActiveModalPkg(null);
   };
 
@@ -98,7 +93,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.accent} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} type="heading" weight="bold">
           {expert?.name ? `${expert.name}'s Packages` : 'Explore Packages'}
@@ -170,12 +165,13 @@ export default function ExplorePackagesScreen({ route, navigation }) {
               onPress={() => {
                 const nights = route.params?.serviceDate && route.params?.endDate ? Math.max(1, Math.ceil((new Date(route.params.endDate).getTime() - new Date(route.params.serviceDate).getTime()) / (1000 * 60 * 60 * 24))) : 1;
                 const total = (selectedRoom.price + (selectedMeal ? Number(selectedMeal.price) : 0)) * nights;
-                navigation.navigate('ReviewDetails', {
+                navigation.navigate('BookVendor', {
                   ...route.params,
                   selectedRoom,
                   selectedMeal,
                   total,
                   expert,
+                  serviceType: 'Boarding'
                 });
               }}
             >
@@ -200,7 +196,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 24,
   },
-  backButton: { marginRight: 16 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    ...theme.shadows.small,
+  },
   headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, marginLeft: -5, marginTop: 5 },
   scrollContent: { paddingHorizontal: 24 },
   errorBox: { alignItems: 'center', marginTop: 40 },

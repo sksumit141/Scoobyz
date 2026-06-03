@@ -11,6 +11,7 @@ import {
   UIManager,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -38,6 +39,7 @@ const isSmallDevice = height < 700;
 const WelcomeScreen = ({ navigation }) => {
   const [authState, setAuthState] = useState('initial');
   const [selectedMode, setSelectedMode] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', icon: 'alert-circle-outline' });
 
   const showAlert = (title, message, icon = 'alert-circle-outline') => {
@@ -73,22 +75,26 @@ const WelcomeScreen = ({ navigation }) => {
 
   // Path 1: idToken → Supabase verification → your backend
   const handleSupabaseGoogle = async (idToken) => {
+      setLoading(true);
       try {
           const { data: sd, error: se } = await supabase.auth.signInWithIdToken({
               provider: 'google',
               token: idToken,
           });
-          if (se) { showAlert('Login Error', se.message); return; }
+          if (se) { showAlert('Login Error', se.message); setLoading(false); return; }
           const u = sd.user;
           await sendToBackend(u.email, u.user_metadata?.full_name || u.user_metadata?.name || '', u.user_metadata?.sub || u.id);
       } catch (e) {
           console.error('Supabase Google error:', e);
           showAlert('Error', e.message || 'Google sign-in failed.');
+      } finally {
+          setLoading(false);
       }
   };
 
   // Path 2 (fallback): accessToken → Google UserInfo API → your backend
   const handleGoogleFallback = async (accessToken) => {
+      setLoading(true);
       try {
           const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
               headers: { Authorization: `Bearer ${accessToken}` },
@@ -99,11 +105,14 @@ const WelcomeScreen = ({ navigation }) => {
       } catch (e) {
           console.error('Google fallback error:', e);
           showAlert('Error', e.message || 'Google sign-in failed.');
+      } finally {
+          setLoading(false);
       }
   };
 
   // Shared: send verified user info to YOUR backend
   const sendToBackend = async (email, name, googleId) => {
+      setLoading(true);
       try {
           const res = await fetch(`${BASE_URL}/auth/google-supabase`, {
               method: 'POST',
@@ -141,6 +150,8 @@ const WelcomeScreen = ({ navigation }) => {
       } catch (error) {
           console.error('Backend auth error:', error);
           showAlert('Error', 'Failed to connect to server.');
+      } finally {
+          setLoading(false);
       }
   };
 
@@ -281,6 +292,15 @@ const WelcomeScreen = ({ navigation }) => {
             {renderActionSection()}
           </View>
         </View>
+
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <AppText style={styles.loadingText}>Connecting...</AppText>
+            </View>
+          </View>
+        )}
 
         <CustomAlert
           visible={alertConfig.visible}
@@ -469,8 +489,32 @@ const styles = StyleSheet.create({
   },
 
   backText: {
-    color: theme.colors.textSecondary,
     fontSize: 16,
 
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  loadingBox: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 48,
+    alignItems: 'center',
+    gap: 16,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  loadingText: {
+    fontSize: 15,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
   },
 });

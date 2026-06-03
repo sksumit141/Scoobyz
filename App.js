@@ -30,27 +30,26 @@ import SelectGroomerScreen from './src/screens/SelectGroomerScreen';
 import SelectCompanyScreen from './src/screens/SelectCompanyScreen';
 import ExplorePackagesScreen from './src/screens/ExplorePackagesScreen';
 import ExpertProfileScreen from './src/screens/ExpertProfileScreen';
-import ReviewDetailsScreen from './src/screens/ReviewDetailsScreen';
 import BookingConfirmedScreen from './src/screens/BookingConfirmedScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MyBookingsScreen from './src/screens/MyBookingsScreen';
+import BookingCardDetailsScreen from './src/screens/BookingCardDetailsScreen';
+import BookingCancelledStatusScreen from './src/screens/BookingCancelledStatusScreen';
+import BookingRescheduledStatusScreen from './src/screens/BookingRescheduledStatusScreen';
 import AddressBookScreen from './src/screens/AddressBookScreen';
 import BookingStatusOverlay from './src/components/BookingStatusOverlay';
 
 import BoardingServiceScreen from './src/screens/BoardingServiceScreen';
 import BoardingLocationScreen from './src/screens/BoardingLocationScreen';
 import BoardingMealSetupScreen from './src/screens/BoardingMealSetupScreen';
-import BoardingReviewScreen from './src/screens/BoardingReviewScreen';
 import BoardingConfirmedScreen from './src/screens/BoardingConfirmedScreen';
 
 import WalkingServiceScreen from './src/screens/WalkingServiceScreen';
 import WalkingWalkerListScreen from './src/screens/WalkingWalkerListScreen';
-import WalkingReviewScreen from './src/screens/WalkingReviewScreen';
 import WalkingConfirmedScreen from './src/screens/WalkingConfirmedScreen';
 
 import VetServiceScreen from './src/screens/VetServiceScreen';
 import VetListScreen from './src/screens/VetListScreen';
-import VetReviewScreen from './src/screens/VetReviewScreen';
 import VetConfirmedScreen from './src/screens/VetConfirmedScreen';
 
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
@@ -60,11 +59,11 @@ import ChatScreen from './src/screens/ChatScreen';
 import ArticlesScreen from './src/screens/ArticlesScreen';
 import ArticleDetailScreen from './src/screens/ArticleDetailScreen';
 import RatingReviewScreen from './src/screens/RatingReviewScreen';
+import ViewSubmittedReviewScreen from './src/screens/ViewSubmittedReviewScreen';
 import TrackingScreen from './src/screens/TrackingScreen';
 import VideoCallScreen from './src/screens/VideoCallScreen';
 import BookVendorScreen from './src/screens/BookVendorScreen';
 import BookingPendingScreen from './src/screens/BookingPendingScreen';
-import BookingAcceptedScreen from './src/screens/BookingAcceptedScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 
 import { theme } from './src/styles/theme';
@@ -145,29 +144,28 @@ export default function App() {
           <Stack.Screen name="SelectCompany" component={SelectCompanyScreen} />
           <Stack.Screen name="ExplorePackages" component={ExplorePackagesScreen} />
           <Stack.Screen name="ExpertProfile" component={ExpertProfileScreen} />
-          <Stack.Screen name="ReviewDetails" component={ReviewDetailsScreen} />
           <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+          <Stack.Screen name="BookingCardDetails" component={BookingCardDetailsScreen} />
+          <Stack.Screen name="BookingCancelledStatus" component={BookingCancelledStatusScreen} />
+          <Stack.Screen name="BookingRescheduledStatus" component={BookingRescheduledStatusScreen} />
           <Stack.Screen name="AddressBook" component={AddressBookScreen} />
 
           {/* Dog Boarding Flow */}
           <Stack.Screen name="BoardingService" component={BoardingServiceScreen} />
           <Stack.Screen name="BoardingLocation" component={BoardingLocationScreen} />
           <Stack.Screen name="BoardingMealSetup" component={BoardingMealSetupScreen} />
-          <Stack.Screen name="BoardingReview" component={BoardingReviewScreen} />
           <Stack.Screen name="BoardingConfirmed" component={BoardingConfirmedScreen} />
 
           {/* Dog Walking Flow */}
           <Stack.Screen name="WalkingService" component={WalkingServiceScreen} />
           <Stack.Screen name="WalkingWalkerList" component={WalkingWalkerListScreen} />
-          <Stack.Screen name="WalkingReviewFinal" component={WalkingReviewScreen} />
           <Stack.Screen name="WalkingConfirmed" component={WalkingConfirmedScreen} />
 
           {/* Veterinary Flow */}
           <Stack.Screen name="VetService" component={VetServiceScreen} />
           <Stack.Screen name="VetList" component={VetListScreen} />
-          <Stack.Screen name="VetReview" component={VetReviewScreen} />
           <Stack.Screen name="VetConfirmed" component={VetConfirmedScreen} />
 
           {/* Support & Chat */}
@@ -182,6 +180,7 @@ export default function App() {
 
           {/* Reviews */}
           <Stack.Screen name="RatingReview" component={RatingReviewScreen} />
+          <Stack.Screen name="ViewSubmittedReview" component={ViewSubmittedReviewScreen} />
 
           {/* Tracking */}
           <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
@@ -190,7 +189,6 @@ export default function App() {
           {/* New Booking Request Flow */}
           <Stack.Screen name="BookVendor" component={BookVendorScreen} />
           <Stack.Screen name="BookingPending" component={BookingPendingScreen} />
-          <Stack.Screen name="BookingAccepted" component={BookingAcceptedScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </Stack.Navigator>
       </NavigationContainer>

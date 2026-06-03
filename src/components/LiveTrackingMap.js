@@ -29,7 +29,10 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
 
     // Default fallback coordinate if nothing provided
     const fallbackCoord = { latitude: 28.7041, longitude: 77.1025 };
-    const startCoord = initialLocation || fallbackCoord;
+    const startCoord = {
+        latitude: parseFloat(initialLocation?.latitude || fallbackCoord.latitude),
+        longitude: parseFloat(initialLocation?.longitude || fallbackCoord.longitude)
+    };
 
     // Use AnimatedRegion for smooth sliding of the marker
     const [coordinate] = useState(

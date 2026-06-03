@@ -8,6 +8,7 @@ import { theme } from '../styles/theme';
 import { chatApi, BASE_URL } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client/dist/socket.io.js';
+import { formatISTTime } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -96,8 +97,7 @@ export default function ChatScreen({ navigation, route }) {
   };
 
   const formatTime = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatISTTime(dateStr);
   };
 
   return (

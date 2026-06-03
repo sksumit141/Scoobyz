@@ -12,6 +12,7 @@ import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
+import { formatISTDate } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -104,7 +105,7 @@ export default function BookingAcceptedScreen({ navigation, route }) {
                         </View>
                         <View style={styles.detailItem}>
                             <Ionicons name="calendar-outline" size={16} color={theme.colors.primaryDark} />
-                            <AppText style={styles.detailText}>{new Date(date).toLocaleDateString()} • {time}</AppText>
+                            <AppText style={styles.detailText}>{formatISTDate(date)} • {time}</AppText>
                         </View>
                         {visitType && (
                             <View style={styles.detailItem}>

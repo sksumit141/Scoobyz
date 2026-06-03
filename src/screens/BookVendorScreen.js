@@ -17,6 +17,7 @@ import { bookingsApi, addressApi, BASE_URL } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import CustomAlert from '../components/CustomAlert';
+import { formatISTDate, getISTDateString } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -45,7 +46,7 @@ function buildPayload(params, paymentDetails) {
         notes, address } = params;
 
     const vendorUserId = expert?.userId || expert?.id;
-    const safeDate = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const safeDate = date ? getISTDateString(date) : getISTDateString(new Date());
     const safeTime = time || '10:00 AM';
 
     const base = {
@@ -64,7 +65,7 @@ function buildPayload(params, paymentDetails) {
 
     const type = (serviceType || '').toLowerCase();
     if (type === 'boarding') {
-        const endDateParam = params.endDate || new Date(Date.now() + 86400000).toISOString();
+        const endDateParam = params.endDate || new Date(Date.now() + 86400000);
         const boardingAddons = [];
         if (params.isAggressive && params.aggressiveFee) {
             boardingAddons.push({ name: 'Aggressive Dog Handling', price: params.aggressiveFee });
@@ -72,7 +73,7 @@ function buildPayload(params, paymentDetails) {
 
         return {
             ...base,
-            endDate: new Date(endDateParam).toISOString().split('T')[0],
+            endDate: getISTDateString(endDateParam),
             dogSize: size,
             roomType: selectedRoom?.title || selectedRoom?.name,
             mealType: selectedMeal?.name,
@@ -101,7 +102,7 @@ export default function BookVendorScreen({ navigation, route }) {
         serviceType = 'Grooming',
         expert = {},
         pet = {},
-        total = 0,
+        total: rawTotal = 0,
         date,
         time,
         visitType,
@@ -111,6 +112,7 @@ export default function BookVendorScreen({ navigation, route }) {
         address,
         frequency,
     } = params;
+    const total = Number(rawTotal);
 
     const [loading, setLoading] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState(null);
@@ -143,7 +145,7 @@ export default function BookVendorScreen({ navigation, route }) {
 
     const colors = SERVICE_COLORS[serviceType] || SERVICE_COLORS.default;
     const mainItem = selectedRoom || cart[0] || {};
-    const displayDate = date ? new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set';
+    const displayDate = formatISTDate(date);
 
     const amountPaid = paymentType === 'partial' ? (total * 0.3) : total;
     const remainingAmount = total - amountPaid;
@@ -330,10 +332,28 @@ export default function BookVendorScreen({ navigation, route }) {
                             </View>
                             <AppText style={styles.priceValue} weight="bold">₹ {total}</AppText>
                         </View>
+
+                        {paymentType === 'partial' && (
+                            <>
+                                <View style={[styles.priceRow, { marginTop: 12 }]}>
+                                    <AppText style={styles.priceLabel}>Payable Now (30%)</AppText>
+                                    <AppText style={[styles.priceValue, { color: theme.colors.success }]} weight="bold">₹ {amountPaid.toFixed(2)}</AppText>
+                                </View>
+                                <View style={[styles.priceRow, { marginTop: 8 }]}>
+                                    <AppText style={styles.priceLabel}>Remaining Balance</AppText>
+                                    <AppText style={styles.priceValue}>₹ {remainingAmount.toFixed(2)}</AppText>
+                                </View>
+                            </>
+                        )}
+
                         <View style={styles.divider} />
                         <View style={styles.priceRow}>
-                            <AppText style={[styles.priceLabel, { color: theme.colors.textBlack }]} weight="bold">Grand Total</AppText>
-                            <AppText style={[styles.priceValue, { color: colors.accent, fontSize: 22 }]} weight="bold">₹ {total}</AppText>
+                            <AppText style={[styles.priceLabel, { color: theme.colors.textBlack }]} weight="bold">
+                                {paymentType === 'partial' ? 'Total Payable Now' : 'Grand Total'}
+                            </AppText>
+                            <AppText style={[styles.priceValue, { color: colors.accent, fontSize: 22 }]} weight="bold">
+                                ₹ {paymentType === 'partial' ? amountPaid.toFixed(2) : total}
+                            </AppText>
                         </View>
                     </View>
                 </View>
@@ -377,8 +397,8 @@ export default function BookVendorScreen({ navigation, route }) {
             {/* Bottom CTA */}
             <View style={styles.footer}>
                 <View style={styles.footerLeft}>
-                    <AppText style={styles.footerLabel}>Total</AppText>
-                    <AppText style={styles.footerTotal} weight="bold">₹ {total}</AppText>
+                    <AppText style={styles.footerLabel}>Payable Now</AppText>
+                    <AppText style={styles.footerTotal} weight="bold">₹ {amountPaid.toFixed(2)}</AppText>
                 </View>
                 <TouchableOpacity
                     style={[styles.bookBtn, loading && { opacity: 0.7 }]}
@@ -408,6 +428,7 @@ export default function BookVendorScreen({ navigation, route }) {
                 nights={params.nights || 1}
                 isAggressive={params.isAggressive}
                 aggressiveFee={params.aggressiveFee}
+                timesPerDay={params.timesPerDay || 1}
             />
 
             <CustomAlert
@@ -442,7 +463,16 @@ const styles = StyleSheet.create({
         paddingBottom: 12,
         backgroundColor: theme.colors.background,
     },
-    backButton: { marginRight: 12 },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: theme.colors.white,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        ...theme.shadows.small,
+    },
     headerTitle: { fontSize: 22, color: theme.colors.textBlack },
 
     heroSection: { padding: 20, marginBottom: 8 },

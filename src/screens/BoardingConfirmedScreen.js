@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert, BackHandler } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 import InvoiceComponent from '../components/InvoiceComponent';
+import { formatISTDate } from '../utils/date_utils';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 const { width } = Dimensions.get('window');
 
@@ -38,20 +40,19 @@ export default function BoardingConfirmedScreen({ navigation, route }) {
     );
   };
 
-  useEffect(() => {
-    const onBack = () => {
+  // Terminal screen — block back into booking flow
+  const { handleBack } = useBackHandler({
+    onBack: () => {
       navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] });
       return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
+    }
+  });
 
   return (
     <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] })}
+          onPress={handleBack}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -136,8 +137,8 @@ export default function BoardingConfirmedScreen({ navigation, route }) {
               remainingAmount: route.params?.remainingAmount || 0,
               serviceName: 'Boarding Service',
               vendorName: expert.name || 'Vendor',
-              serviceDate: new Date().toISOString(), // Fallback
-              serviceTimeSlot: 'Standard',
+              serviceDate: formatISTDate(route.params?.serviceDate || new Date()),
+              serviceTimeSlot: route.params?.checkInTime || 'Standard',
             }} 
             onPayBalance={handlePayBalance}
           />

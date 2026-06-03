@@ -167,6 +167,7 @@ export const bookingsApi = {
     get: (id) => api.get(`/customer/bookings/${id}`),
     getStatus: (id) => api.get(`/customer/bookings/${id}/status`),
     cancel: (id, data) => api.put(`/customer/bookings/${id}/cancel`, data),
+    reschedule: (id, data) => api.put(`/customer/bookings/${id}/reschedule`, data),
     submitReview: (id, data) => api.post(`/customer/bookings/${id}/review`, data),
     payRemaining: (id, data) => api.post(`/customer/bookings/${id}/pay-remaining`, data),
 };
@@ -181,7 +182,32 @@ export const mealsApi = {
 
 // ── Reviews ──
 export const reviewsApi = {
+    // Plain JSON submit (no photo)
     submit: (data) => api.post('/customer/reviews', data),
+
+    // Multipart submit — supports optional photo attachment
+    // data: { bookingId, rating, comment?, photoUri? }
+    submitWithPhoto: async ({ bookingId, rating, comment, photoUri }) => {
+        const formData = new FormData();
+        formData.append('bookingId', String(bookingId));
+        formData.append('rating', String(rating));
+        if (comment) formData.append('comment', comment);
+        if (photoUri) {
+            // React Native FormData accepts { uri, name, type }
+            const filename = photoUri.split('/').pop() || `review_${Date.now()}.jpg`;
+            const ext = filename.split('.').pop()?.toLowerCase();
+            const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+            formData.append('photo', { uri: photoUri, name: filename, type: mimeType });
+        }
+        return api.upload('/customer/reviews', formData);
+    },
+
+    // Get review for a specific booking
+    getByBookingId: (bookingId) => api.get(`/customer/reviews/booking/${bookingId}`),
+
+    // TEST ONLY: Delete a review to re-test
+    deleteForTesting: (bookingId) => api.delete(`/customer/reviews/${bookingId}`),
+
     forVendor: (vendorId) => api.get(`/customer/reviews/vendor/${vendorId}`),
 };
 
@@ -195,3 +221,8 @@ export const chatApi = {
 export const getNotifications = () => api.get('/api/notifications');
 export const markAsRead = (id) => api.post(`/api/notifications/${id}/read`);
 export const markAllAsRead = () => api.post('/api/notifications/read-all');
+
+// ── Articles ──
+export const articlesApi = {
+    list: () => api.get('/articles'),
+};

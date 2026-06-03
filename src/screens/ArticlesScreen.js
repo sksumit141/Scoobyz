@@ -5,71 +5,33 @@ import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
+import { articlesApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
-export const MOCK_ARTICLES = [
-  {
-    id: '1',
-    title: 'Pet Care Basics',
-    subtitle: 'A simple guide to safely groom your dog without stress.',
-    readTime: '10 min read',
-    date: '25 Mar, 2026',
-    image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&q=80&w=300',
-    content: 'Grooming your dog at home can be a rewarding experience. It builds trust and keeps your dog healthy. Start with a calm environment and the right tools. Brush their coat gently, check their ears, and trim their nails carefully. Remember to reward them with treats to create positive associations with grooming.',
-    isFeatured: true,
-    featuredTitle: 'Top Pet Care Trends in India',
-    featuredImage: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '2',
-    title: 'New Puppy Guide',
-    subtitle: 'Everything you need to know about welcoming a new puppy.',
-    readTime: '3 min read',
-    date: '25 Mar, 2026',
-    image: 'https://images.unsplash.com/photo-1591160690555-5debfba289f0?auto=format&fit=crop&q=80&w=300',
-    content: 'Bringing a new puppy home is exciting! First, puppy-proof your house. Establish a routine early on for feeding, potty breaks, and playtime. Socialization is key in the first few months. Introduce them to new sounds, people, and other pets safely.',
-    isFeatured: false,
-  },
-  {
-    id: '3',
-    title: 'Nutrition 101',
-    subtitle: 'Understanding the best diet for your growing pet.',
-    readTime: '8 min read',
-    date: '22 Mar, 2026',
-    image: 'https://images.unsplash.com/photo-1568644396922-5c3bfae12521?auto=format&fit=crop&q=80&w=300',
-    content: 'A balanced diet is crucial for a healthy dog. Look for high-quality proteins and avoid excessive fillers like corn and soy. Consult your vet to determine the right portion sizes based on your dog\'s age, breed, and activity level.',
-    isFeatured: true,
-    featuredTitle: 'Healthy Diets for Active Dogs',
-    featuredImage: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '4',
-    title: 'Senior Dog Care',
-    subtitle: 'Special considerations for your aging companion.',
-    readTime: '5 min read',
-    date: '20 Mar, 2026',
-    image: 'https://images.unsplash.com/photo-1534361960057-19889db9621e?auto=format&fit=crop&q=80&w=300',
-    content: 'As dogs age, their needs change. They may require softer beds, ramps to avoid jumping, and modified exercise routines. Regular vet check-ups become even more important to catch and manage age-related conditions like arthritis early.',
-    isFeatured: false,
-  },
-  {
-    id: '5',
-    title: 'Training Tips',
-    subtitle: 'Mastering basic commands with positive reinforcement.',
-    readTime: '7 min read',
-    date: '18 Mar, 2026',
-    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&q=80&w=300',
-    content: 'Positive reinforcement is the most effective training method. Use treats and praise to reward good behavior. Keep training sessions short (5-10 minutes) and fun. Consistency is key when teaching commands like sit, stay, and come.',
-    isFeatured: false,
-  }
-];
+
 
 export default function ArticlesScreen({ navigation }) {
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { top: 40 };
-  const featuredArticles = MOCK_ARTICLES.filter(a => a.isFeatured);
+  const [articles, setArticles] = useState([]);
+  const featuredArticles = articles.filter(a => a.isFeatured);
+  const regularArticles = articles.filter(a => !a.isFeatured);
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef(null);
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        const res = await articlesApi.list();
+        if (res && res.success) {
+          setArticles(res.articles);
+        }
+      } catch (error) {
+        console.error('Failed to fetch articles:', error);
+      }
+    };
+    fetchArticles();
+  }, []);
 
   // Auto-scroll logic for the featured carousel
   useEffect(() => {
@@ -107,15 +69,7 @@ export default function ArticlesScreen({ navigation }) {
 
   return (
     <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-        <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={28} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} type="heading" weight="bold">Tips & Articles</AppText>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, paddingTop: insets.top || 40 }}>
         
         {/* Featured Carousel */}
         <View style={styles.carouselContainer}>
@@ -128,6 +82,15 @@ export default function ArticlesScreen({ navigation }) {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={handleScroll}
+            getItemLayout={(data, index) => (
+              { length: width, offset: width * index, index }
+            )}
+            onScrollToIndexFailed={(info) => {
+              const wait = new Promise(resolve => setTimeout(resolve, 500));
+              wait.then(() => {
+                flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+              });
+            }}
           />
           <View style={styles.pagination}>
             {featuredArticles.map((_, index) => (
@@ -141,7 +104,7 @@ export default function ArticlesScreen({ navigation }) {
 
         {/* List of Articles */}
         <View style={styles.listContainer}>
-          {MOCK_ARTICLES.map(article => (
+          {regularArticles.map(article => (
             <TouchableOpacity 
               key={article.id} 
               style={styles.articleCard}

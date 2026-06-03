@@ -4,9 +4,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 
-export default function PaymentSummaryModal({ 
-  visible, onClose, cart = [], total = 0, room = null, meal = null, 
-  frequency = '1x', nights = 1, isAggressive = false, aggressiveFee = 0 
+export default function PaymentSummaryModal({
+  visible, onClose, cart = [], total = 0, room = null, meal = null,
+  frequency = '1x', nights = 1, isAggressive = false, aggressiveFee = 0,
+  timesPerDay = 1
 }) {
   const mainPackage = cart[0] || {};
   const addons = (mainPackage.addons || []).map(a => ({
@@ -16,43 +17,59 @@ export default function PaymentSummaryModal({
 
   const items = [];
   if (room) {
-    items.push({ 
-        label: `${room.title || room.name || 'Room'}${nights > 1 ? ` (${nights} nights)` : ''}`, 
-        value: (Number(room.price) || 0) * nights 
+    items.push({
+      label: `${room.title || room.name || 'Room'}${nights > 1 ? ` (${nights} nights)` : ''}`,
+      value: (Number(room.price) || 0) * nights
     });
     if (meal) {
-        const freqNum = parseInt(frequency || '1x') || 1;
-        const mealTotal = (Number(meal.price) || 0) * freqNum * nights;
-        items.push({ 
-            label: `${meal.name || 'Meal'}${freqNum > 1 ? ` x ${freqNum}` : ''}${nights > 1 ? ` (${nights} nights)` : ''}`, 
-            value: mealTotal 
-        });
+      const freqNum = parseInt(frequency || '1x') || 1;
+      const mealTotal = (Number(meal.price) || 0) * freqNum * nights;
+      items.push({
+        label: `${meal.name || 'Meal'}${freqNum > 1 ? ` x ${freqNum}` : ''}${nights > 1 ? ` (${nights} nights)` : ''}`,
+        value: mealTotal
+      });
     }
     if (isAggressive && aggressiveFee > 0) {
-        items.push({
-            label: `Aggressive Handling${nights > 1 ? ` (${nights} nights)` : ''}`,
-            value: aggressiveFee * nights
-        });
+      items.push({
+        label: `Aggressive Handling${nights > 1 ? ` (${nights} nights)` : ''}`,
+        value: aggressiveFee * nights
+      });
     }
-  } else if (mainPackage.title || mainPackage.serviceName === 'Walking') {
+  } else if (mainPackage.title || mainPackage.serviceName === 'Walking' || cart.length > 0) {
     const unitLabel = mainPackage.duration || mainPackage.unit || 'Session';
-    const baseValue = Number(mainPackage.basePrice) || 0;
+    const baseValue = Number(mainPackage.basePrice) || Number(mainPackage.price) || 0;
     const mult = Number(mainPackage.multiplier) || 1;
-    const sessions = Number(mainPackage.timesPerDay) || 1;
+    const sessions = Number(mainPackage.timesPerDay) || Number(timesPerDay) || 1;
 
-    items.push({ 
-        label: `${mainPackage.title || 'Walking'} (${unitLabel})`, 
-        value: baseValue 
+    items.push({
+      label: `${mainPackage.title || mainPackage.name || 'Service Package'}`,
+      value: baseValue
     });
-    
-    if (mult > 1) {
-        items.push({ label: `${mainPackage.frequency || 'Plan'} Multiplier`, value: `x${mult}` });
+
+    if (mult > 1 || frequency === 'Weekly' || frequency === 'Monthly') {
+      const finalMult = (mainPackage.frequency === 'Monthly' || frequency === 'Monthly') ? 25 : (frequency === 'Weekly' ? 7 : mult);
+      items.push({ label: `${frequency || mainPackage.frequency || 'Plan'} Multiplier`, value: `X${finalMult}` });
     }
     if (sessions > 1) {
-        items.push({ label: `Daily Sessions`, value: `x${sessions}` });
+      items.push({ label: `Daily Sessions`, value: `x${sessions}` });
     }
-    
+
     items.push(...addons);
+  } else {
+    // Fallback for cases like Veterinary or simplified Walking/Grooming
+    const isWalking = frequency === 'Weekly' || frequency === 'Monthly' || timesPerDay > 1;
+    if (isWalking) {
+      const mult = frequency === 'Weekly' ? 7 : (frequency === 'Monthly' ? 25 : 1);
+      const basePrice = total / (mult * timesPerDay);
+      items.push({ label: 'Base Walking Fee', value: basePrice.toFixed(0) });
+      if (mult > 1) items.push({ label: `${frequency} Multiplier`, value: `X${mult}` });
+      if (timesPerDay > 1) items.push({ label: 'Daily Sessions', value: `x${timesPerDay}` });
+    } else {
+      items.push({
+        label: 'Base Service Fee',
+        value: total
+      });
+    }
   }
 
   const summaryItems = [
@@ -77,7 +94,11 @@ export default function PaymentSummaryModal({
             {summaryItems.map((item, index) => (
               <View key={index} style={styles.itemRow}>
                 <AppText style={styles.itemLabel}>{item.label}</AppText>
-                <AppText style={styles.itemValue}>₹ {item.value}</AppText>
+                <AppText style={styles.itemValue}>
+                  {typeof item.value === 'string' && (item.value.startsWith('x') || item.value.startsWith('X')) 
+                    ? item.value 
+                    : `₹ ${item.value}`}
+                </AppText>
               </View>
             ))}
           </View>

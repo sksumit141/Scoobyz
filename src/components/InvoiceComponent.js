@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
+import { formatISTDate } from '../utils/date_utils';
 
 export default function InvoiceComponent({ booking, onPayBalance }) {
   if (!booking) return null;
@@ -20,7 +21,7 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
 
   const formattedDate = (dateStr) => {
     try {
-      return new Date(dateStr).toLocaleDateString('en-IN', {
+      return formatISTDate(dateStr, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',

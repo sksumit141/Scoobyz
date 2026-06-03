@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert, BackHandler } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 import InvoiceComponent from '../components/InvoiceComponent';
+import { formatISTDate } from '../utils/date_utils';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 const { width } = Dimensions.get('window');
 
@@ -24,15 +26,13 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
   const mainPackage = cart[0] || {};
   const addons = mainPackage.addons || [];
 
-  // Prevent back navigation into the booking flow
-  useEffect(() => {
-    const onBack = () => {
+  // Terminal screen — block back into booking flow, always go home
+  const { handleBack } = useBackHandler({
+    onBack: () => {
       navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] });
-      return true; // Block default back
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
+      return true;
+    }
+  });
 
   const handlePayBalance = () => {
     Alert.alert(
@@ -52,7 +52,7 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
     <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] })}
+          onPress={handleBack}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -135,7 +135,7 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
             <MaterialCommunityIcons name="calendar-blank-outline" size={20} color={theme.colors.textSecondary} style={styles.detailIcon} />
             <View style={styles.detailContent}>
               <AppText style={styles.smallLabel}>DATE & TIME</AppText>
-              <AppText style={styles.valueText}>{date} • {time}</AppText>
+              <AppText style={styles.valueText}>{formatISTDate(date)} • {time}</AppText>
             </View>
           </View>
 

@@ -53,7 +53,7 @@ export default function SelectCompanyScreen({ navigation, route }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.accent} />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} type="heading" weight="bold">Select {serviceName} Studio</AppText>
         <TouchableOpacity style={styles.filterButton} onPress={() => setFilterVisible(true)}>
@@ -140,7 +140,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
   },
-  backButton: { marginRight: 16 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    ...theme.shadows.small,
+  },
   headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, flex: 1, marginLeft: -5 },
   filterButton: { padding: 4 },
   scrollContent: { paddingHorizontal: 24 },

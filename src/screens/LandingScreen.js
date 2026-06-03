@@ -3,12 +3,12 @@ import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions } fro
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
-import { petsApi, customerApi, BASE_URL } from '../services/api';
+import { petsApi, customerApi, bookingsApi, BASE_URL } from '../services/api';
 import AddressHeader from '../components/AddressHeader';
+import BookingStatusBanner from '../components/BookingStatusBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -20,16 +20,18 @@ const CARDS_DATA = [
 ];
 
 const LandingScreen = ({ navigation }) => {
-  const insets = useSafeAreaInsets ? useSafeAreaInsets() : { top: 40 };
+  const insets = useSafeAreaInsets();
   const [pets, setPets] = useState([]);
   const [selectedPet, setSelectedPet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('User');
+  const [activeBooking, setActiveBooking] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       fetchPets();
       fetchProfile();
+      fetchActiveBookings();
     }, [])
   );
 
@@ -55,6 +57,24 @@ const LandingScreen = ({ navigation }) => {
     }
   };
 
+  const fetchActiveBookings = async () => {
+    try {
+      // Fetch both confirmed and in_progress
+      const confirmed = await bookingsApi.list({ status: 'confirmed' });
+      const inProgress = await bookingsApi.list({ status: 'in_progress' });
+      
+      const allActive = [...(inProgress || []), ...(confirmed || [])];
+      if (allActive.length > 0) {
+        // Show the most recent or upcoming one
+        setActiveBooking(allActive[0]);
+      } else {
+        setActiveBooking(null);
+      }
+    } catch (error) {
+      console.error('Fetch bookings error:', error);
+    }
+  };
+
   const navigateToService = (service) => {
     const params = { serviceName: service.title, pet: selectedPet };
     if (service.title === 'Boarding') {
@@ -73,32 +93,25 @@ const LandingScreen = ({ navigation }) => {
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header Section */}
-        <LinearGradient
-          colors={theme.gradients.primary}
-          style={[styles.header, { paddingTop: Math.max((insets.top || 40) - 10, 20) }]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <View
+          style={[styles.header, { 
+            paddingTop: Math.max((insets.top || 40) - 10, 20),
+            backgroundColor: theme.colors.primaryDark 
+          }]}
         >
           <View style={styles.headerTopRow}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <AddressHeader lightTheme={true} />
+            </View>
+
             <TouchableOpacity 
               style={styles.headerIconBtn}
               onPress={() => navigation.openDrawer ? navigation.openDrawer() : navigation.goBack()}
             >
               <Ionicons name={navigation.openDrawer ? "menu-outline" : "arrow-back"} size={22} color={theme.colors.white} />
             </TouchableOpacity>
-
-            <Image
-              source={require('../../assets/scoobyz_logo-removebg-preview.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-
-            <View style={{ width: 36 }} /> {/* Spacer to keep logo centered after removing bell */}
           </View>
 
-          <View style={styles.addressWrapper}>
-            <AddressHeader lightTheme={true} />
-          </View>
 
           <View style={styles.greetingWrapper}>
             <AppText style={styles.greeting} type="heading" weight="bold">
@@ -106,7 +119,7 @@ const LandingScreen = ({ navigation }) => {
             </AppText>
             <AppText style={styles.subtitle}>Let's take care of your pet today!</AppText>
           </View>
-        </LinearGradient>
+        </View>
 
         <View style={styles.content}>
           {/* Promo Banner Placeholder */}
@@ -125,6 +138,12 @@ const LandingScreen = ({ navigation }) => {
               />
             </View>
           </View>
+
+          {/* Booking Status Banner */}
+          <BookingStatusBanner 
+            booking={activeBooking} 
+            onPress={() => activeBooking ? navigation.navigate('MyBookings') : navigation.navigate('Explore')}
+          />
 
           {/* My Pets Section */}
           <View style={styles.sectionHeader}>
@@ -225,14 +244,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logo: {
-    width: width < 380 ? 140 : 180,
-    height: 48,
-    tintColor: theme.colors.white, // Ensure logo shows up well on dark
-  },
-  addressWrapper: {
-    marginBottom: 16,
-  },
+
   greetingWrapper: {
     marginTop: 4,
   },

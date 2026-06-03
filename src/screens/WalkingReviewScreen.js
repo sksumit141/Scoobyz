@@ -7,6 +7,7 @@ import ReviewDetailsCard from '../components/ReviewDetailsCard';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import { theme } from '../styles/theme';
 import { bookingsApi } from '../services/api';
+import { formatISTDate } from '../utils/date_utils';
 
 export default function WalkingReviewScreen({ navigation, route }) {
   const { expert, pet, service, date, time, total, frequency, duration, recurringDays } = route.params || {};
@@ -21,7 +22,7 @@ export default function WalkingReviewScreen({ navigation, route }) {
       try {
         const response = await bookingsApi.getWalkingQuote({
           vendorUserId: expert?.userId || expert?.id,
-          duration: duration || service || '40 min',
+          duration: duration || service || '45 min',
           frequency: frequency || 'One-time',
           timesPerDay: route.params?.timesPerDay || 1
         });
@@ -37,7 +38,12 @@ export default function WalkingReviewScreen({ navigation, route }) {
     fetchQuote();
   }, [expert, duration, frequency, service]);
 
-  const displayTotal = quote?.total || total || 450;
+  let displayTotal = quote?.total || total || 450;
+  
+  // Force 25x multiplier for Monthly total if it seems to be 30x or needs correction
+  if (frequency === 'Monthly' && quote?.basePrice) {
+    displayTotal = Number(quote.basePrice) * 25 * (route.params?.timesPerDay || 1);
+  }
   const displayPet = pet || { name: "Bruno", breed: "Dog", id: 1 };
 
   const handleConfirm = () => {
@@ -51,9 +57,9 @@ export default function WalkingReviewScreen({ navigation, route }) {
   return (
     <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
-          style={styles.backButton} 
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
@@ -74,14 +80,14 @@ export default function WalkingReviewScreen({ navigation, route }) {
             image: expert?.image || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300"
           }}
           service={`${frequency || 'One-time'} Walking`}
-          date={date ? new Date(date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : "Today"}
+          date={formatISTDate(date)}
           time={time || "Flexible"}
         />
 
         <View style={styles.card}>
           <AppText style={styles.sectionTitle} type="heading" weight="bold">Booking Summary</AppText>
           <View style={styles.divider} />
-          
+
           <View style={styles.row}>
             <AppText style={styles.label}>Dog</AppText>
             <AppText style={styles.value} weight="bold">{displayPet.name} ({displayPet.breed})</AppText>
@@ -89,12 +95,12 @@ export default function WalkingReviewScreen({ navigation, route }) {
 
           <View style={styles.row}>
             <AppText style={styles.label}>Session</AppText>
-            <AppText style={styles.value} weight="bold">{duration || "40 min"}</AppText>
+            <AppText style={styles.value} weight="bold">{duration || "45 min"}</AppText>
           </View>
 
           <View style={styles.row}>
             <AppText style={styles.label}>Plan</AppText>
-            <AppText style={styles.value} weight="bold">{frequency || "One-time"}</AppText>
+            <AppText style={styles.value} weight="bold">{frequency || "One-time"} {frequency === 'Monthly' ? '(X25)' : ''}</AppText>
           </View>
         </View>
 
@@ -114,7 +120,7 @@ export default function WalkingReviewScreen({ navigation, route }) {
             </View>
             <AppText style={styles.toPayTotal} weight="bold">₹{displayTotal}</AppText>
           </View>
-          
+
           <View style={styles.cancellationBox}>
             <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.textBlack} style={{ marginTop: 2 }} />
             <AppText style={styles.cancellationText}>
@@ -147,12 +153,12 @@ export default function WalkingReviewScreen({ navigation, route }) {
         onClose={() => setPaymentModalVisible(false)}
         total={displayTotal}
         cart={[{
-           serviceName: 'Walking',
-           basePrice: quote?.basePrice || 300,
-           multiplier: quote?.multiplier || 1,
-           timesPerDay: quote?.timesPerDay || 1,
-           frequency: frequency || 'One-time',
-           duration: duration || '40 min'
+          serviceName: 'Walking',
+          basePrice: quote?.basePrice || 300,
+          multiplier: quote?.multiplier || 1,
+          timesPerDay: quote?.timesPerDay || 1,
+          frequency: frequency || 'One-time',
+          duration: duration || '45 min'
         }]}
       />
     </AppScreen>

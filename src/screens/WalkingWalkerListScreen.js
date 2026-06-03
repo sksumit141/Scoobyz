@@ -10,7 +10,7 @@ import { discoverApi } from '../services/api';
 import { theme } from '../styles/theme';
 
 export default function WalkingWalkerListScreen({ navigation, route }) {
-  const { duration = '40 min' } = route.params || {};
+  const { duration = '45 min' } = route.params || {};
   const [walkers, setWalkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -108,7 +108,12 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
               key={walker.id}
               expert={walker}
               onView={() => setActiveModalExpert(walker)}
-              onSelect={() => navigation.navigate('WalkingReviewFinal', { ...route.params, expert: walker })}
+              onSelect={() => {
+                const multiplier = route.params?.frequency === 'Weekly' ? 7 : (route.params?.frequency === 'Monthly' ? 25 : 1);
+                const timesPerDay = route.params?.timesPerDay || 1;
+                const newTotal = (Number(walker.price) || 0) * multiplier * timesPerDay;
+                navigation.navigate('BookVendor', { ...route.params, expert: walker, total: newTotal, serviceType: 'Walking' });
+              }}
               isSelected={selectedWalker === walker.id}
             />
           ))}
@@ -123,7 +128,7 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
           activeOpacity={0.8}
           onPress={() => {
             const walker = walkers.find(w => w.id === selectedWalker);
-            navigation.navigate('WalkingReviewFinal', { ...route.params, expert: walker });
+            navigation.navigate('BookVendor', { ...route.params, expert: walker, serviceType: 'Walking' });
           }}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Continue with Walker</AppText>
@@ -135,8 +140,11 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
         expert={activeModalExpert}
         onClose={() => setActiveModalExpert(null)}
         onSelect={() => {
+          const multiplier = route.params?.frequency === 'Weekly' ? 7 : (route.params?.frequency === 'Monthly' ? 25 : 1);
+          const timesPerDay = route.params?.timesPerDay || 1;
+          const newTotal = (Number(activeModalExpert.price) || 0) * multiplier * timesPerDay;
           setActiveModalExpert(null);
-          navigation.navigate('WalkingReview', { ...route.params, expert: activeModalExpert });
+          navigation.navigate('BookVendor', { ...route.params, expert: activeModalExpert, total: newTotal, serviceType: 'Walking' });
         }}
       />
 
@@ -156,7 +164,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
   },
-  backButton: { marginRight: 16 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    ...theme.shadows.small,
+  },
   headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, flex: 1, marginLeft: -5 },
   filterButton: { padding: 4 },
   scrollContent: { paddingHorizontal: 24 },

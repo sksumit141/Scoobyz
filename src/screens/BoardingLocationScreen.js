@@ -98,9 +98,7 @@ export default function BoardingLocationScreen({ navigation }) {
         )}
       </View>
 
-      <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
-        <AddressHeader />
-      </View>
+
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.introSection}>
@@ -124,9 +122,9 @@ export default function BoardingLocationScreen({ navigation }) {
         )}
 
         <View style={styles.listContainer}>
-          {displayed.map((location) => (
+          {displayed.map((location, index) => (
              <TouchableOpacity
-             key={location.id}
+             key={`${location.id}-${index}`}
              onPress={() => setSelectedLocation(location.id)}
              activeOpacity={0.9}
            >
@@ -191,7 +189,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textBlack,
     fontFamily: theme.fonts.heading,
     marginLeft: -5,
-    marginTop: 10
+    marginTop: 0
   },
   filterButton: {
     padding: 8,

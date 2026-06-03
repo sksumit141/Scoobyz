@@ -65,16 +65,17 @@ const OtpScreen = ({ navigation, route }) => {
 
   return (
     <>
-      <Modal transparent visible={loading} animationType="fade">
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <AppText style={styles.loadingText}>Verifying...</AppText>
-          </View>
-        </View>
-      </Modal>
-
       <AppScreen scrollable={true} padding={true}>
+        {/* Full-screen loading overlay */}
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <AppText style={styles.loadingText}>Verifying...</AppText>
+            </View>
+          </View>
+        )}
+
         <View style={styles.content}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -211,10 +212,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 999,
   },
   loadingBox: {
     backgroundColor: '#fff',

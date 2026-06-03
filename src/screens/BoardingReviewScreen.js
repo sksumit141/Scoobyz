@@ -7,6 +7,7 @@ import ReviewDetailsCard from '../components/ReviewDetailsCard';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import { theme } from '../styles/theme';
 import { bookingsApi } from '../services/api';
+import { formatISTDate } from '../utils/date_utils';
 
 export default function BoardingReviewScreen({ navigation, route }) {
   const { 
@@ -31,12 +32,7 @@ export default function BoardingReviewScreen({ navigation, route }) {
   };
 
   const formattedDate = (dateStr) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch (e) {
-      return dateStr;
-    }
+    return formatISTDate(dateStr);
   };
 
   return (

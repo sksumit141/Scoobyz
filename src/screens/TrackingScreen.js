@@ -9,7 +9,23 @@ import LiveTrackingMap from '../components/LiveTrackingMap';
 const { width } = Dimensions.get('window');
 
 export default function TrackingScreen({ navigation, route }) {
-    const { booking } = route.params;
+    const { booking } = route.params || {};
+    
+    if (!booking) {
+        return (
+            <AppScreen safeArea={true}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                        <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
+                    </TouchableOpacity>
+                    <AppText style={styles.headerTitle} type="heading" weight="bold">Track Order</AppText>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <AppText>Booking details not found.</AppText>
+                </View>
+            </AppScreen>
+        );
+    }
 
     // Ordered tracking steps
     const steps = [
@@ -72,8 +88,8 @@ export default function TrackingScreen({ navigation, route }) {
                             <LiveTrackingMap 
                                 bookingId={booking.id} 
                                 initialLocation={{
-                                    latitude: booking.latitude || 28.7041,
-                                    longitude: booking.longitude || 77.1025
+                                    latitude: parseFloat(booking.latitude) || 28.7041,
+                                    longitude: parseFloat(booking.longitude) || 77.1025
                                 }} 
                             />
                         </View>

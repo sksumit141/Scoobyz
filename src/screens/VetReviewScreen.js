@@ -7,6 +7,7 @@ import ReviewDetailsCard from '../components/ReviewDetailsCard';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import { bookingsApi } from '../services/api';
 import { theme } from '../styles/theme';
+import { formatISTDate } from '../utils/date_utils';
 
 export default function VetReviewScreen({ navigation, route }) {
   const { expert, pet, consultType, date, time, total } = route.params || {};
@@ -47,7 +48,7 @@ export default function VetReviewScreen({ navigation, route }) {
             image: expert?.image || "https://images.unsplash.com/photo-1594824436998-d4052e424260?auto=format&fit=crop&q=80&w=300"
           }}
           service={consultType || 'Clinic Visit'}
-          date={date ? new Date(date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : "Today"}
+          date={formatISTDate(date)}
           time={time || "10:30 AM"}
         />
 

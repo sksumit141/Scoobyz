@@ -14,6 +14,7 @@ import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { bookingsApi } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { formatISTDate } from '../utils/date_utils';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 120000; // 2 minutes
@@ -107,17 +108,39 @@ export default function BookingPendingScreen({ navigation, route }) {
     const handleAccepted = (bookingData) => {
         stopPolling();
         setStatus('confirmed');
+
+        const CONFIRMED_SCREENS = {
+            Grooming: 'BookingConfirmed',
+            Boarding: 'BoardingConfirmed',
+            Walking: 'WalkingConfirmed',
+            Veterinary: 'VetConfirmed',
+        };
+        const confirmedScreen = CONFIRMED_SCREENS[serviceType] || 'BookingConfirmed';
+
         setTimeout(() => {
-            navigation.replace('BookingAccepted', {
-                bookingId,
-                expert,
-                serviceType,
-                total,
-                date,
-                time,
-                visitType,
-                pet,
-                bookingData,
+            navigation.reset({
+                index: 1,
+                routes: [
+                    { name: 'LandingScreen' },
+                    {
+                        name: confirmedScreen,
+                        params: {
+                            bookingId,
+                            expert,
+                            pet,
+                            serviceType,
+                            total,
+                            date,
+                            time,
+                            visitType,
+                            paymentType: route.params?.paymentType || 'full',
+                            amountPaid: route.params?.amountPaid || total,
+                            remainingAmount: route.params?.remainingAmount || 0,
+                            paymentMethod: 'online',
+                            bookingData,
+                        },
+                    },
+                ],
             });
         }, 600);
     };
@@ -184,7 +207,7 @@ export default function BookingPendingScreen({ navigation, route }) {
                                 {date && (
                                     <>
                                         <View style={styles.pillDot} />
-                                        <AppText style={styles.summaryText}>{new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</AppText>
+                                        <AppText style={styles.summaryText}>{formatISTDate(date, { day: 'numeric', month: 'short' })}</AppText>
                                     </>
                                 )}
                             </View>
@@ -204,7 +227,7 @@ export default function BookingPendingScreen({ navigation, route }) {
                         </View>
                         <AppText style={styles.declinedTitle} weight="bold">Vendor is Busy</AppText>
                         <AppText style={styles.declinedMsg}>
-                            {expert.name || 'This vendor'} has declined your request. They may be fully booked at this time.
+                            {expert.name || 'This vendor'} is currently busy and has declined your request. Your refund will be initiated shortly.
                         </AppText>
                         <TouchableOpacity
                             style={styles.searchAnotherBtn}
@@ -219,7 +242,10 @@ export default function BookingPendingScreen({ navigation, route }) {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.backHomeBtn}
-                            onPress={() => navigation.navigate('LandingScreen')}
+                            onPress={() => {
+                                setShowDeclinedModal(false);
+                                navigation.navigate('LandingScreen');
+                            }}
                         >
                             <AppText style={styles.backHomeBtnText}>Back to Home</AppText>
                         </TouchableOpacity>

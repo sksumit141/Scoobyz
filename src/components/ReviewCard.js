@@ -5,16 +5,15 @@ import AppText from './AppText';
 import { theme } from '../styles/theme';
 
 export default function ReviewCard({ review }) {
-  // Render stars logic
   const renderStars = (rating) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <MaterialCommunityIcons 
-          key={i} 
-          name={i <= rating ? "star" : "star-outline"} 
-          size={16} 
-          color="#526D82" // Slate dark blue to match image stars
+        <MaterialCommunityIcons
+          key={i}
+          name={i <= rating ? 'star' : 'star-outline'}
+          size={16}
+          color="#526D82"
         />
       );
     }
@@ -33,9 +32,17 @@ export default function ReviewCard({ review }) {
           {renderStars(review.rating)}
         </View>
       </View>
-      <AppText style={styles.reviewText}>
-        {review.text}
-      </AppText>
+
+      <AppText style={styles.reviewText}>{review.text}</AppText>
+
+      {/* Review photo — shown only when present */}
+      {!!review.photoUrl && (
+        <Image
+          source={{ uri: review.photoUrl }}
+          style={styles.reviewPhoto}
+          resizeMode="cover"
+        />
+      )}
     </View>
   );
 }
@@ -84,5 +91,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textPrimary,
     lineHeight: 20,
+  },
+  reviewPhoto: {
+    width: '100%',
+    height: 160,
+    borderRadius: 10,
+    marginTop: 12,
+    backgroundColor: '#F0F0F0',
   },
 });

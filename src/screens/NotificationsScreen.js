@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { getNotifications, markAsRead, markAllAsRead } from '../services/api';
 import { getSocket } from '../lib/socket';
+import { formatISTDate } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -56,7 +57,7 @@ const NotificationItem = ({ item, onPress }) => {
                 <View style={styles.contentContainer}>
                     <View style={styles.headerRow}>
                         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.time}>{new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+                        <Text style={styles.time}>{formatISTDate(item.createdAt, { month: 'short', day: 'numeric' })}</Text>
                     </View>
                     <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
                 </View>
@@ -92,7 +93,7 @@ const PureNotificationItem = ({ item, onPress }) => {
             <View style={styles.contentContainer}>
                 <View style={styles.headerRow}>
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.time}>{new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+                    <Text style={styles.time}>{formatISTDate(item.createdAt, { month: 'short', day: 'numeric' })}</Text>
                 </View>
                 <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
             </View>

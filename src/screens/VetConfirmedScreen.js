@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, BackHandler } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 import InvoiceComponent from '../components/InvoiceComponent';
+import { formatISTDate } from '../utils/date_utils';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export default function VetConfirmedScreen({ navigation, route }) {
   const { expert, pet, total, date, time, consultType, bookingId } = route.params || {};
@@ -13,22 +15,21 @@ export default function VetConfirmedScreen({ navigation, route }) {
   const displayPet = pet?.name || "your pet";
   const displayVet = expert?.name || "Dr. Sarah Jenkins";
   const displayTotal = total || "500";
-  const displayDate = date ? new Date(date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : "15 May";
+  const displayDate = formatISTDate(date, { day: 'numeric', month: 'short' });
 
-  useEffect(() => {
-    const onBack = () => {
+  // Terminal screen — block back into booking flow
+  const { handleBack } = useBackHandler({
+    onBack: () => {
       navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] });
       return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => sub.remove();
-  }, [navigation]);
+    }
+  });
 
   return (
     <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] })}
+          onPress={handleBack}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >

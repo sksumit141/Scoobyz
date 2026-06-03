@@ -4,6 +4,9 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 import { BASE_URL, discoverApi } from '../services/api';
+import { formatISTDate } from '../utils/date_utils';
+
+import ScoobyzBadge from './ScoobyzBadge';
 
 const { height, width } = Dimensions.get('window');
 
@@ -15,7 +18,7 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
     if (visible && expert?.id) {
       fetchFullDetails();
     } else {
-      setDetails(null);
+      details && setDetails(null);
     }
   }, [visible, expert?.id]);
 
@@ -42,36 +45,42 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
     >
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
-        
+
         <View style={styles.modalContent}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <MaterialCommunityIcons name="close" size={24} color={theme.colors.textBlack} />
           </TouchableOpacity>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            
+
             <View style={styles.imageWrapper}>
-              <Image 
-                source={{ 
-                  uri: (expert.profilePhoto || expert.image) 
-                    ? ((expert.profilePhoto || expert.image).startsWith('http') 
-                        ? (expert.profilePhoto || expert.image) 
-                        : `${BASE_URL}${expert.profilePhoto || expert.image}`) 
-                    : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop' 
-                }} 
-                style={styles.largeImage} 
+              <Image
+                source={{
+                  uri: (expert.profilePhoto || expert.image)
+                    ? ((expert.profilePhoto || expert.image).startsWith('http')
+                      ? (expert.profilePhoto || expert.image)
+                      : `${BASE_URL}${expert.profilePhoto || expert.image}`)
+                    : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop'
+                }}
+                style={styles.largeImage}
               />
-              {expert.isPro && (
-                <View style={styles.proBadge}>
-                  <AppText style={styles.proText} weight="bold">PRO</AppText>
+              {(expert.isCertified || expert.badge === 'Elite' || expert.badge === 'Pro' || expert.badge === 'Scoobyz Certified') && (
+                <View style={{ position: 'absolute', bottom: -12, left: 0, right: 0, alignItems: 'center' }}>
+                  <ScoobyzBadge />
                 </View>
               )}
             </View>
 
             <View style={styles.headerInfo}>
-              <AppText style={styles.name} type="heading" weight="bold">{expert.name}</AppText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <AppText style={styles.name} type="heading" weight="bold">{expert.name}</AppText>
+                {(expert.isCertified || expert.badge === 'Elite' || expert.badge === 'Pro' || expert.badge === 'Scoobyz Certified') && (
+                  <ScoobyzBadge />
+                )}
+              </View>
               <AppText style={styles.title}>{expert.title}</AppText>
             </View>
+
 
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
@@ -130,7 +139,7 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
                     </View>
                     <AppText style={styles.reviewComment}>{rev.comment}</AppText>
                     <AppText style={styles.reviewDate}>
-                      {new Date(rev.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {formatISTDate(rev.createdAt, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </AppText>
                   </View>
                 ))
@@ -138,12 +147,12 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
                 <AppText style={styles.noReviews}>No reviews yet.</AppText>
               )}
             </View>
-            
+
           </ScrollView>
 
           <View style={styles.bottomBar}>
-            <TouchableOpacity 
-              style={styles.selectBtn} 
+            <TouchableOpacity
+              style={styles.selectBtn}
               activeOpacity={0.8}
               onPress={() => {
                 onClose();

@@ -298,7 +298,7 @@ export default function BoardingMealSetupScreen({ navigation }) {
           style={[styles.confirmBtn, !isFormValid() && { backgroundColor: theme.colors.textSecondary }]}
           activeOpacity={0.8}
           disabled={!isFormValid()}
-          onPress={() => navigation.navigate('BoardingReview', {
+          onPress={() => navigation.navigate('BookVendor', {
             ...route.params,
             expert,
             selectedRoom,
@@ -309,7 +309,8 @@ export default function BoardingMealSetupScreen({ navigation }) {
             isAggressive,
             aggressiveFee,
             nights,
-            total: calculateTotal()
+            total: calculateTotal(),
+            serviceType: 'Boarding'
           })}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Review Booking</AppText>

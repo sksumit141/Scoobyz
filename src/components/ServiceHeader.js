@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import AppText from './AppText';
 import AddressHeader from './AddressHeader';
 import { theme } from '../styles/theme';
+import { safeGoBack } from '../hooks/useBackHandler';
 
 export default function ServiceHeader({ 
   title, 
@@ -19,7 +20,7 @@ export default function ServiceHeader({
       <View style={styles.topRow}>
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => navigation.goBack()}
+          onPress={() => safeGoBack(navigation)}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />

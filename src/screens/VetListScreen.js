@@ -135,7 +135,7 @@ export default function VetListScreen({ navigation, route }) {
               key={vet.id}
               expert={vet}
               onView={() => setActiveModalExpert(vet)}
-              onSelect={() => navigation.navigate('VetReview', { ...route.params, expert: vet, total: vet.price })}
+              onSelect={() => navigation.navigate('BookVendor', { ...route.params, expert: vet, total: vet.price, serviceType: 'Veterinary' })}
               isSelected={selectedVet === vet.id}
             />
           ))}
@@ -150,7 +150,7 @@ export default function VetListScreen({ navigation, route }) {
           activeOpacity={0.8}
           onPress={() => {
             const vet = vets.find(w => w.id === selectedVet);
-            navigation.navigate('VetReview', { ...route.params, expert: vet, total: vet.price });
+            navigation.navigate('BookVendor', { ...route.params, expert: vet, total: vet.price, serviceType: 'Veterinary' });
           }}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Continue with Vet</AppText>
@@ -163,7 +163,7 @@ export default function VetListScreen({ navigation, route }) {
         onClose={() => setActiveModalExpert(null)}
         onSelect={() => {
           setActiveModalExpert(null);
-          navigation.navigate('VetReview', { ...route.params, expert: activeModalExpert, total: activeModalExpert.price });
+          navigation.navigate('BookVendor', { ...route.params, expert: activeModalExpert, total: activeModalExpert.price, serviceType: 'Veterinary' });
         }}
       />
 
@@ -183,7 +183,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
   },
-  backButton: { marginRight: 16 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    ...theme.shadows.small,
+  },
   headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, flex: 1, marginLeft: -5 },
   filterButton: { padding: 4 },
   scrollContent: { paddingHorizontal: 24 },

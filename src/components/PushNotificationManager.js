@@ -14,6 +14,7 @@ Notifications.setNotificationHandler({
 });
 
 async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web') return;
   let token;
 
   if (Platform.OS === 'android') {
@@ -99,8 +100,8 @@ export default function PushNotificationManager() {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, []);
 

@@ -7,6 +7,7 @@ import ServiceHeader from '../components/ServiceHeader';
 import CustomTimePicker from '../components/CustomTimePicker';
 import { theme } from '../styles/theme';
 import { useRoute } from '@react-navigation/native';
+import { formatISTDate } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
@@ -22,9 +23,9 @@ const generateDates = (monthDate) => {
     const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), currentD + i);
     const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     datesArr.push({
-      day: isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' }),
+      day: isToday ? 'Today' : formatISTDate(d, { weekday: 'short' }),
       date: d.getDate().toString().padStart(2, '0'),
-      month: d.toLocaleDateString('en-US', { month: 'short' }),
+      month: formatISTDate(d, { month: 'short' }),
       year: d.getFullYear(),
       fullDate: d.toDateString() // Full parsable string
     });
@@ -32,11 +33,10 @@ const generateDates = (monthDate) => {
   return datesArr;
 };
 
-const SLOTS = [
-  '09:00 AM', '10:00 AM', '11:30 AM',
-  '01:00 PM', '2:30 PM', '3:30 PM',
-  '04:00 PM', '05:30 PM', '06:30 PM'
-];
+const MORNING_SLOTS = ['06:00 AM', '06:30 AM', '07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM'];
+const NOON_SLOTS = ['12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'];
+const NIGHT_SLOTS = ['05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM', '10:00 PM'];
+const ALL_SLOTS = [...MORNING_SLOTS, ...NOON_SLOTS, ...NIGHT_SLOTS];
 
 const SUGGESTIONS = [
   { label: 'Evening', icon: 'weather-sunset' },
@@ -52,7 +52,7 @@ export default function SlotSelectScreen({ navigation }) {
   const generatedDates = generateDates(monthDate);
 
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
-  const [selectedSlot, setSelectedSlot] = useState('02:30 PM');
+  const [selectedSlot, setSelectedSlot] = useState('09:00 AM');
   const [timePickerVisible, setTimePickerVisible] = useState(false);
 
   const handlePrevMonth = () => {
@@ -76,7 +76,7 @@ export default function SlotSelectScreen({ navigation }) {
     targetDateStr: null
   });
 
-  const formattedSelected = selectedDate ? `${new Date(selectedDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short' })}, ${selectedSlot}` : '';
+  const formattedSelected = selectedDate ? `${formatISTDate(selectedDate, { day: '2-digit', month: 'short' })}, ${selectedSlot}` : '';
 
   const handleSuggestionPress = (label) => {
     if (label === 'Evening') {
@@ -100,7 +100,7 @@ export default function SlotSelectScreen({ navigation }) {
       setSuggestionOverlay({
         visible: true,
         title: 'Select Morning Slot',
-        options: ['09:00 AM', '10:00 AM', '11:30 AM'],
+        options: ['09:00 AM', '10:00 AM', '11:00 AM'],
         targetDateStr: tomorrow.getDate().toString().padStart(2, '0')
       });
     }
@@ -111,6 +111,35 @@ export default function SlotSelectScreen({ navigation }) {
     setSelectedSlot(slot);
     setSuggestionOverlay({ ...suggestionOverlay, visible: false });
   };
+
+  const renderSlotSection = (title, icon, slots) => (
+    <View style={styles.slotSection}>
+      <View style={styles.slotSectionHeader}>
+        <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
+        <AppText style={styles.slotSectionTitle} weight="bold">{title}</AppText>
+      </View>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.slotsHorizontalScroll}
+        style={styles.slotsScrollWrapper}
+      >
+        {slots.map((slot, index) => {
+          const isActive = selectedSlot === slot;
+          return (
+            <TouchableOpacity
+              key={index}
+              style={[styles.slotItem, styles.slotItemHorizontal, isActive && styles.slotItemActive]}
+              onPress={() => setSelectedSlot(slot)}
+              activeOpacity={0.8}
+            >
+              <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+    </View>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -151,45 +180,39 @@ export default function SlotSelectScreen({ navigation }) {
         </View>
 
         {/* Available Slots */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+        <View style={[styles.sectionHeader, { marginTop: 24, marginBottom: 8 }]}>
           <AppText style={styles.sectionTitle} type="heading" weight="bold">Available Slots</AppText>
         </View>
 
-        <View style={styles.slotsGrid}>
-          {SLOTS.map((slot, index) => {
-            const isActive = selectedSlot === slot;
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[styles.slotItem, isActive && styles.slotItemActive]}
-                onPress={() => setSelectedSlot(slot)}
-                activeOpacity={0.8}
-              >
-                <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
-              </TouchableOpacity>
-            )
-          })}
+        {renderSlotSection('Morning', 'weather-sunny', MORNING_SLOTS)}
+        {renderSlotSection('Noon', 'white-balance-sunny', NOON_SLOTS)}
+        {renderSlotSection('Night', 'weather-night', NIGHT_SLOTS)}
 
-          {/* Custom Slot Button */}
-          <TouchableOpacity
+        {/* Custom Slot Button */}
+        <TouchableOpacity
+          style={[
+            styles.slotItem,
+            styles.customSlotBtn,
+            !ALL_SLOTS.includes(selectedSlot) && styles.slotItemActive,
+            { width: '100%', marginTop: 10 }
+          ]}
+          onPress={() => setTimePickerVisible(true)}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons 
+            name="plus" 
+            size={18} 
+            color={!ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark} 
+          />
+          <AppText
             style={[
-              styles.slotItem,
-              styles.customSlotBtn,
-              !SLOTS.includes(selectedSlot) && styles.slotItemActive,
+              styles.slotText,
+              !ALL_SLOTS.includes(selectedSlot) && styles.slotTextActive,
             ]}
-            onPress={() => setTimePickerVisible(true)}
-            activeOpacity={0.8}
           >
-            <AppText
-              style={[
-                styles.slotText,
-                !SLOTS.includes(selectedSlot) && styles.slotTextActive,
-              ]}
-            >
-              {!SLOTS.includes(selectedSlot) ? selectedSlot : 'Custom'}
-            </AppText>
-          </TouchableOpacity>
-        </View>
+            {!ALL_SLOTS.includes(selectedSlot) ? `Selected: ${selectedSlot}` : 'Add Custom Time'}
+          </AppText>
+        </TouchableOpacity>
 
         <CustomTimePicker
           visible={timePickerVisible}
@@ -405,14 +428,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
   },
+  slotSection: {
+    marginBottom: 20,
+  },
+  slotSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    backgroundColor: 'rgba(61, 42, 94, 0.05)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  slotSectionTitle: {
+    fontSize: 14,
+    color: theme.colors.primaryDark,
+  },
   slotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,  // Slightly smaller gap for small screens
-    justifyContent: 'flex-start', // Better alignment when wrapping
+    gap: 10,
+    justifyContent: 'flex-start',
+  },
+  slotsScrollWrapper: {
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+  },
+  slotsHorizontalScroll: {
+    paddingRight: 48,
+    gap: 10,
+    paddingBottom: 8,
   },
   slotItem: {
-    width: width < 380 ? '47%' : '31%', // Switch to 2 cols on very small, 3 on standard
+    width: width < 380 ? '47%' : '31%',
     backgroundColor: theme.colors.white,
     paddingVertical: 14,
     borderRadius: 12,
@@ -422,7 +472,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
-    marginBottom: 4, // Extra spacing if they wrap
+    marginBottom: 4,
+  },
+  slotItemHorizontal: {
+    width: 110,
+    marginBottom: 0,
   },
   slotItemActive: {
     backgroundColor: theme.colors.primaryDark,

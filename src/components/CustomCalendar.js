@@ -3,34 +3,48 @@ import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
+import { formatISTDate } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
-const CustomCalendar = ({ onDateSelect, selectedDate, minDate = new Date() }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate || new Date()));
+const CustomCalendar = ({ 
+  onDateSelect, 
+  selectedDate, 
+  minDate = new Date(),
+  isRange = false,
+  startDate,
+  endDate,
+  onRangeSelect
+}) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date(startDate || selectedDate || new Date()));
   const [days, setDays] = useState([]);
 
   useEffect(() => {
     generateDays();
-  }, [currentMonth, selectedDate]);
+  }, [currentMonth, selectedDate, startDate, endDate]);
 
   const generateDays = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
+
+    // 1st of the month weekday (0=Sun, 6=Sat)
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const daysArr = [];
-    // Adjust for Monday start if preferred, but standard is Sunday (0)
-    // firstDay is 0-6 (Sun-Sat)
-
-    // Fill empty slots before first day
+    // Leading empty slots
     for (let i = 0; i < firstDay; i++) {
       daysArr.push(null);
     }
 
+    // Actual month days
     for (let i = 1; i <= daysInMonth; i++) {
       daysArr.push(new Date(year, month, i));
+    }
+
+    // Trailing empty slots to fill the last row (ensures exactly 7 items per row)
+    while (daysArr.length % 7 !== 0) {
+      daysArr.push(null);
     }
 
     setDays(daysArr);
@@ -40,12 +54,27 @@ const CustomCalendar = ({ onDateSelect, selectedDate, minDate = new Date() }) =>
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
   };
 
+  const isSameDay = (d1, d2) => {
+    if (!d1 || !d2) return false;
+    const date1 = new Date(d1);
+    const date2 = new Date(d2);
+    return date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear();
+  };
+
   const isSelected = (date) => {
-    if (!date || !selectedDate) return false;
-    const d = new Date(selectedDate);
-    return d.getDate() === date.getDate() &&
-      d.getMonth() === date.getMonth() &&
-      d.getFullYear() === date.getFullYear();
+    if (!date) return false;
+    if (isRange) return isSameDay(date, startDate) || isSameDay(date, endDate);
+    return isSameDay(date, selectedDate);
+  };
+
+  const isInRange = (date) => {
+    if (!date || !startDate || !endDate) return false;
+    const d = new Date(date);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    return d > start && d < end;
   };
 
   const isPast = (date) => {
@@ -63,20 +92,39 @@ const CustomCalendar = ({ onDateSelect, selectedDate, minDate = new Date() }) =>
       date.getFullYear() === today.getFullYear();
   };
 
-  const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const handlePress = (date) => {
+    if (!date) return;
+    // We use a standardized format for the string to avoid timezone shifts when parsing back
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
+    if (isRange) {
+      if (!startDate || (startDate && endDate)) {
+        onRangeSelect(dateStr, null);
+      } else {
+        onRangeSelect(startDate, dateStr);
+      }
+    } else {
+      onDateSelect(dateStr);
+    }
+  };
+
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <AppText style={styles.monthTitle} weight="bold">
-          {currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+          {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </AppText>
         <View style={styles.headerBtns}>
           <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.navBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={18} color={theme.colors.primaryDark} />
+            <MaterialCommunityIcons name="chevron-left" size={20} color={theme.colors.primaryDark} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => changeMonth(1)} style={styles.navBtn}>
-            <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.primaryDark} />
+            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primaryDark} />
           </TouchableOpacity>
         </View>
       </View>
@@ -84,38 +132,49 @@ const CustomCalendar = ({ onDateSelect, selectedDate, minDate = new Date() }) =>
       <View style={styles.weekRow}>
         {weekDays.map((d, i) => (
           <View key={i} style={styles.dayBox}>
-            <AppText style={styles.weekDayText}>{d}</AppText>
+            <AppText style={styles.weekDayText}>{d.charAt(0)}</AppText>
           </View>
         ))}
       </View>
 
       <View style={styles.daysGrid}>
-        {days.map((date, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.dayBox,
-              isSelected(date) && styles.selectedDayBox,
-              !date && { opacity: 0 }
-            ]}
-            disabled={!date || isPast(date)}
-            onPress={() => onDateSelect(date.toDateString())}
-          >
-            {date && (
-              <View style={styles.dayInner}>
-                <AppText style={[
-                  styles.dayText,
-                  isSelected(date) && styles.selectedDayText,
-                  isPast(date) && styles.pastDayText,
-                  isToday(date) && !isSelected(date) && styles.todayText
-                ]}>
-                  {date.getDate()}
-                </AppText>
-                {isToday(date) && !isSelected(date) && <View style={styles.todayDot} />}
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
+        {days.map((date, index) => {
+          const selected = isSelected(date);
+          const range = isInRange(date);
+          const isStart = isSameDay(date, startDate);
+          const isEnd = isSameDay(date, endDate);
+
+          return (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.dayBox,
+                selected && styles.selectedDayBox,
+                range && styles.rangeDayBox,
+                isStart && endDate && styles.startDayBox,
+                isEnd && styles.endDayBox,
+                !date && { opacity: 0 }
+              ]}
+              disabled={!date || isPast(date)}
+              onPress={() => handlePress(date)}
+            >
+              {date && (
+                <View style={styles.dayInner}>
+                  <AppText style={[
+                    styles.dayText,
+                    selected && styles.selectedDayText,
+                    range && styles.rangeDayText,
+                    isPast(date) && styles.pastDayText,
+                    isToday(date) && !selected && !range && styles.todayText
+                  ]}>
+                    {date.getDate()}
+                  </AppText>
+                  {isToday(date) && !selected && !range && <View style={styles.todayDot} />}
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -130,48 +189,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 2,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   headerBtns: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   navBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(73, 94, 113, 0.05)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.03)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   monthTitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: theme.colors.textBlack,
-    letterSpacing: 0.2,
   },
   weekRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    justifyContent: 'flex-start',
+    marginBottom: 8,
   },
   weekDayText: {
-    fontSize: 10,
+    fontSize: 11,
     color: theme.colors.textTertiary,
     fontWeight: '700',
-    textTransform: 'uppercase',
   },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   dayBox: {
     width: `${100 / 7}%`,
-    aspectRatio: 1.1,
+    aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
   },
   dayInner: {
     width: '80%',
@@ -181,16 +237,34 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   dayText: {
-    fontSize: 13,
+    fontSize: 14,
     color: theme.colors.textPrimary,
   },
   selectedDayBox: {
     backgroundColor: theme.colors.primaryDark,
     borderRadius: 100,
   },
+  rangeDayBox: {
+    backgroundColor: 'rgba(73, 94, 113, 0.1)',
+    borderRadius: 0,
+  },
+  startDayBox: {
+    backgroundColor: 'rgba(73, 94, 113, 0.1)',
+    borderTopLeftRadius: 100,
+    borderBottomLeftRadius: 100,
+  },
+  endDayBox: {
+    backgroundColor: 'rgba(73, 94, 113, 0.1)',
+    borderTopRightRadius: 100,
+    borderBottomRightRadius: 100,
+  },
   selectedDayText: {
     color: theme.colors.white,
     fontWeight: '700',
+  },
+  rangeDayText: {
+    color: theme.colors.primaryDark,
+    fontWeight: '600',
   },
   pastDayText: {
     color: 'rgba(0,0,0,0.1)',
@@ -200,12 +274,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   todayDot: {
-    width: 2,
-    height: 2,
-    borderRadius: 1,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
     backgroundColor: theme.colors.primaryDark,
     position: 'absolute',
-    bottom: 4,
+    bottom: 6,
   }
 });
 

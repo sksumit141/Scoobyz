@@ -1,90 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, FlatList, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, FlatList, Image, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
-import PackageCard from '../components/PackageCard';
-import ExpertCard from '../components/ExpertCard';
 import { theme } from '../styles/theme';
-import { MOCK_ARTICLES } from './ArticlesScreen';
+import { articlesApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
-
-const MOCK_PACKAGES = [
-  {
-    id: 'p1',
-    name: 'Premium Spa & Bath',
-    price: 999,
-    rating: 4.8,
-    reviews: 124,
-    features: ['Deep Cleaning Bath', 'Nail Trimming', 'Ear Cleaning', 'Blow Dry'],
-    isPopular: true
-  },
-  {
-    id: 'p2',
-    name: 'Standard Grooming',
-    price: 699,
-    rating: 4.5,
-    reviews: 89,
-    features: ['Shampoo Bath', 'Brush Out', 'Nail Trimming'],
-    isPopular: false
-  }
-];
-
-const MOCK_WALKERS = [
-  {
-    id: 'w1',
-    name: 'Rajeev Kumar',
-    role: 'Certified Dog Walker',
-    rating: 4.9,
-    reviews: 210,
-    price: 150,
-    tier: 'Premium',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300'
-  },
-  {
-    id: 'w2',
-    name: 'Amit Singh',
-    role: 'Experienced Walker',
-    rating: 4.7,
-    reviews: 145,
-    price: 120,
-    tier: 'Standard',
-    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=300'
-  }
-];
-
-const MOCK_VETS = [
-  {
-    id: 'v1',
-    name: 'Dr. Sarah Jenkins',
-    role: 'Senior Veterinarian',
-    rating: 4.9,
-    reviews: 320,
-    price: 500,
-    tier: 'Premium',
-    image: 'https://images.unsplash.com/photo-1594824436998-d4052e424260?auto=format&fit=crop&q=80&w=300'
-  },
-  {
-    id: 'v2',
-    name: 'Paws Care Clinic',
-    role: 'Veterinary Clinic',
-    rating: 4.8,
-    reviews: 198,
-    price: 350,
-    tier: 'Standard',
-    image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=300'
-  }
-];
 
 export default function ExploreScreen({ navigation }) {
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { top: 40 };
 
   // Carousel Logic
-  const featuredArticles = MOCK_ARTICLES.filter(a => a.isFeatured);
+  const [articles, setArticles] = useState([]);
+  const featuredArticles = articles.filter(a => a.isFeatured);
+  const regularArticles = articles.filter(a => !a.isFeatured);
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef(null);
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        const res = await articlesApi.list();
+        if (res && res.success) {
+          setArticles(res.articles);
+        }
+      } catch (error) {
+        console.error('Failed to fetch articles:', error);
+      }
+    };
+    fetchArticles();
+  }, []);
 
   useEffect(() => {
     if (featuredArticles.length === 0) return;
@@ -131,19 +78,45 @@ export default function ExploreScreen({ navigation }) {
               <Ionicons name={navigation.openDrawer ? "menu" : "arrow-back"} size={26} color={theme.colors.white} />
             </TouchableOpacity>
 
-            <AppText style={styles.headerTitle} type="heading" weight="bold">Explore</AppText>
+            <View style={{ flex: 1 }} />
 
             <TouchableOpacity
               style={styles.notificationBtn}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
+              <View style={styles.notificationIconWrapper}>
+                <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
+                <View style={styles.notificationBadge} />
+              </View>
             </TouchableOpacity>
+          </View>
+          
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={20} color="#999" style={styles.searchIcon} />
+            <TextInput 
+              placeholder="Search for grooming, walking or vet" 
+              style={styles.searchInput} 
+              placeholderTextColor="#999" 
+            />
           </View>
         </View>
 
         <View style={styles.content}>
-          {/* Featured Articles Carousel */}
+          {/* Essentials Shop Section (Coming Soon) */}
+          <View style={styles.sectionHeader}>
+            <AppText type="heading" weight="bold" style={styles.sectionTitle}>Essentials Shop</AppText>
+          </View>
+          <View style={styles.shopCard}>
+            <View style={styles.shopIconContainer}>
+              <MaterialCommunityIcons name="shopping-outline" size={28} color="#FFF" />
+            </View>
+            <View style={styles.shopTextContainer}>
+              <AppText style={styles.shopComingSoon} weight="bold">COMING SOON!</AppText>
+              <AppText style={styles.shopDesc}>We're curating the products for your pet. Stay tuned!</AppText>
+            </View>
+          </View>
+
+          {/* Tips & Articles Carousel */}
           <View style={styles.sectionHeader}>
             <AppText type="heading" weight="bold" style={styles.sectionTitle}>Tips & Articles</AppText>
             <TouchableOpacity onPress={() => navigation.navigate('Articles')}>
@@ -161,6 +134,15 @@ export default function ExploreScreen({ navigation }) {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={handleScroll}
+              getItemLayout={(data, index) => (
+                { length: width, offset: width * index, index }
+              )}
+              onScrollToIndexFailed={(info) => {
+                const wait = new Promise(resolve => setTimeout(resolve, 500));
+                wait.then(() => {
+                  flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                });
+              }}
             />
             <View style={styles.pagination}>
               {featuredArticles.map((_, index) => (
@@ -172,62 +154,24 @@ export default function ExploreScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Top Rated Grooming Packages */}
-          <View style={styles.sectionHeader}>
-            <AppText type="heading" weight="bold" style={styles.sectionTitle}>Top Grooming Packages</AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('SlotSelect', { serviceName: 'Grooming' })}>
-              <AppText style={styles.viewAllText}>View All</AppText>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {MOCK_PACKAGES.map(pkg => (
-              <View key={pkg.id} style={styles.horizontalCardWrapper}>
-                <PackageCard
-                  pkg={pkg}
-                  onAdd={() => navigation.navigate('SlotSelect', { serviceName: 'Grooming', selectedPackage: pkg })}
-                />
-              </View>
+          {/* List of Articles */}
+          <View style={styles.listContainer}>
+            {regularArticles.map(article => (
+              <TouchableOpacity 
+                key={article.id} 
+                style={styles.articleCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ArticleDetail', { article })}
+              >
+                <Image source={{ uri: article.image }} style={styles.articleImage} />
+                <View style={styles.articleInfo}>
+                  <AppText style={styles.metaText}>{article.readTime}  •  {article.date}</AppText>
+                  <AppText style={styles.titleText} weight="bold" numberOfLines={1}>{article.title}</AppText>
+                  <AppText style={styles.subtitleText} numberOfLines={2}>{article.subtitle}</AppText>
+                </View>
+              </TouchableOpacity>
             ))}
-          </ScrollView>
-
-          {/* Top Walkers */}
-          <View style={styles.sectionHeader}>
-            <AppText type="heading" weight="bold" style={styles.sectionTitle}>Top Walkers</AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('WalkingService', { serviceName: 'Walking' })}>
-              <AppText style={styles.viewAllText}>View All</AppText>
-            </TouchableOpacity>
           </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {MOCK_WALKERS.map(walker => (
-              <View key={walker.id} style={styles.horizontalExpertWrapper}>
-                <ExpertCard
-                  expert={walker}
-                  onSelect={() => navigation.navigate('WalkingService', { serviceName: 'Walking' })}
-                />
-              </View>
-            ))}
-          </ScrollView>
-
-          {/* Top Veterinarians */}
-          <View style={styles.sectionHeader}>
-            <AppText type="heading" weight="bold" style={styles.sectionTitle}>Top Veterinarians</AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('VetService', { serviceName: 'Veterinary' })}>
-              <AppText style={styles.viewAllText}>View All</AppText>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {MOCK_VETS.map(vet => (
-              <View key={vet.id} style={styles.horizontalExpertWrapper}>
-                <ExpertCard
-                  expert={vet}
-                  onSelect={() => navigation.navigate('VetService', { serviceName: 'Veterinary' })}
-                />
-              </View>
-            ))}
-          </ScrollView>
         </View>
       </ScrollView>
     </AppScreen>
@@ -247,10 +191,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
   },
   headerTitle: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: 24,
+    letterSpacing: 1,
   },
   headerIconBtn: {
     width: 44,
@@ -267,6 +213,36 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  notificationIconWrapper: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4B4B',
+    borderWidth: 1,
+    borderColor: '#FFF',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 50,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#222',
   },
   content: {
     paddingTop: 24,
@@ -288,16 +264,36 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryDark,
     fontWeight: 'bold',
   },
-  horizontalScroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 16,
+  shopCard: {
+    marginHorizontal: 20,
+    backgroundColor: '#3D5668',
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  horizontalCardWrapper: {
-    width: width * 0.75, // Take up 75% of screen width so next card peeks
+  shopIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  horizontalExpertWrapper: {
-    width: width * 0.85, // Expert cards are a bit wider
+  shopTextContainer: {
+    flex: 1,
+  },
+  shopComingSoon: {
+    color: '#FFF',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  shopDesc: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    lineHeight: 18,
   },
   carouselContainer: {
     marginBottom: 20,
@@ -342,5 +338,45 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     backgroundColor: '#666',
+  },
+  listContainer: {
+    paddingHorizontal: 20,
+  },
+  articleCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  articleImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    marginRight: 16,
+  },
+  articleInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  metaText: {
+    fontSize: 11,
+    color: '#888',
+    marginBottom: 4,
+  },
+  titleText: {
+    fontSize: 16,
+    color: '#222',
+    marginBottom: 4,
+  },
+  subtitleText: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
   }
 });

@@ -4,21 +4,27 @@ import { Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
+import ScoobyzBadge from './ScoobyzBadge';
 
 export default function ExpertCard({ expert, onView, onSelect, isSelected }) {
   return (
     <View style={[styles.card, isSelected && { borderColor: theme.colors.success, borderWidth: 2 }]}>
+      {(expert.isCertified || expert.badge === 'Elite' || expert.badge === 'Pro' || expert.badge === 'Scoobyz Certified') && (
+        <View style={styles.badgePosition}>
+          <ScoobyzBadge />
+        </View>
+      )}
       <View style={styles.cardLeft}>
         <View style={styles.imageContainer}>
-          <Image 
-            source={{ 
-              uri: (expert.profilePhoto || expert.image) 
-                ? ((expert.profilePhoto || expert.image).startsWith('http') 
-                    ? (expert.profilePhoto || expert.image) 
-                    : `${BASE_URL}${expert.profilePhoto || expert.image}`) 
-                : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop' 
-            }} 
-            style={styles.expertImage} 
+          <Image
+            source={{
+              uri: (expert.profilePhoto || expert.image)
+                ? ((expert.profilePhoto || expert.image).startsWith('http')
+                  ? (expert.profilePhoto || expert.image)
+                  : `${BASE_URL}${expert.profilePhoto || expert.image}`)
+                : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop'
+            }}
+            style={styles.expertImage}
           />
         </View>
         <View style={styles.priceContainer}>
@@ -29,22 +35,23 @@ export default function ExpertCard({ expert, onView, onSelect, isSelected }) {
 
       <View style={styles.cardRight}>
         <View style={styles.infoTop}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <AppText style={styles.expertName} type="heading" weight="bold" numberOfLines={1}>{expert.name}</AppText>
-            {expert.badge && expert.badge !== 'Basic' && (
-              <View style={[styles.badgeTag, { backgroundColor: expert.badge === 'Pro' ? '#FFF9C4' : '#E8F5E9' }]}>
-                <Ionicons 
-                  name={expert.badge === 'Pro' ? 'ribbon' : 'checkmark-circle'} 
-                  size={10} 
-                  color={expert.badge === 'Pro' ? '#FBC02D' : '#2E7D32'} 
-                />
-                <AppText style={[styles.badgeText, { color: expert.badge === 'Pro' ? '#FBC02D' : '#2E7D32' }]} weight="bold">
-                  {expert.badge}
-                </AppText>
-              </View>
-            )}
-          </View>
+          <AppText style={styles.expertName} type="heading" weight="bold" numberOfLines={1}>{expert.name}</AppText>
+
           <AppText style={styles.expertTitle}>{expert.title}</AppText>
+
+          {expert.badge && !['Basic', 'Elite', 'Pro', 'Scoobyz Certified'].includes(expert.badge) && (
+            <View style={[styles.badgeTag, { backgroundColor: expert.badge === 'Pro' ? '#FFF9C4' : '#E8F5E9' }]}>
+              <Ionicons
+                name={expert.badge === 'Pro' ? 'ribbon' : 'checkmark-circle'}
+                size={10}
+                color={expert.badge === 'Pro' ? '#FBC02D' : '#2E7D32'}
+              />
+              <AppText style={[styles.badgeText, { color: expert.badge === 'Pro' ? '#FBC02D' : '#2E7D32' }]} weight="bold">
+                {expert.badge}
+              </AppText>
+            </View>
+          )}
+
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={14} color="#F1C40F" />
             <AppText style={styles.ratingText} weight="bold">{expert.rating || '0.0'}</AppText>
@@ -175,4 +182,10 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     fontSize: 14,
   },
+  badgePosition: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 100,
+  }
 });

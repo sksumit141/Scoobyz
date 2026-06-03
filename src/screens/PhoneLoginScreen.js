@@ -64,17 +64,17 @@ const PhoneLoginScreen = ({ navigation, route }) => {
 
   return (
     <>
-      {/* Full-screen loading overlay */}
-      <Modal transparent visible={loading} animationType="fade">
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <AppText style={styles.loadingText}>Sending OTP...</AppText>
-          </View>
-        </View>
-      </Modal>
-
       <AppScreen scrollable={true} padding={false}>
+        {/* Full-screen loading overlay */}
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <AppText style={styles.loadingText}>Sending OTP...</AppText>
+            </View>
+          </View>
+        )}
+
         {/* Back Button */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={20} color={theme.colors.primary} />
@@ -221,10 +221,11 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 999,
   },
   loadingBox: {
     backgroundColor: '#fff',

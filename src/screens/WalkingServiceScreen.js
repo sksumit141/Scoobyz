@@ -8,13 +8,17 @@ import CustomCalendar from '../components/CustomCalendar';
 import ServiceHeader from '../components/ServiceHeader';
 import CustomTimePicker from '../components/CustomTimePicker';
 import { theme } from '../styles/theme';
+import { formatISTDate } from '../utils/date_utils';
 
 const { width } = Dimensions.get('window');
 
-const DURATIONS = ['20 min', '40 min', '1 hr'];
+const DURATIONS = ['30 min', '45 min', '1 hr'];
 const FREQUENCIES = ['One-time', 'Weekly', 'Monthly'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const SLOTS = ['07:00 AM', '08:30 AM', '10:00 AM', '05:00 PM', '06:30 PM', '08:00 PM'];
+const MORNING_SLOTS = ['06:00 AM', '06:30 AM', '07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM'];
+const NOON_SLOTS = ['12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'];
+const NIGHT_SLOTS = ['05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM', '10:00 PM'];
+const ALL_SLOTS = [...MORNING_SLOTS, ...NOON_SLOTS, ...NIGHT_SLOTS];
 
 const generateDates = (monthDate) => {
   const datesArr = [];
@@ -28,9 +32,9 @@ const generateDates = (monthDate) => {
     const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), currentD + i);
     const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     datesArr.push({
-      day: isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' }),
+      day: isToday ? 'Today' : formatISTDate(d, { weekday: 'short' }),
       date: d.getDate().toString().padStart(2, '0'),
-      month: d.toLocaleDateString('en-US', { month: 'short' }),
+      month: formatISTDate(d, { month: 'short' }),
       fullDate: d.toDateString()
     });
   }
@@ -45,8 +49,8 @@ const calculateEndTime = (startTimeStr, durationLabel) => {
   if (period === 'AM' && hours === 12) hours = 0;
 
   let addMins = 0;
-  if (durationLabel === '20 min') addMins = 20;
-  else if (durationLabel === '40 min') addMins = 40;
+  if (durationLabel === '30 min') addMins = 30;
+  else if (durationLabel === '45 min') addMins = 45;
   else if (durationLabel === '1 hr') addMins = 60;
 
   minutes += addMins;
@@ -63,14 +67,14 @@ const calculateEndTime = (startTimeStr, durationLabel) => {
 export default function WalkingServiceScreen({ navigation }) {
   const route = useRoute();
 
-  const [duration, setDuration] = useState('40 min');
+  const [duration, setDuration] = useState('45 min');
   const [frequency, setFrequency] = useState('One-time');
   const [timesPerDay, setTimesPerDay] = useState(1);
 
   const [monthDate, setMonthDate] = useState(new Date());
   const generatedDates = generateDates(monthDate);
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
-  const [selectedSlots, setSelectedSlots] = useState([]);
+  const [selectedSlots, setSelectedSlots] = useState(['09:00 AM']);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [customSlot, setCustomSlot] = useState(null);
 
@@ -79,7 +83,7 @@ export default function WalkingServiceScreen({ navigation }) {
   useEffect(() => {
     if (selectedDate && (frequency === 'Weekly' || frequency === 'Monthly')) {
       const start = new Date(selectedDate);
-      const daysToAdd = frequency === 'Weekly' ? 7 : 25;
+      const daysToAdd = frequency === 'Weekly' ? 7 : 30;
       const end = new Date(start);
       end.setDate(start.getDate() + daysToAdd);
       setEndDate(end.toDateString());
@@ -96,26 +100,53 @@ export default function WalkingServiceScreen({ navigation }) {
         setSelectedSlots(selectedSlots.filter(s => s !== slot));
       } else if (selectedSlots.length < timesPerDay) {
         setSelectedSlots([...selectedSlots, slot].sort((a, b) => {
-          const allSlots = [...SLOTS, ...(customSlot ? [customSlot] : [])];
-          return allSlots.indexOf(a) - allSlots.indexOf(b);
+          return ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b);
         }));
       } else {
-        const allSlots = [...SLOTS, ...(customSlot ? [customSlot] : [])];
-        const newSlots = [...selectedSlots.slice(1), slot].sort((a, b) => allSlots.indexOf(a) - allSlots.indexOf(b));
+        const newSlots = [...selectedSlots.slice(1), slot].sort((a, b) => ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b));
         setSelectedSlots(newSlots);
       }
     }
   };
 
+  const renderSlotSection = (title, icon, slots) => (
+    <View style={styles.slotSection}>
+      <View style={styles.slotSectionHeader}>
+        <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
+        <AppText style={styles.slotSectionTitle} weight="bold">{title}</AppText>
+      </View>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.slotsHorizontalScroll}
+        style={styles.slotsScrollWrapper}
+      >
+        {slots.map((slot, index) => {
+          const isActive = selectedSlots.includes(slot);
+          return (
+            <TouchableOpacity
+              key={index}
+              style={[styles.slotItem, styles.slotItemHorizontal, isActive && styles.slotItemActive]}
+              onPress={() => toggleSlot(slot)}
+              activeOpacity={0.8}
+            >
+              <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+    </View>
+  );
+
   const calculatePrice = () => {
     let base = 0;
-    if (duration === '20 min') base = 150;
-    else if (duration === '40 min') base = 300;
-    else if (duration === '1 hr') base = 450;
+    if (duration === '30 min') base = 200;
+    else if (duration === '45 min') base = 350;
+    else if (duration === '1 hr') base = 500;
 
     let multiplier = 1;
     if (frequency === 'Weekly') multiplier = 7;
-    else if (frequency === 'Monthly') multiplier = 30;
+    else if (frequency === 'Monthly') multiplier = 25;
 
     const total = base * multiplier * timesPerDay;
     return total;
@@ -210,64 +241,55 @@ export default function WalkingServiceScreen({ navigation }) {
             <View style={styles.endDateContainer}>
               <MaterialCommunityIcons name="calendar-clock" size={20} color={theme.colors.primaryDark} />
               <AppText style={styles.endDateText}>
-                Plan Ends on: <AppText weight="bold" style={{ color: theme.colors.primaryDark }}>{new Date(endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</AppText>
+                Plan Ends on: <AppText weight="bold" style={{ color: theme.colors.primaryDark }}>{formatISTDate(endDate)}</AppText>
               </AppText>
             </View>
           )}
-
-          <View style={styles.divider} />
-
-          <AppText style={styles.label} weight="bold">
-            {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
-          </AppText>
-          <View style={styles.slotsGrid}>
-            {SLOTS.map((slot, index) => {
-              const isActive = selectedSlots.includes(slot);
-              return (
-                <TouchableOpacity
-                  key={`slot-${index}`}
-                  style={[styles.slotItem, isActive && styles.slotItemActive]}
-                  onPress={() => toggleSlot(slot)}
-                  activeOpacity={0.8}
-                >
-                  <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
-                </TouchableOpacity>
-              )
-            })}
-
-            {/* Custom Slot */}
-            {customSlot && (
-              <TouchableOpacity
-                style={[styles.slotItem, selectedSlots.includes(customSlot) && styles.slotItemActive]}
-                onPress={() => toggleSlot(customSlot)}
-                activeOpacity={0.8}
-              >
-                <AppText style={[styles.slotText, selectedSlots.includes(customSlot) && styles.slotTextActive]}>
-                  {customSlot}
-                </AppText>
-              </TouchableOpacity>
-            )}
-
-            {/* Custom Slot Button */}
-            <TouchableOpacity
-              style={[styles.slotItem, styles.customSlotBtn]}
-              onPress={() => setTimePickerVisible(true)}
-              activeOpacity={0.8}
-            >
-              <AppText style={styles.slotText}>Custom</AppText>
-            </TouchableOpacity>
-          </View>
-
-          <CustomTimePicker
-            visible={timePickerVisible}
-            initialTime={customSlot || '09:00 AM'}
-            onConfirm={(time) => {
-              setCustomSlot(time);
-              toggleSlot(time);
-            }}
-            onClose={() => setTimePickerVisible(false)}
-          />
         </View>
+
+        <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">
+          {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
+        </AppText>
+        
+        {renderSlotSection('Morning', 'weather-sunny', MORNING_SLOTS)}
+        {renderSlotSection('Noon', 'white-balance-sunny', NOON_SLOTS)}
+        {renderSlotSection('Night', 'weather-night', NIGHT_SLOTS)}
+
+        {/* Custom Slot Button */}
+        <TouchableOpacity
+          style={[
+            styles.slotItem,
+            styles.customSlotBtn,
+            customSlot && !ALL_SLOTS.includes(customSlot) && styles.slotItemActive,
+            { width: '100%', marginTop: 10 }
+          ]}
+          onPress={() => setTimePickerVisible(true)}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons 
+            name="plus" 
+            size={18} 
+            color={customSlot && !ALL_SLOTS.includes(customSlot) ? theme.colors.white : theme.colors.primaryDark} 
+          />
+          <AppText
+            style={[
+              styles.slotText,
+              customSlot && !ALL_SLOTS.includes(customSlot) && styles.slotTextActive,
+            ]}
+          >
+            {customSlot && !ALL_SLOTS.includes(customSlot) ? `Selected: ${customSlot}` : 'Add Custom Time'}
+          </AppText>
+        </TouchableOpacity>
+
+        <CustomTimePicker
+          visible={timePickerVisible}
+          initialTime={customSlot || '09:00 AM'}
+          onConfirm={(time) => {
+            setCustomSlot(time);
+            toggleSlot(time);
+          }}
+          onClose={() => setTimePickerVisible(false)}
+        />
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -292,6 +314,7 @@ export default function WalkingServiceScreen({ navigation }) {
               ...currentParams,
               duration,
               frequency,
+              timesPerDay,
               date: selectedDate,
               time: selectedSlots.join(', '),
               total: totalPrice,
@@ -406,10 +429,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
   },
+  slotSection: {
+    marginBottom: 20,
+  },
+  slotSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    backgroundColor: 'rgba(61, 42, 94, 0.05)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  slotSectionTitle: {
+    fontSize: 14,
+    color: theme.colors.primaryDark,
+  },
   slotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    justifyContent: 'flex-start',
+  },
+  slotsScrollWrapper: {
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+  },
+  slotsHorizontalScroll: {
+    paddingRight: 48,
+    gap: 10,
+    paddingBottom: 8,
   },
   slotItem: {
     width: '31%',
@@ -417,6 +468,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  slotItemHorizontal: {
+    width: 110,
+    marginBottom: 0,
+    backgroundColor: theme.colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   slotItemActive: {
     backgroundColor: theme.colors.primaryDark,
