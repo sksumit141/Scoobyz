@@ -17,7 +17,10 @@ import { bookingsApi, addressApi, BASE_URL } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import CustomAlert from '../components/CustomAlert';
+import PriceDisplay from '../components/PriceDisplay';
+import { useDiscount } from '../contexts/DiscountContext';
 import { formatISTDate, getISTDateString } from '../utils/date_utils';
+import RazorpayCheckout from 'react-native-razorpay';
 
 const { width } = Dimensions.get('window');
 
@@ -40,7 +43,7 @@ function getServiceApi(serviceType) {
 }
 
 function buildPayload(params, paymentDetails) {
-    const { serviceType, expert, pet, date, time, visitType,
+    const { serviceType, expert, pet, date, time, visitType, consultType,
         total, cart, selectedRoom, selectedMeal,
         frequency, duration, timesPerDay, size, customMealText,
         notes, address } = params;
@@ -84,7 +87,8 @@ function buildPayload(params, paymentDetails) {
     } else if (type === 'walking') {
         return { ...base, frequency, duration, timesPerDay: timesPerDay || 1 };
     } else if (type === 'veterinary') {
-        return { ...base, visitType };
+        const finalVisitType = visitType || consultType || 'Clinic Visit';
+        return { ...base, visitType: finalVisitType };
     } else {
         // grooming (default)
         const mainPackage = cart?.[0] || {};
@@ -102,28 +106,42 @@ export default function BookVendorScreen({ navigation, route }) {
         serviceType = 'Grooming',
         expert = {},
         pet = {},
-        total: rawTotal = 0,
+        total: rawTotal = expert?.price || 500,
         date,
         time,
         visitType,
-        cart = [],
         selectedRoom,
         selectedMeal,
+        customMealText,
+        cart = [],
         address,
         frequency,
+        isDemo
     } = params;
+
     const total = Number(rawTotal);
 
     const [loading, setLoading] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [isPaymentModalVisible, setPaymentModalVisible] = useState(false);
-    const [paymentType, setPaymentType] = useState(null); // 'full' or 'partial'
+    const isWalking = (serviceType || '').toLowerCase() === 'walking';
+    const [paymentType, setPaymentType] = useState(isWalking ? 'full' : null);
     const [alertConfig, setAlertConfig] = useState({
         visible: false,
         title: '',
         message: '',
         type: 'info'
     });
+
+    const { calculateDiscountedPrice } = useDiscount();
+    
+    const isScoobyzMatch = expert?.id === 'scoobyz_match';
+
+    const discountedTotal = calculateDiscountedPrice(total || 0, serviceType || 'Grooming');
+    const amountPaid = !isScoobyzMatch ? (paymentType === 'partial' ? (total * 0.3) : total) : 0;
+    const remainingAmount = !isScoobyzMatch ? (total - amountPaid) : 0;
+    const discountedAmountPaid = calculateDiscountedPrice(amountPaid || 0, serviceType || 'Grooming');
+    const discountedRemainingAmount = calculateDiscountedPrice(remainingAmount || 0, serviceType || 'Grooming');
 
     React.useEffect(() => {
         if (params.address) {
@@ -142,13 +160,9 @@ export default function BookVendorScreen({ navigation, route }) {
             console.error('Fetch address error:', error);
         }
     };
-
     const colors = SERVICE_COLORS[serviceType] || SERVICE_COLORS.default;
-    const mainItem = selectedRoom || cart[0] || {};
+    const mainItem = selectedRoom || cart?.[0] || {};
     const displayDate = formatISTDate(date);
-
-    const amountPaid = paymentType === 'partial' ? (total * 0.3) : total;
-    const remainingAmount = total - amountPaid;
 
     const handleBook = async () => {
         const vendorUserId = expert?.userId || expert?.id;
@@ -161,7 +175,7 @@ export default function BookVendorScreen({ navigation, route }) {
             return;
         }
 
-        if (!paymentType) {
+        if (!isScoobyzMatch && !paymentType) {
             setAlertConfig({
                 visible: true,
                 title: 'Payment Required',
@@ -174,26 +188,69 @@ export default function BookVendorScreen({ navigation, route }) {
         try {
             const apiCall = getServiceApi(serviceType);
             const payload = {
-                ...buildPayload(params, { paymentType, amountPaid, remainingAmount }),
-                addressId: selectedAddress?.id
+                ...buildPayload(params, { paymentType, amountPaid: discountedAmountPaid, remainingAmount: discountedRemainingAmount }),
+                addressId: selectedAddress?.id,
+                requiresAdminAssignment: isScoobyzMatch,
+                isDemo: isDemo || false
             };
             const result = await apiCall(payload);
             const bookingId = result?.bookingId || result?.id;
 
             if (!bookingId) throw new Error('Booking created but no ID returned.');
 
+            // Call Razorpay if not Scoobyz match and not a demo
+            if (!isScoobyzMatch && !isDemo && discountedAmountPaid > 0) {
+                try {
+                    // Create order on backend
+                    const orderRes = await fetch(`${BASE_URL}/payment/create-order`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${await require('@react-native-async-storage/async-storage').default.getItem('userToken')}`
+                        },
+                        body: JSON.stringify({ bookingId })
+                    });
+                    const orderData = await orderRes.json();
+                    
+                    if (orderData.error) throw new Error(orderData.error);
+
+                    const options = {
+                        description: `Booking #${bookingId}`,
+                        image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
+                        currency: orderData.currency,
+                        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'YOUR_RAZORPAY_KEY_ID', // Replace with real key id in production
+                        amount: orderData.amount,
+                        name: 'Scoobyz',
+                        order_id: orderData.orderId,
+                        theme: { color: '#3d2a5e' }
+                    };
+
+                    const paymentData = await RazorpayCheckout.open(options);
+                    // Webhook will handle updating status on backend
+                    console.log('Payment Success:', paymentData);
+                } catch (paymentError) {
+                    console.error('Payment Error:', paymentError);
+                    setAlertConfig({
+                        visible: true,
+                        title: 'Payment Failed',
+                        message: 'Booking created but payment failed. You can retry from My Bookings.'
+                    });
+                    // Navigate to pending booking page anyway
+                }
+            }
+
             navigation.replace('BookingPending', {
                 bookingId,
                 expert,
                 pet,
-                total,
+                total: discountedTotal,
                 serviceType,
                 date,
                 time,
                 visitType,
                 paymentType,
-                amountPaid,
-                remainingAmount
+                amountPaid: discountedAmountPaid,
+                remainingAmount: discountedRemainingAmount
             });
         } catch (error) {
             console.error('[BookVendor] Error:', error);
@@ -226,8 +283,10 @@ export default function BookVendorScreen({ navigation, route }) {
                     {/* Vendor Card */}
                     <View style={styles.vendorCard}>
                         <Image
-                            source={{ uri: expert.image || expert.profilePhoto ? ((expert.image || expert.profilePhoto).startsWith('http') ? (expert.image || expert.profilePhoto) : `${BASE_URL}${expert.profilePhoto}`) : 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=200' }}
-                            style={styles.vendorAvatar}
+                            source={isScoobyzMatch 
+                                ? require('../../assets/scoobyz_logo-removebg-preview.png') 
+                                : { uri: expert.image || expert.profilePhoto ? ((expert.image || expert.profilePhoto).startsWith('http') ? (expert.image || expert.profilePhoto) : `${BASE_URL}${expert.profilePhoto}`) : 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=200' }}
+                            style={[styles.vendorAvatar, isScoobyzMatch && { resizeMode: 'contain', backgroundColor: '#FFF' }]}
                         />
                         <View style={styles.vendorInfo}>
                             <AppText style={styles.vendorName} weight="bold">{expert.name || expert.businessName || 'Expert'}</AppText>
@@ -278,18 +337,19 @@ export default function BookVendorScreen({ navigation, route }) {
                 </View>
 
                 {/* Payment Options */}
+                {!isScoobyzMatch && (
                 <View style={styles.section}>
                     <View style={styles.sectionRow}>
                         <Ionicons name="card-outline" size={18} color={theme.colors.textSecondary} />
                         <AppText style={styles.sectionLabel}>PAYMENT OPTIONS (MANDATORY)</AppText>
                     </View>
                     <View style={{ gap: 12 }}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.paymentOptionCard, paymentType === 'full' && styles.paymentOptionActive]}
                             onPress={() => setPaymentType('full')}
                         >
                             <View style={styles.paymentOptionInfo}>
-                                <AppText style={[styles.paymentOptionTitle, paymentType === 'full' && { color: theme.colors.primaryDark }]} weight="bold">Pay 100% Now</AppText>
+                                <AppText style={[styles.paymentOptionTitle, paymentType === 'full' && { color: theme.colors.success }]} weight="bold">Pay 100% Now</AppText>
                                 <AppText style={styles.paymentOptionSub}>Pay the full amount ₹{total} now</AppText>
                             </View>
                             <View style={[styles.radioCircle, paymentType === 'full' && styles.radioCircleActive]}>
@@ -297,22 +357,26 @@ export default function BookVendorScreen({ navigation, route }) {
                             </View>
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={[styles.paymentOptionCard, paymentType === 'partial' && styles.paymentOptionActive]}
-                            onPress={() => setPaymentType('partial')}
-                        >
-                            <View style={styles.paymentOptionInfo}>
-                                <AppText style={[styles.paymentOptionTitle, paymentType === 'partial' && { color: theme.colors.primaryDark }]} weight="bold">Pay 30% Now</AppText>
-                                <AppText style={styles.paymentOptionSub}>Pay ₹{(total * 0.3).toFixed(2)} now, balance ₹{(total * 0.7).toFixed(2)} at service</AppText>
-                            </View>
-                            <View style={[styles.radioCircle, paymentType === 'partial' && styles.radioCircleActive]}>
-                                {paymentType === 'partial' && <View style={styles.radioInner} />}
-                            </View>
-                        </TouchableOpacity>
+                        {!isWalking && (
+                            <TouchableOpacity
+                                style={[styles.paymentOptionCard, paymentType === 'partial' && styles.paymentOptionActive]}
+                                onPress={() => setPaymentType('partial')}
+                            >
+                                <View style={styles.paymentOptionInfo}>
+                                    <AppText style={[styles.paymentOptionTitle, paymentType === 'partial' && { color: theme.colors.success }]} weight="bold">Pay 30% Now</AppText>
+                                    <AppText style={styles.paymentOptionSub}>Pay ₹{(total * 0.3).toFixed(2)} now, balance ₹{(total * 0.7).toFixed(2)} at service</AppText>
+                                </View>
+                                <View style={[styles.radioCircle, paymentType === 'partial' && styles.radioCircleActive]}>
+                                    {paymentType === 'partial' && <View style={styles.radioInner} />}
+                                </View>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
+                )}
 
                 {/* Price Summary */}
+                {!isScoobyzMatch && (
                 <View style={styles.section}>
                     <View style={styles.sectionRow}>
                         <Ionicons name="receipt-outline" size={18} color={theme.colors.textSecondary} />
@@ -330,33 +394,39 @@ export default function BookVendorScreen({ navigation, route }) {
                                     <MaterialCommunityIcons name="chevron-right" size={14} color={theme.colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
-                            <AppText style={styles.priceValue} weight="bold">₹ {total}</AppText>
+                            <PriceDisplay 
+                                originalPrice={total}
+                                serviceName={serviceType || 'Grooming'}
+                                style={styles.priceValue}
+                                valueStyle={styles.priceValue}
+                            />
                         </View>
 
                         {paymentType === 'partial' && (
                             <>
                                 <View style={[styles.priceRow, { marginTop: 12 }]}>
                                     <AppText style={styles.priceLabel}>Payable Now (30%)</AppText>
-                                    <AppText style={[styles.priceValue, { color: theme.colors.success }]} weight="bold">₹ {amountPaid.toFixed(2)}</AppText>
+                                    <AppText style={[styles.priceValue, { color: theme.colors.success }]} weight="bold">₹ {discountedAmountPaid.toFixed(2)}</AppText>
                                 </View>
                                 <View style={[styles.priceRow, { marginTop: 8 }]}>
                                     <AppText style={styles.priceLabel}>Remaining Balance</AppText>
-                                    <AppText style={styles.priceValue}>₹ {remainingAmount.toFixed(2)}</AppText>
+                                    <AppText style={styles.priceValue}>₹ {discountedRemainingAmount.toFixed(2)}</AppText>
                                 </View>
                             </>
                         )}
 
                         <View style={styles.divider} />
                         <View style={styles.priceRow}>
-                            <AppText style={[styles.priceLabel, { color: theme.colors.textBlack }]} weight="bold">
+                            <AppText style={[styles.priceLabel, { color: theme.colors.primaryDark }]} weight="bold">
                                 {paymentType === 'partial' ? 'Total Payable Now' : 'Grand Total'}
                             </AppText>
-                            <AppText style={[styles.priceValue, { color: colors.accent, fontSize: 22 }]} weight="bold">
-                                ₹ {paymentType === 'partial' ? amountPaid.toFixed(2) : total}
+                            <AppText style={[styles.priceValue, { color: theme.colors.primaryDark, fontSize: 22 }]} weight="bold">
+                                ₹ {paymentType === 'partial' ? discountedAmountPaid.toFixed(2) : discountedTotal}
                             </AppText>
                         </View>
                     </View>
                 </View>
+                )}
 
                 {/* Address Section */}
                 <View style={styles.section}>
@@ -389,7 +459,9 @@ export default function BookVendorScreen({ navigation, route }) {
                 <View style={styles.infoBanner}>
                     <Ionicons name="information-circle-outline" size={18} color='#1565C0' />
                     <AppText style={styles.infoText}>
-                        A payment is required to book. Your request will be sent to the vendor, and if declined, your payment will be refunded immediately.
+                        {isScoobyzMatch 
+                          ? 'Your request will be sent to the Scoobyz Team. We will match you with the best available expert and notify you once assigned. Payment will be calculated after assignment.'
+                          : 'A payment is required to book. Your request will be sent to the vendor, and if declined, your payment will be refunded immediately.'}
                     </AppText>
                 </View>
             </ScrollView>
@@ -397,8 +469,8 @@ export default function BookVendorScreen({ navigation, route }) {
             {/* Bottom CTA */}
             <View style={styles.footer}>
                 <View style={styles.footerLeft}>
-                    <AppText style={styles.footerLabel}>Payable Now</AppText>
-                    <AppText style={styles.footerTotal} weight="bold">₹ {amountPaid.toFixed(2)}</AppText>
+                    <AppText style={styles.footerLabel}>{isScoobyzMatch ? 'Estimated Price' : 'Payable Now'}</AppText>
+                    <AppText style={[styles.footerTotal, isScoobyzMatch && { fontSize: 18 }]} weight="bold">{isScoobyzMatch ? 'To be decided' : `₹ ${amountPaid.toFixed(2)}`}</AppText>
                 </View>
                 <TouchableOpacity
                     style={[styles.bookBtn, loading && { opacity: 0.7 }]}
@@ -561,7 +633,7 @@ const styles = StyleSheet.create({
     infoBanner: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: 'rgba(140, 111, 196, 0.1)', // Light theme.colors.primary
+        backgroundColor: theme.colors.primaryLight,
         marginHorizontal: 20,
         borderRadius: 12,
         padding: 14,
@@ -647,8 +719,8 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
     paymentOptionActive: {
-        borderColor: theme.colors.primaryDark,
-        backgroundColor: 'rgba(140, 111, 196, 0.05)',
+        borderColor: theme.colors.success,
+        backgroundColor: 'rgba(78, 108, 72, 0.06)',
     },
     paymentOptionInfo: {
         flex: 1,
@@ -673,12 +745,12 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     radioCircleActive: {
-        borderColor: theme.colors.primaryDark,
+        borderColor: theme.colors.success,
     },
     radioInner: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: theme.colors.primaryDark,
+        backgroundColor: theme.colors.success,
     },
- });
+});
