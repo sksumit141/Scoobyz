@@ -7,7 +7,7 @@ import AppText from './AppText';
 import CustomAlert from './CustomAlert';
 import { customerApi, BASE_URL } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
+
 
 const { width } = Dimensions.get('window');
 
@@ -52,11 +52,20 @@ export default function CustomDrawer(props) {
       setUser({
         name: profileData.name || 'User',
         email: profileData.email || '',
-        avatar: profileData.image ? (profileData.image.startsWith('http') ? profileData.image : `${BASE_URL}${profileData.image}`) : null
+        avatar: (profileData.image && profileData.image !== 'null') ? (profileData.image.startsWith('http') ? profileData.image : `${BASE_URL}${profileData.image}`) : null
       });
     } catch (error) {
       console.error('Drawer profile fetch error:', error);
     }
+  };
+
+  const getInitials = (name) => {
+    if (!name || name === 'User') return 'U';
+    const parts = name.trim().split(' ');
+    if (parts.length > 1 && parts[1]) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   const handleLogout = () => {
@@ -73,11 +82,8 @@ export default function CustomDrawer(props) {
     <View style={styles.container}>
       {/* Premium Header */}
       <View style={styles.headerContainer}>
-        <LinearGradient
-          colors={[theme.colors.primaryDark, '#2C3E50']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
+        <View
+          style={[styles.headerGradient, { backgroundColor: theme.colors.primaryDark }]}
         >
           <TouchableOpacity
             style={styles.profileSection}
@@ -90,7 +96,7 @@ export default function CustomDrawer(props) {
                   <Image source={{ uri: user.avatar }} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <Ionicons name="person" size={28} color={theme.colors.primaryDark} />
+                    <AppText style={styles.avatarInitials} weight="bold">{getInitials(user.name)}</AppText>
                   </View>
                 )}
                 <View style={styles.statusDot} />
@@ -104,7 +110,7 @@ export default function CustomDrawer(props) {
               <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.4)" />
             </View>
           </TouchableOpacity>
-        </LinearGradient>
+        </View>
       </View>
 
       <DrawerContentScrollView
@@ -149,10 +155,9 @@ export default function CustomDrawer(props) {
         </View>
 
         {/* Promo Section */}
-        <View style={styles.promoContainer}>
-          <LinearGradient
-            colors={['#FFF9F1', '#FFF4E6']}
-            style={styles.promoBox}
+        {/* <View style={styles.promoContainer}>
+          <View
+            style={[styles.promoBox, { backgroundColor: '#FFF9F1' }]}
           >
             <View style={styles.promoIcon}>
               <Ionicons name="gift-outline" size={20} color="#F57C00" />
@@ -161,8 +166,8 @@ export default function CustomDrawer(props) {
               <AppText weight="bold" style={styles.promoTitle}>Invite Friends</AppText>
               <AppText style={styles.promoSubtitle}>Get 20% off next booking</AppText>
             </View>
-          </LinearGradient>
-        </View>
+          </View>
+        </View> */}
       </DrawerContentScrollView>
 
       {/* Styled Footer */}
@@ -178,7 +183,7 @@ export default function CustomDrawer(props) {
           <AppText style={styles.logoutLabel} weight="bold">Log Out</AppText>
         </TouchableOpacity>
         <View style={styles.versionInfo}>
-          <AppText style={styles.versionText}>Scooby's Premium • v1.0.0</AppText>
+          <AppText style={styles.versionText}>Scoobyz• v1.0.0</AppText>
         </View>
       </View>
 
@@ -240,6 +245,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarInitials: {
+    fontSize: 22,
+    color: theme.colors.primaryDark,
   },
   statusDot: {
     position: 'absolute',

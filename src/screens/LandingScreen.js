@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, BackHandler, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { theme } from '../styles/theme';
 import { petsApi, customerApi, bookingsApi, BASE_URL } from '../services/api';
 import AddressHeader from '../components/AddressHeader';
 import BookingStatusBanner from '../components/BookingStatusBanner';
+import AutoScrollBanners from '../components/AutoScrollBanners';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,7 @@ const LandingScreen = ({ navigation }) => {
   const [selectedPet, setSelectedPet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('User');
+  const [hasUsedFreeDemo, setHasUsedFreeDemo] = useState(false);
   const [activeBooking, setActiveBooking] = useState(null);
 
   useFocusEffect(
@@ -32,6 +34,20 @@ const LandingScreen = ({ navigation }) => {
       fetchPets();
       fetchProfile();
       fetchActiveBookings();
+
+      const onBackPress = () => {
+        Alert.alert('Exit App', 'Are you sure you want to exit?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true;
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      return () => {
+        BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+      };
     }, [])
   );
 
@@ -52,6 +68,9 @@ const LandingScreen = ({ navigation }) => {
     try {
       const data = await customerApi.getProfile();
       if (data && data.name) setUserName(data.name.split(' ')[0]);
+      if (data && data.hasUsedFreeDemo !== undefined) {
+        setHasUsedFreeDemo(data.hasUsedFreeDemo);
+      }
     } catch (error) {
       console.error('Fetch profile error:', error);
     }
@@ -62,7 +81,7 @@ const LandingScreen = ({ navigation }) => {
       // Fetch both confirmed and in_progress
       const confirmed = await bookingsApi.list({ status: 'confirmed' });
       const inProgress = await bookingsApi.list({ status: 'in_progress' });
-      
+
       const allActive = [...(inProgress || []), ...(confirmed || [])];
       if (allActive.length > 0) {
         // Show the most recent or upcoming one
@@ -80,6 +99,9 @@ const LandingScreen = ({ navigation }) => {
     if (service.title === 'Boarding') {
       navigation.navigate('BoardingService', params);
     } else if (service.title === 'Walking') {
+      if (!hasUsedFreeDemo) {
+        params.isDemo = true;
+      }
       navigation.navigate('WalkingService', params);
     } else if (service.title === 'Veterinary') {
       navigation.navigate('VetService', params);
@@ -94,22 +116,23 @@ const LandingScreen = ({ navigation }) => {
 
         {/* Header Section */}
         <View
-          style={[styles.header, { 
+          style={[styles.header, {
             paddingTop: Math.max((insets.top || 40) - 10, 20),
-            backgroundColor: theme.colors.primaryDark 
+            backgroundColor: theme.colors.primaryDark
           }]}
         >
           <View style={styles.headerTopRow}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <AddressHeader lightTheme={true} />
-            </View>
-
             <TouchableOpacity 
               style={styles.headerIconBtn}
               onPress={() => navigation.openDrawer ? navigation.openDrawer() : navigation.goBack()}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <Ionicons name={navigation.openDrawer ? "menu-outline" : "arrow-back"} size={22} color={theme.colors.white} />
+              <Ionicons name={navigation.openDrawer ? "menu" : "arrow-back"} size={28} color={theme.colors.white} />
             </TouchableOpacity>
+
+            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+              <AddressHeader lightTheme={true} />
+            </View>
           </View>
 
 
@@ -122,8 +145,34 @@ const LandingScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.content}>
-          {/* Promo Banner Placeholder */}
-          <View style={styles.bannerContainer}>
+          {!hasUsedFreeDemo && (
+            <TouchableOpacity 
+              style={styles.demoBanner}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('WalkingService', { isDemo: true, serviceName: 'Walking', pet: selectedPet })}
+            >
+              <View style={styles.demoBannerContent}>
+                <View style={styles.demoBannerTextContainer}>
+                  <AppText style={styles.demoBannerTitle} weight="bold">Free 30-Min Demo Walk</AppText>
+                  <AppText style={styles.demoBannerSubtitle}>Try Scoobyz with a professional walker today. On us!</AppText>
+                </View>
+                <View style={styles.demoBannerIconContainer}>
+                  <MaterialCommunityIcons name="dog-side" size={48} color={theme.colors.white} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Auto Scrolling Banners */}
+          <AutoScrollBanners autoScrollTime={5000}>
+            {activeBooking && (
+              <BookingStatusBanner
+                booking={activeBooking}
+                onPress={() => navigation.navigate('MyBookings')}
+              />
+            )}
+
+            {/* Promo Banner Placeholder */}
             <View style={[styles.banner, { backgroundColor: theme.colors.accent }]}>
               <View style={styles.bannerTextContainer}>
                 <AppText style={{ color: theme.colors.textBlack, fontWeight: '900', fontSize: width < 360 ? 12 : 14, marginBottom: 4 }}>
@@ -137,13 +186,7 @@ const LandingScreen = ({ navigation }) => {
                 resizeMode="cover"
               />
             </View>
-          </View>
-
-          {/* Booking Status Banner */}
-          <BookingStatusBanner 
-            booking={activeBooking} 
-            onPress={() => activeBooking ? navigation.navigate('MyBookings') : navigation.navigate('Explore')}
-          />
+          </AutoScrollBanners>
 
           {/* My Pets Section */}
           <View style={styles.sectionHeader}>
@@ -237,12 +280,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+    paddingRight: 16,
+    marginLeft: -4, // Pull slightly left to align with content visually
   },
 
   greetingWrapper: {
@@ -258,6 +300,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  demoBanner: {
+    backgroundColor: theme.colors.primaryDark,
+    borderRadius: 24,
+    marginBottom: 20,
+    marginTop: 10,
+    padding: 24,
+    shadowColor: theme.colors.primaryDark,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  demoBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  demoBannerTextContainer: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  demoBannerTitle: {
+    color: theme.colors.white,
+    fontSize: 22,
+    marginBottom: 6,
+    lineHeight: 28,
+  },
+  demoBannerSubtitle: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  demoBannerIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   content: {
     paddingHorizontal: 24,
     paddingTop: 16,
@@ -269,8 +354,8 @@ const styles = StyleSheet.create({
   },
   banner: {
     paddingLeft: 20,
-    borderRadius: 16,
-    height: 100,
+    borderRadius: 24,
+    height: 110,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -282,7 +367,7 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: 120,
-    height: 100,
+    height: 110,
     position: 'absolute',
     right: -10,
     bottom: 0,
@@ -297,6 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: theme.colors.textBlack,
     fontFamily: theme.fonts.heading,
+    fontWeight: 'bold',
   },
   manageText: {
     color: theme.colors.textSecondary,
@@ -308,7 +394,7 @@ const styles = StyleSheet.create({
   petsScrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 10,
-    gap: 12, 
+    gap: 12,
   },
   petItem: {
     alignItems: 'center',

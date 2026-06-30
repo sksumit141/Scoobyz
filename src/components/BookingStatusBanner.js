@@ -11,7 +11,7 @@ const { width } = Dimensions.get('window');
 const BookingStatusBanner = ({ booking, onPress }) => {
   if (!booking) {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.statusBanner, styles.emptyBanner]}
         onPress={onPress}
         activeOpacity={0.8}
@@ -19,6 +19,8 @@ const BookingStatusBanner = ({ booking, onPress }) => {
         <LinearGradient
           colors={['#FFFFFF', '#F1F8E9']}
           style={styles.emptyGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
         >
           <View style={{ flex: 1 }}>
             <AppText style={styles.emptyTitle} weight="bold">Get your new service now</AppText>
@@ -33,26 +35,23 @@ const BookingStatusBanner = ({ booking, onPress }) => {
   }
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.statusBanner}
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <LinearGradient
-        colors={['#3D2A5E', '#1A1128']}
-        style={styles.statusBannerGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
+        style={[styles.statusBannerGradient, { backgroundColor: theme.colors.success }]}
       >
         {/* Abstract Background Element */}
-        <View style={styles.abstractCircle} />
-        
+
+
         <View style={styles.statusBannerLeft}>
           <View style={styles.statusIconCircle}>
-            <MaterialCommunityIcons 
-              name={booking.bookingType === 'boarding' ? 'home-heart' : 'dog-service'} 
-              size={24} 
-              color="#FFF" 
+            <MaterialCommunityIcons
+              name={booking.bookingType === 'boarding' ? 'home-heart' : 'dog-service'}
+              size={24}
+              color="#FFF"
             />
           </View>
           <View>
@@ -84,18 +83,17 @@ const BookingStatusBanner = ({ booking, onPress }) => {
         <View style={styles.arrowCircleLight}>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#FFF" />
         </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   statusBanner: {
-    marginBottom: 24,
     borderRadius: 24,
     overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#3D2A5E',
+    shadowColor: theme.colors.success,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 15,

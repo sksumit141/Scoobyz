@@ -7,6 +7,7 @@ import AppText from '../components/AppText';
 import CustomCalendar from '../components/CustomCalendar';
 import ServiceHeader from '../components/ServiceHeader';
 import CustomTimePicker from '../components/CustomTimePicker';
+import SelectionChoiceModal from '../components/SelectionChoiceModal';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
 
@@ -66,8 +67,9 @@ const calculateEndTime = (startTimeStr, durationLabel) => {
 
 export default function WalkingServiceScreen({ navigation }) {
   const route = useRoute();
+  const { isDemo, pet, serviceName } = route.params || {};
 
-  const [duration, setDuration] = useState('45 min');
+  const [duration, setDuration] = useState(isDemo ? '30 min' : '45 min');
   const [frequency, setFrequency] = useState('One-time');
   const [timesPerDay, setTimesPerDay] = useState(1);
 
@@ -76,6 +78,7 @@ export default function WalkingServiceScreen({ navigation }) {
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
   const [selectedSlots, setSelectedSlots] = useState(['09:00 AM']);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [choiceModalVisible, setChoiceModalVisible] = useState(false);
   const [customSlot, setCustomSlot] = useState(null);
 
   const [endDate, setEndDate] = useState(null);
@@ -109,50 +112,75 @@ export default function WalkingServiceScreen({ navigation }) {
     }
   };
 
-  const renderSlotSection = (title, icon, slots) => (
-    <View style={styles.slotSection}>
-      <View style={styles.slotSectionHeader}>
-        <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
-        <AppText style={styles.slotSectionTitle} weight="bold">{title}</AppText>
-      </View>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.slotsHorizontalScroll}
-        style={styles.slotsScrollWrapper}
-      >
-        {slots.map((slot, index) => {
-          const isActive = selectedSlots.includes(slot);
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[styles.slotItem, styles.slotItemHorizontal, isActive && styles.slotItemActive]}
-              onPress={() => toggleSlot(slot)}
-              activeOpacity={0.8}
-            >
-              <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
-    </View>
-  );
+  const getFilteredSlots = () => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false
+    });
 
-  const calculatePrice = () => {
-    let base = 0;
-    if (duration === '30 min') base = 200;
-    else if (duration === '45 min') base = 350;
-    else if (duration === '1 hr') base = 500;
+    const parts = formatter.formatToParts(new Date());
+    const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
 
-    let multiplier = 1;
-    if (frequency === 'Weekly') multiplier = 7;
-    else if (frequency === 'Monthly') multiplier = 25;
+    const nowIST = new Date(
+      getPart('year'), getPart('month') - 1, getPart('day'),
+      getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
+    );
 
-    const total = base * multiplier * timesPerDay;
-    return total;
+    const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+
+    if (!isToday) return ALL_SLOTS.slice(0, 9);
+
+    const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+
+    return ALL_SLOTS.filter(slot => {
+      const [time, period] = slot.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+
+      const slotTimeIST = new Date(nowIST);
+      slotTimeIST.setHours(hours, minutes, 0, 0);
+
+      return slotTimeIST > oneHourFromNowIST;
+    }).slice(0, 9);
   };
 
-  const totalPrice = calculatePrice();
+  const availableSlots = getFilteredSlots();
+
+  const basePrice = isDemo ? 0 : 300;
+  let multiplier = 1;
+  if (duration === '45 min') multiplier = 1.5;
+  if (duration === '1 hr') multiplier = 2;
+  if (frequency === 'Weekly') multiplier *= 7 * timesPerDay;
+  if (frequency === 'Monthly') multiplier *= 30 * timesPerDay;
+  const totalPrice = isDemo ? 0 : basePrice * multiplier;
+
+  const handleContinue = () => {
+    if (!selectedSlots || selectedSlots.length !== timesPerDay) {
+      alert(`Please select exactly ${timesPerDay} time slot(s).`);
+      return;
+    }
+    if (isDemo) {
+      const currentParams = route?.params || {};
+      navigation.navigate('BookVendor', {
+        ...currentParams,
+        duration: '30 min',
+        frequency: 'One-time',
+        timesPerDay: 1,
+        date: selectedDate,
+        time: selectedSlots.join(', '),
+        total: 0,
+        serviceName: 'Walking',
+        serviceType: 'Walking',
+        expert: { id: 'scoobyz_match', name: 'Scoobyz Team Match' }
+      });
+      return;
+    }
+    setChoiceModalVisible(true);
+  };
 
   const isFormValid = () => {
     if (frequency === 'One-time') {
@@ -164,39 +192,45 @@ export default function WalkingServiceScreen({ navigation }) {
 
   return (
     <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
-      <ServiceHeader title="Dog Walking" />
+      <ServiceHeader title="Dog Walking" showAddress={false} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Settings Card */}
-        <View style={styles.card}>
+        <View style={[styles.card, isDemo && { borderColor: theme.colors.primaryDark, borderWidth: 1 }]}>
           <AppText style={styles.label} weight="bold">Duration</AppText>
+          {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to 30 mins</AppText>}
           <View style={styles.chipRow}>
-            {DURATIONS.map(dur => (
+            {DURATIONS.map((d) => (
               <TouchableOpacity
-                key={dur}
-                style={[styles.chip, duration === dur && styles.chipActive]}
-                onPress={() => setDuration(dur)}
+                key={d}
+                style={[styles.chip, duration === d && styles.chipActive, isDemo && duration !== d && { opacity: 0.5 }]}
+                onPress={() => {
+                  if (!isDemo) setDuration(d);
+                }}
+                activeOpacity={isDemo ? 1 : 0.7}
               >
-                <AppText style={[styles.chipText, duration === dur && styles.chipTextActive]}>{dur}</AppText>
+                <AppText style={[styles.chipText, duration === d && styles.chipTextActive]}>{d}</AppText>
               </TouchableOpacity>
             ))}
           </View>
 
           <AppText style={[styles.label, { marginTop: 20 }]} weight="bold">Frequency</AppText>
+          {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to One-time</AppText>}
           <View style={styles.chipRow}>
-            {FREQUENCIES.map(freq => (
+            {FREQUENCIES.map((f) => (
               <TouchableOpacity
-                key={freq}
-                style={[styles.chip, frequency === freq && styles.chipActive]}
+                key={f}
+                style={[styles.chip, frequency === f && styles.chipActive, isDemo && frequency !== f && { opacity: 0.5 }]}
                 onPress={() => {
-                  setFrequency(freq);
-                  if (freq === 'One-time' && selectedSlots.length > 1) {
-                    setSelectedSlots([selectedSlots[0]]);
+                  if (!isDemo) {
+                    setFrequency(f);
+                    if (f === 'One-time') setTimesPerDay(1);
                   }
                 }}
+                activeOpacity={isDemo ? 1 : 0.7}
               >
-                <AppText style={[styles.chipText, frequency === freq && styles.chipTextActive]}>{freq}</AppText>
+                <AppText style={[styles.chipText, frequency === f && styles.chipTextActive]}>{f}</AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -227,10 +261,10 @@ export default function WalkingServiceScreen({ navigation }) {
         </View>
 
         {/* Schedule & Time */}
+        <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">
+          {frequency === 'One-time' ? 'Select Date' : 'Start Date'}
+        </AppText>
         <View style={styles.card}>
-          <AppText style={styles.label} weight="bold">
-            {frequency === 'One-time' ? 'Select Date' : 'Start Date'}
-          </AppText>
 
           <CustomCalendar
             selectedDate={selectedDate}
@@ -250,10 +284,28 @@ export default function WalkingServiceScreen({ navigation }) {
         <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">
           {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
         </AppText>
-        
-        {renderSlotSection('Morning', 'weather-sunny', MORNING_SLOTS)}
-        {renderSlotSection('Noon', 'white-balance-sunny', NOON_SLOTS)}
-        {renderSlotSection('Night', 'weather-night', NIGHT_SLOTS)}
+
+        <View style={styles.slotsGrid}>
+          {availableSlots.length > 0 ? (
+            availableSlots.map((slot, index) => {
+              const isActive = selectedSlots.includes(slot);
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.slotItem, isActive && styles.slotItemActive]}
+                  onPress={() => toggleSlot(slot)}
+                  activeOpacity={0.8}
+                >
+                  <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
+                </TouchableOpacity>
+              )
+            })
+          ) : (
+            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 10 }}>
+              No slots available for today. Please select a future date.
+            </AppText>
+          )}
+        </View>
 
         {/* Custom Slot Button */}
         <TouchableOpacity
@@ -266,10 +318,10 @@ export default function WalkingServiceScreen({ navigation }) {
           onPress={() => setTimePickerVisible(true)}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons 
-            name="plus" 
-            size={18} 
-            color={customSlot && !ALL_SLOTS.includes(customSlot) ? theme.colors.white : theme.colors.primaryDark} 
+          <MaterialCommunityIcons
+            name="plus"
+            size={18}
+            color={customSlot && !ALL_SLOTS.includes(customSlot) ? theme.colors.white : theme.colors.primaryDark}
           />
           <AppText
             style={[
@@ -309,22 +361,48 @@ export default function WalkingServiceScreen({ navigation }) {
           activeOpacity={0.8}
           disabled={!isFormValid()}
           onPress={() => {
-            const currentParams = route?.params || {};
-            navigation.navigate('WalkingWalkerList', {
-              ...currentParams,
-              duration,
-              frequency,
-              timesPerDay,
-              date: selectedDate,
-              time: selectedSlots.join(', '),
-              total: totalPrice,
-              serviceName: 'Walking'
-            });
+            setChoiceModalVisible(true);
           }}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Find Walkers</AppText>
         </TouchableOpacity>
       </View>
+
+      <SelectionChoiceModal
+        visible={choiceModalVisible}
+        onClose={() => setChoiceModalVisible(false)}
+        serviceType="Walking"
+        onSelectYourself={() => {
+          setChoiceModalVisible(false);
+          const currentParams = route?.params || {};
+          navigation.navigate('WalkingWalkerList', {
+            ...currentParams,
+            duration,
+            frequency,
+            timesPerDay,
+            date: selectedDate,
+            time: selectedSlots.join(', '),
+            total: totalPrice,
+            serviceName: 'Walking'
+          });
+        }}
+        onScoobyzMatch={() => {
+          setChoiceModalVisible(false);
+          const currentParams = route?.params || {};
+          navigation.navigate('BookVendor', {
+            ...currentParams,
+            duration,
+            frequency,
+            timesPerDay,
+            date: selectedDate,
+            time: selectedSlots.join(', '),
+            total: 0, // Admin decides
+            serviceName: 'Walking',
+            serviceType: 'Walking',
+            expert: { id: 'scoobyz_match', name: 'Scoobyz Team Match' }
+          });
+        }}
+      />
     </AppScreen>
   );
 }

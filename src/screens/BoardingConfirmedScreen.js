@@ -131,12 +131,13 @@ export default function BoardingConfirmedScreen({ navigation, route }) {
         <View style={{ marginBottom: 16 }}>
           <InvoiceComponent 
             booking={{
-              totalCost: total,
+              ...route.params?.bookingData,
+              totalCost: route.params?.total || total,
               paymentType: route.params?.paymentType || 'full',
               amountPaid: route.params?.amountPaid || total,
               remainingAmount: route.params?.remainingAmount || 0,
-              serviceName: 'Boarding Service',
-              vendorName: expert.name || 'Vendor',
+              serviceName: 'Premium Pet Boarding',
+              vendorName: expert?.name || 'Boarder',
               serviceDate: formatISTDate(route.params?.serviceDate || new Date()),
               serviceTimeSlot: route.params?.checkInTime || 'Standard',
             }} 

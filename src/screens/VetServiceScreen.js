@@ -53,38 +53,47 @@ export default function VetServiceScreen({ navigation }) {
     return selectedDate && selectedSlot;
   };
 
-  const renderSlotSection = (title, icon, slots) => (
-    <View style={styles.slotSection}>
-      <View style={styles.slotSectionHeader}>
-        <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
-        <AppText style={styles.slotSectionTitle} weight="bold">{title}</AppText>
-      </View>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.slotsHorizontalScroll}
-        style={styles.slotsScrollWrapper}
-      >
-        {slots.map((slot, index) => {
-          const isActive = selectedSlot === slot;
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[styles.slotItem, styles.slotItemHorizontal, isActive && styles.slotItemActive]}
-              onPress={() => setSelectedSlot(slot)}
-              activeOpacity={0.8}
-            >
-              <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
-    </View>
-  );
+  const getFilteredSlots = () => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(new Date());
+    const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+
+    const nowIST = new Date(
+      getPart('year'), getPart('month') - 1, getPart('day'),
+      getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
+    );
+
+    const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+
+    if (!isToday) return ALL_SLOTS.slice(0, 9);
+
+    const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+
+    return ALL_SLOTS.filter(slot => {
+      const [time, period] = slot.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+
+      const slotTimeIST = new Date(nowIST);
+      slotTimeIST.setHours(hours, minutes, 0, 0);
+
+      return slotTimeIST > oneHourFromNowIST;
+    }).slice(0, 9);
+  };
+
+  const availableSlots = getFilteredSlots();
 
   return (
     <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
-      <ServiceHeader title="Veterinary" />
+      <ServiceHeader title="Veterinary" showAddress={false} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -105,8 +114,8 @@ export default function VetServiceScreen({ navigation }) {
         </View>
 
         {/* Schedule & Time */}
+        <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">Select Date</AppText>
         <View style={styles.card}>
-          <AppText style={styles.label} weight="bold">Select Date</AppText>
 
           <CustomCalendar
             selectedDate={selectedDate}
@@ -115,10 +124,28 @@ export default function VetServiceScreen({ navigation }) {
         </View>
 
         <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">Time Slot</AppText>
-        
-        {renderSlotSection('Morning', 'weather-sunny', MORNING_SLOTS)}
-        {renderSlotSection('Noon', 'white-balance-sunny', NOON_SLOTS)}
-        {renderSlotSection('Night', 'weather-night', NIGHT_SLOTS)}
+
+        <View style={styles.slotsGrid}>
+          {availableSlots.length > 0 ? (
+            availableSlots.map((slot, index) => {
+              const isActive = selectedSlot === slot;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.slotItem, isActive && styles.slotItemActive]}
+                  onPress={() => setSelectedSlot(slot)}
+                  activeOpacity={0.8}
+                >
+                  <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
+                </TouchableOpacity>
+              )
+            })
+          ) : (
+            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 10 }}>
+              No slots available for today. Please select a future date.
+            </AppText>
+          )}
+        </View>
 
         {/* Custom Slot Button */}
         <TouchableOpacity
@@ -131,10 +158,10 @@ export default function VetServiceScreen({ navigation }) {
           onPress={() => setTimePickerVisible(true)}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons 
-            name="plus" 
-            size={18} 
-            color={selectedSlot && !ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark} 
+          <MaterialCommunityIcons
+            name="plus"
+            size={18}
+            color={selectedSlot && !ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark}
           />
           <AppText
             style={[

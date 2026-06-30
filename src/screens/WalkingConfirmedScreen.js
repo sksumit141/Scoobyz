@@ -103,12 +103,13 @@ export default function WalkingConfirmedScreen({ navigation }) {
         <View style={{ marginBottom: 16 }}>
           <InvoiceComponent 
             booking={{
-              totalCost: total,
+              ...route.params?.bookingData,
+              totalCost: route.params?.total || total,
               paymentType: route.params?.paymentType || 'full',
               amountPaid: route.params?.amountPaid || total,
               remainingAmount: route.params?.remainingAmount || 0,
               serviceName: 'Dog Walking Service',
-              vendorName: expert.name || 'Walker',
+              vendorName: expert?.name || 'Walker',
               serviceDate: date,
               serviceTimeSlot: time,
             }} 

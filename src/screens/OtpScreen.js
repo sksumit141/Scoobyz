@@ -46,6 +46,7 @@ const OtpScreen = ({ navigation, route }) => {
       if (data.success) {
         await AsyncStorage.setItem('authToken', data.token);
         await AsyncStorage.setItem('userId', String(data.userId));
+        await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
         
         if (data.isOnboarded) {
              navigation.replace('LandingScreen');
@@ -147,6 +148,7 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 8,
     alignSelf: 'flex-start',
+    marginLeft: -5,
   },
   backText: {
     fontSize: 13,

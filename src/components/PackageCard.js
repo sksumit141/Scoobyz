@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
+import PriceDisplay from './PriceDisplay';
 import { theme } from '../styles/theme';
 
 export default function PackageCard({ pkg, onAdd, isAdded, isSelected }) {
@@ -26,7 +27,12 @@ export default function PackageCard({ pkg, onAdd, isAdded, isSelected }) {
         </View>
       ) : null}
       
-      <AppText style={styles.price} weight="bold">₹ {pkg.price}</AppText>
+      <PriceDisplay 
+        originalPrice={pkg.price} 
+        serviceName={pkg.serviceName || 'Grooming'} // You can pass serviceName to pkg if needed
+        style={styles.price} 
+        valueStyle={styles.price} 
+      />
       
       <View style={styles.featuresList}>
         {(pkg.features || []).map((feature, i) => (

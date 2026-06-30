@@ -1,32 +1,41 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, Image, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, Image, ScrollView, Dimensions, ActivityIndicator, FlatList, SafeAreaView } from 'react-native';
+import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import AppText from './AppText';
+import AppScreen from './AppScreen';
 import { theme } from '../styles/theme';
 import { BASE_URL, discoverApi } from '../services/api';
 import { formatISTDate } from '../utils/date_utils';
-
 import ScoobyzBadge from './ScoobyzBadge';
 
 const { height, width } = Dimensions.get('window');
 
 export default function ExpertDetailsModal({ visible, expert, onClose, onSelect }) {
-  const [details, setDetails] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
+  const [details, setDetails] = useState(null);
+  const [packages, setPackages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('Services'); // 'Services', 'Gallery', 'Reviews'
+  const [previewImage, setPreviewImage] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (visible && expert?.id) {
       fetchFullDetails();
     } else {
-      details && setDetails(null);
+      setDetails(null);
+      setPackages([]);
+      setActiveTab('Services');
     }
   }, [visible, expert?.id]);
 
   const fetchFullDetails = async () => {
     try {
       setLoading(true);
-      const data = await discoverApi.groomerDetail(expert.id);
-      setDetails(data);
+      const [detailData, packagesData] = await Promise.all([
+        discoverApi.groomerDetail(expert.id),
+        discoverApi.groomerPackages(expert.id)
+      ]);
+      setDetails(detailData);
+      setPackages(packagesData?.packages || []);
     } catch (error) {
       console.error('Fetch expert details error:', error);
     } finally {
@@ -36,6 +45,65 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
 
   if (!expert) return null;
 
+  const renderServices = () => {
+    if (loading) return <ActivityIndicator color={theme.colors.primaryDark} style={{ marginTop: 20 }} />;
+    if (packages.length === 0) return <AppText style={styles.emptyText}>No services available.</AppText>;
+
+    return packages.map((pkg, idx) => (
+      <View key={idx} style={styles.serviceCard}>
+        <View style={styles.serviceIconContainer}>
+          <FontAwesome5 name="cut" size={20} color={theme.colors.primaryDark} />
+        </View>
+        <View style={styles.serviceInfo}>
+          <AppText style={styles.serviceTitle} weight="bold">{pkg.serviceName}</AppText>
+          {pkg.description ? <AppText style={styles.serviceDesc} numberOfLines={2}>{pkg.description}</AppText> : null}
+        </View>
+        <View style={styles.servicePrice}>
+          <AppText style={{ fontSize: 10, color: '#718096', marginBottom: 2 }}>Starting at</AppText>
+          <AppText style={styles.servicePriceText} weight="bold">₹ {pkg.price}</AppText>
+        </View>
+      </View>
+    ));
+  };
+
+  const renderGallery = () => {
+    if (loading) return <ActivityIndicator color={theme.colors.primaryDark} style={{ marginTop: 20 }} />;
+    const gallery = details?.gallery || [];
+    if (gallery.length === 0) return <AppText style={styles.emptyText}>No images in gallery.</AppText>;
+
+    return (
+      <View style={styles.galleryGrid}>
+        {gallery.map((imgUrl, idx) => (
+          <TouchableOpacity key={idx} onPress={() => setPreviewImage(imgUrl)} activeOpacity={0.9}>
+            <Image source={{ uri: imgUrl }} style={styles.galleryImage} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const renderReviews = () => {
+    if (loading) return <ActivityIndicator color={theme.colors.primaryDark} style={{ marginTop: 20 }} />;
+    const reviews = details?.reviews || [];
+    if (reviews.length === 0) return <AppText style={styles.emptyText}>No reviews yet.</AppText>;
+
+    return reviews.map((rev, idx) => (
+      <View key={idx} style={styles.reviewCard}>
+        <View style={styles.reviewTop}>
+          <AppText weight="bold" style={styles.customerName}>{rev.customerName || 'Anonymous'}</AppText>
+          <View style={styles.reviewRating}>
+            <Ionicons name="star" size={12} color="#F1C40F" />
+            <AppText style={styles.reviewRatingText}>{rev.rating}</AppText>
+          </View>
+        </View>
+        <AppText style={styles.reviewComment}>{rev.comment}</AppText>
+        <AppText style={styles.reviewDate}>
+          {formatISTDate(rev.createdAt, { day: 'numeric', month: 'short', year: 'numeric' })}
+        </AppText>
+      </View>
+    ));
+  };
+
   return (
     <Modal
       visible={visible}
@@ -43,15 +111,23 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
-
-        <View style={styles.modalContent}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <MaterialCommunityIcons name="close" size={24} color={theme.colors.textBlack} />
+      <AppScreen style={styles.modalContainer} padding={false} scrollable={false}>
+        {/* Header */}
+        <SafeAreaView style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={onClose}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
           </TouchableOpacity>
+          <AppText style={styles.headerTitle} type="introTitle" weight="bold">Expert Profile</AppText>
+        </SafeAreaView>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Main Profile Card */}
+          <View style={[styles.profileCard, { position: 'relative' }]}>
+            {(expert.isCertified || expert.badge === 'Elite' || expert.badge === 'Pro' || expert.badge === 'Scoobyz Certified') && (
+              <View style={styles.badgeContainer}>
+                <ScoobyzBadge />
+              </View>
+            )}
 
             <View style={styles.imageWrapper}>
               <Image
@@ -62,274 +138,283 @@ export default function ExpertDetailsModal({ visible, expert, onClose, onSelect 
                       : `${BASE_URL}${expert.profilePhoto || expert.image}`)
                     : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop'
                 }}
-                style={styles.largeImage}
+                style={styles.profileImage}
               />
-              {(expert.isCertified || expert.badge === 'Elite' || expert.badge === 'Pro' || expert.badge === 'Scoobyz Certified') && (
-                <View style={{ position: 'absolute', bottom: -12, left: 0, right: 0, alignItems: 'center' }}>
-                  <ScoobyzBadge />
-                </View>
-              )}
             </View>
+            <AppText style={styles.name} type="heading" weight="bold">{expert.name}</AppText>
+            <AppText style={styles.title}>{expert.title || 'Expert'}</AppText>
 
-            <View style={styles.headerInfo}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <AppText style={styles.name} type="heading" weight="bold">{expert.name}</AppText>
-                {(expert.isCertified || expert.badge === 'Elite' || expert.badge === 'Pro' || expert.badge === 'Scoobyz Certified') && (
-                  <ScoobyzBadge />
-                )}
-              </View>
-              <AppText style={styles.title}>{expert.title}</AppText>
-            </View>
-
-
+            {/* Stats Row */}
             <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons name="star" size={18} color={theme.colors.textBlack} />
+              <View style={styles.statCard}>
                 <AppText style={styles.statValue} weight="bold">{details ? details.rating : (expert.rating || '0')}</AppText>
-                <AppText style={styles.statLabel}>Rating</AppText>
+                <AppText style={styles.statLabel}>Ratings</AppText>
               </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Ionicons name="chatbubble-outline" size={18} color={theme.colors.textBlack} />
+              <View style={styles.statCard}>
                 <AppText style={styles.statValue} weight="bold">{details ? details.reviewCount : (expert.reviews || '0')}</AppText>
                 <AppText style={styles.statLabel}>Reviews</AppText>
               </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Ionicons name="pricetag-outline" size={18} color={theme.colors.textBlack} />
-                <AppText style={styles.statValue} weight="bold">₹ {expert.price}</AppText>
-                <AppText style={styles.statLabel}>Starting</AppText>
+              <View style={styles.statCard}>
+                <AppText style={styles.statValue} weight="bold">{details?.experience || expert.experience || '0'} yrs</AppText>
+                <AppText style={styles.statLabel}>Experience</AppText>
               </View>
             </View>
 
-            <View style={styles.section}>
-              <AppText style={styles.sectionTitle} type="heading" weight="600">About</AppText>
-              <AppText style={styles.aboutText}>
-                {details?.bio || `${expert.name} is a professional providing top-tier services. With extensive experience and a genuine love for animals, they ensure your pet's needs are met with the highest standards of care.`}
-              </AppText>
-            </View>
-
-            {details?.tags && details.tags.length > 0 && (
-              <View style={styles.section}>
-                <AppText style={styles.sectionTitle} type="heading" weight="600">Specialties</AppText>
-                <View style={styles.tagsContainer}>
-                  {details.tags.split(',').map((tag, i) => (
-                    <View key={i} style={styles.tag}>
-                      <AppText style={styles.tagText}>{tag.trim()}</AppText>
-                    </View>
-                  ))}
-                </View>
+            {/* About */}
+            {details?.bio && (
+              <View style={styles.aboutSection}>
+                <AppText style={styles.aboutText} numberOfLines={3}>{details.bio}</AppText>
               </View>
             )}
-
-            {/* Reviews Section */}
-            <View style={styles.section}>
-              <AppText style={styles.sectionTitle} type="heading" weight="600">Recent Reviews</AppText>
-              {loading ? (
-                <ActivityIndicator color={theme.colors.primaryDark} style={{ marginTop: 10 }} />
-              ) : details?.reviews?.length > 0 ? (
-                details.reviews.map((rev, idx) => (
-                  <View key={idx} style={styles.reviewCard}>
-                    <View style={styles.reviewTop}>
-                      <AppText weight="bold" style={styles.customerName}>{rev.customerName || 'Anonymous'}</AppText>
-                      <View style={styles.reviewRating}>
-                        <Ionicons name="star" size={12} color="#F1C40F" />
-                        <AppText style={styles.reviewRatingText}>{rev.rating}</AppText>
-                      </View>
-                    </View>
-                    <AppText style={styles.reviewComment}>{rev.comment}</AppText>
-                    <AppText style={styles.reviewDate}>
-                      {formatISTDate(rev.createdAt, { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </AppText>
-                  </View>
-                ))
-              ) : (
-                <AppText style={styles.noReviews}>No reviews yet.</AppText>
-              )}
-            </View>
-
-          </ScrollView>
-
-          <View style={styles.bottomBar}>
-            <TouchableOpacity
-              style={styles.selectBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                onClose();
-                onSelect();
-              }}
-            >
-              <AppText style={styles.selectBtnText} weight="bold">Select Context</AppText>
-            </TouchableOpacity>
           </View>
 
+          {/* Tabs */}
+          <View style={styles.tabsContainer}>
+            {['Services', 'Gallery', 'Reviews'].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]} weight="bold">
+                  {tab}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Tab Content */}
+          <View style={styles.tabContent}>
+            {activeTab === 'Services' && renderServices()}
+            {activeTab === 'Gallery' && renderGallery()}
+            {activeTab === 'Reviews' && renderReviews()}
+          </View>
+
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.bookBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              onClose();
+              onSelect();
+            }}
+          >
+            <AppText style={styles.bookBtnText} weight="bold">Book Appointment</AppText>
+          </TouchableOpacity>
         </View>
-      </View>
+
+        {/* Image Preview Modal */}
+        <Modal visible={!!previewImage} transparent={true} animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+          <View style={styles.previewContainer}>
+            <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setPreviewImage(null)}>
+              <Ionicons name="close" size={30} color="#FFF" />
+            </TouchableOpacity>
+            {previewImage && <Image source={{ uri: previewImage }} style={styles.previewImage} resizeMode="contain" />}
+          </View>
+        </Modal>
+
+      </AppScreen>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  dismissArea: {
-    flex: 1,
-  },
-  modalContent: {
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: height * 0.85,
-    paddingTop: 16,
   },
-  closeButton: {
-    alignSelf: 'flex-end',
-    padding: 16,
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    ...theme.shadows.small,
+  },
+  headerTitle: {
+    fontSize: 20,
+    color: theme.colors.textBlack,
+    marginLeft: 16,
+    fontFamily: theme.fonts.heading
   },
   scrollContent: {
-    paddingHorizontal: 24,
     paddingBottom: 40,
+  },
+  profileCard: {
+    backgroundColor: theme.colors.white,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+    borderRadius: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   imageWrapper: {
     alignItems: 'center',
-    marginVertical: 24,
+    marginBottom: 16,
   },
-  largeImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#E5E5E5',
-    borderWidth: 4,
-    borderColor: theme.colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+  profileImage: {
+    width: 110,
+    height: 110,
+    borderRadius: 35, // Squircle look
+    backgroundColor: theme.colors.surface,
   },
-  proBadge: {
+  badgeContainer: {
     position: 'absolute',
-    bottom: 0,
-    backgroundColor: '#526D82',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-  },
-  proText: {
-    color: theme.colors.white,
-    fontSize: 11,
-    letterSpacing: 0.5,
-  },
-  headerInfo: {
-    alignItems: 'center',
-    marginBottom: 24,
+    top: 0,
+    left: 0,
+    transform: [{ rotate: '-15deg' }],
+    zIndex: 999,
+    elevation: 10,
   },
   name: {
-    fontSize: 24,
+    fontSize: 22,
     color: theme.colors.textBlack,
     marginBottom: 4,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     color: theme.colors.textSecondary,
+    marginBottom: 20,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    paddingVertical: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 10,
   },
-  statItem: {
+  statCard: {
+    backgroundColor: theme.colors.surface, // Grey background for stats
     flex: 1,
+    paddingVertical: 12,
+    borderRadius: 16,
     alignItems: 'center',
   },
   statValue: {
     fontSize: 16,
     color: theme.colors.textBlack,
-    marginTop: 4,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: theme.colors.primaryDark,
   },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#EAEAEC',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: theme.colors.textBlack,
-    marginBottom: 12,
+  aboutSection: {
+    marginTop: 20,
   },
   aboutText: {
     fontSize: 14,
     color: theme.colors.textPrimary,
     lineHeight: 22,
+    textAlign: 'center',
   },
-  tagsContainer: {
+  tabsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  tabButtonActive: {
+    backgroundColor: theme.colors.primaryDark, // Slate blue
+  },
+  tabText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  tabTextActive: {
+    color: theme.colors.white,
+  },
+  tabContent: {
+    paddingHorizontal: 20,
+  },
+  serviceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  serviceIconContainer: {
+    width: 44,
+    height: 44,
+    backgroundColor: theme.colors.surface, // Light grey squircle
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  serviceInfo: {
+    flex: 1,
+  },
+  serviceTitle: {
+    fontSize: 16,
+    color: theme.colors.textBlack,
+    marginBottom: 4,
+  },
+  serviceDesc: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  servicePrice: {
+    marginLeft: 16,
+    alignItems: 'flex-end',
+  },
+  servicePriceText: {
+    fontSize: 16,
+    color: theme.colors.textBlack,
+  },
+  galleryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
   },
-  tag: {
-    backgroundColor: '#F0F2F5',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  tagText: {
-    fontSize: 13,
-    color: theme.colors.textPrimary,
-    fontWeight: '500',
-  },
-  bottomBar: {
-    paddingHorizontal: 24,
-    paddingBottom: 30, // Safe area
-    paddingTop: 16,
-    backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-  },
-  selectBtn: {
-    backgroundColor: '#4A6B4B',
-    paddingVertical: 16,
+  galleryImage: {
+    width: (width - 50) / 2,
+    height: (width - 50) / 2,
     borderRadius: 12,
-    alignItems: 'center',
-  },
-  selectBtnText: {
-    color: theme.colors.white,
-    fontSize: 16,
+    marginBottom: 10,
   },
   reviewCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#F0F0F0',
   },
   reviewTop: {
     flexDirection: 'row',
@@ -361,10 +446,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textTertiary,
   },
-  noReviews: {
-    fontSize: 14,
+  emptyText: {
+    textAlign: 'center',
     color: theme.colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: 8,
-  }
+    marginTop: 20,
+    fontSize: 14,
+  },
+  footer: {
+    backgroundColor: 'transparent', // Make background transparent to match design
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 30, // for safe area
+  },
+  bookBtn: {
+    backgroundColor: theme.colors.success, // Dark green matching the image
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  bookBtnText: {
+    color: theme.colors.white,
+    fontSize: 16,
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  previewImage: {
+    width: width,
+    height: height * 0.8,
+  },
 });

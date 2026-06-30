@@ -1,22 +1,18 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Modal,
   StyleSheet,
   TouchableOpacity,
-  PanResponder,
   Dimensions,
-  Animated,
+  PanResponder,
 } from 'react-native';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CLOCK_SIZE = Math.min(SCREEN_WIDTH * 0.72, 280);
-const RADIUS = CLOCK_SIZE / 2;
-const CENTER = RADIUS;
-const HAND_LENGTH = RADIUS * 0.78;
-const DOT_RADIUS = RADIUS * 0.08;
+const CENTER = CLOCK_SIZE / 2;
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
@@ -29,109 +25,36 @@ function polarToCartesian(angleDeg, r) {
   };
 }
 
-function getAngleFromTouch(cx, cy, x, y) {
-  const dx = x - cx;
-  const dy = y - cy;
-  let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
-  if (angle < 0) angle += 360;
-  return angle;
-}
-
 export default function CustomTimePicker({ visible, initialTime, onConfirm, onClose }) {
-  // Parse initialTime like "02:30 PM"
   const parseInitial = (t) => {
     if (!t) return { hour: 10, minute: 0, period: 'AM' };
     const [timePart, per] = t.split(' ');
     const [h, m] = timePart.split(':').map(Number);
-    return { hour: h, minute: m, period: per || 'AM' };
+    return { hour: h || 10, minute: m || 0, period: per || 'AM' };
   };
 
-  const init = parseInitial(initialTime);
-  const [mode, setMode] = useState('hour'); // 'hour' | 'minute'
-  const [hour, setHour] = useState(init.hour);
-  const [minute, setMinute] = useState(init.minute);
-  const [period, setPeriod] = useState(init.period);
+  const [mode, setModeState] = useState('hour'); // 'hour' | 'minute'
+  const modeRef = useRef(mode);
+  
+  const setMode = (m) => {
+    setModeState(m);
+    modeRef.current = m;
+  };
 
-  const clockRef = useRef(null);
-  const clockLayout = useRef({ x: 0, y: 0 });
+  const [hour, setHour] = useState(10);
+  const [minute, setMinute] = useState(0);
+  const [period, setPeriod] = useState('AM');
 
-  const getAngleValue = useCallback((x, y) => {
-    const cx = clockLayout.current.x + CENTER;
-    const cy = clockLayout.current.y + CENTER;
-    const angle = getAngleFromTouch(cx, cy, x, y);
-
-    if (mode === 'hour') {
-      const seg = Math.round(angle / 30) % 12;
-      return seg === 0 ? 12 : seg;
-    } else {
-      const seg = Math.round(angle / 6) % 60;
-      return seg < 0 ? seg + 60 : seg;
+  // Reset state when modal opens to ensure fresh state
+  useEffect(() => {
+    if (visible) {
+      const init = parseInitial(initialTime);
+      setHour(init.hour);
+      setMinute(init.minute);
+      setPeriod(init.period);
+      setMode('hour');
     }
-  }, [mode]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        const { pageX, pageY } = evt.nativeEvent;
-        const val = getAngleValue(pageX, pageY);
-        if (mode === 'hour') setHour(val);
-        else setMinute(val);
-      },
-      onPanResponderMove: (evt) => {
-        const { pageX, pageY } = evt.nativeEvent;
-        const val = getAngleValue(pageX, pageY);
-        if (mode === 'hour') setHour(val);
-        else setMinute(val);
-      },
-      onPanResponderRelease: () => {
-        if (mode === 'hour') setMode('minute');
-      },
-    })
-  ).current;
-
-  // Recalculate panResponder callbacks when mode changes
-  const panResponderDynamic = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (evt) => {
-      const { pageX, pageY } = evt.nativeEvent;
-      const angle = getAngleFromTouch(
-        clockLayout.current.x + CENTER,
-        clockLayout.current.y + CENTER,
-        pageX,
-        pageY
-      );
-      if (mode === 'hour') {
-        const seg = Math.round(angle / 30) % 12;
-        setHour(seg === 0 ? 12 : seg);
-      } else {
-        const seg = Math.round(angle / 6) % 60;
-        setMinute(seg < 0 ? seg + 60 : seg);
-      }
-    },
-    onPanResponderMove: (evt) => {
-      const { pageX, pageY } = evt.nativeEvent;
-      const angle = getAngleFromTouch(
-        clockLayout.current.x + CENTER,
-        clockLayout.current.y + CENTER,
-        pageX,
-        pageY
-      );
-      if (mode === 'hour') {
-        const seg = Math.round(angle / 30) % 12;
-        setHour(seg === 0 ? 12 : seg);
-      } else {
-        const seg = Math.round(angle / 6) % 60;
-        setMinute(seg < 0 ? seg + 60 : seg);
-      }
-    },
-    onPanResponderRelease: () => {
-      if (mode === 'hour') setMode('minute');
-    },
-  });
-
+  }, [visible, initialTime]);
 
   const formattedTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${period}`;
 
@@ -140,13 +63,39 @@ export default function CustomTimePicker({ visible, initialTime, onConfirm, onCl
     onClose();
   };
 
-  const handleReset = () => {
-    const i = parseInitial(initialTime);
-    setHour(i.hour);
-    setMinute(i.minute);
-    setPeriod(i.period);
-    setMode('hour');
+  const handleTouch = (evt) => {
+    const { locationX, locationY } = evt.nativeEvent;
+    // locationX/Y are relative to the view the PanResponder is attached to!
+    const dx = locationX - CENTER;
+    const dy = locationY - CENTER;
+    let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    if (angle < 0) angle += 360;
+
+    if (modeRef.current === 'hour') {
+      let h = Math.round(angle / 30) % 12;
+      if (h === 0) h = 12;
+      setHour(h);
+    } else {
+      let m = Math.round(angle / 6) % 60;
+      if (m < 0) m += 60;
+      setMinute(m);
+    }
   };
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => handleTouch(evt),
+    onPanResponderMove: (evt) => handleTouch(evt),
+    onPanResponderRelease: () => {
+      if (modeRef.current === 'hour') {
+        setMode('minute');
+      }
+    },
+  }), []);
+
+  const activeAngle = mode === 'hour' ? (hour / 12) * 360 : (minute / 60) * 360;
+  const armLength = CENTER * 0.78 - 18;
 
   return (
     <Modal
@@ -159,23 +108,20 @@ export default function CustomTimePicker({ visible, initialTime, onConfirm, onCl
         <TouchableOpacity style={styles.overlayDismiss} onPress={onClose} activeOpacity={1} />
 
         <View style={styles.sheet}>
-          {/* Grabber */}
           <View style={styles.grabberWrap}>
             <View style={styles.grabber} />
           </View>
 
           <AppText style={styles.title} type="heading" weight="bold">Set Custom Time</AppText>
 
-          {/* Time Display */}
+          {/* Time Display Header */}
           <View style={styles.timeDisplay}>
             <TouchableOpacity
               style={[styles.timeSegment, mode === 'hour' && styles.timeSegmentActive]}
               onPress={() => setMode('hour')}
+              activeOpacity={0.8}
             >
-              <AppText
-                style={[styles.timeSegmentText, mode === 'hour' && styles.timeSegmentTextActive]}
-                weight="bold"
-              >
+              <AppText style={[styles.timeSegmentText, mode === 'hour' && styles.timeSegmentTextActive]} weight="bold">
                 {hour.toString().padStart(2, '0')}
               </AppText>
             </TouchableOpacity>
@@ -185,16 +131,13 @@ export default function CustomTimePicker({ visible, initialTime, onConfirm, onCl
             <TouchableOpacity
               style={[styles.timeSegment, mode === 'minute' && styles.timeSegmentActive]}
               onPress={() => setMode('minute')}
+              activeOpacity={0.8}
             >
-              <AppText
-                style={[styles.timeSegmentText, mode === 'minute' && styles.timeSegmentTextActive]}
-                weight="bold"
-              >
+              <AppText style={[styles.timeSegmentText, mode === 'minute' && styles.timeSegmentTextActive]} weight="bold">
                 {minute.toString().padStart(2, '0')}
               </AppText>
             </TouchableOpacity>
 
-            {/* AM/PM toggle */}
             <View style={styles.periodToggle}>
               <TouchableOpacity
                 style={[styles.periodBtn, period === 'AM' && styles.periodBtnActive]}
@@ -211,107 +154,92 @@ export default function CustomTimePicker({ visible, initialTime, onConfirm, onCl
             </View>
           </View>
 
-          {/* Mode indicator */}
           <AppText style={styles.modeLabel}>
             {mode === 'hour' ? 'Select Hour' : 'Select Minute'}
           </AppText>
 
-          {/* Analog Clock */}
-          <View
-            ref={clockRef}
-            style={styles.clockContainer}
-            onLayout={(e) => {
-              clockRef.current?.measureInWindow((x, y) => {
-                clockLayout.current = { x, y };
-              });
-            }}
-            {...panResponderDynamic.panHandlers}
-          >
-            {/* Clock face */}
+          {/* Circular Clock Face */}
+          <View style={styles.clockContainer}>
             <View style={styles.clockFace}>
-              {/* Center dot */}
               <View style={styles.centerDot} />
 
+              {/* Clock Arm */}
+              <View
+                style={{
+                  position: 'absolute',
+                  left: CENTER - 1.5,
+                  top: CENTER - armLength,
+                  width: 3,
+                  height: armLength,
+                  backgroundColor: theme.colors.primaryDark,
+                  transform: [
+                    { translateY: armLength / 2 },
+                    { rotate: `${activeAngle}deg` },
+                    { translateY: -armLength / 2 }
+                  ],
+                  zIndex: 5,
+                }}
+              />
 
-              {/* Numbers */}
-              {mode === 'hour'
-                ? HOURS.map((h) => {
-                    const angle = (h / 12) * 360;
-                    const pos = polarToCartesian(angle, RADIUS * 0.78);
-                    const isActive = hour === h;
-                    return (
-                      <TouchableOpacity
-                        key={`h-${h}`}
-                        style={[
-                          styles.numBtn,
-                          {
-                            left: pos.x - 18,
-                            top: pos.y - 18,
-                          },
-                          isActive && styles.numBtnActive,
-                        ]}
-                        onPress={() => { setHour(h); setMode('minute'); }}
-                      >
-                        <AppText style={[styles.numText, isActive && styles.numTextActive]} weight="bold">
-                          {h}
-                        </AppText>
-                      </TouchableOpacity>
-                    );
-                  })
-                : MINUTES.map((m) => {
-                    const angle = (m / 60) * 360;
-                    const pos = polarToCartesian(angle, RADIUS * 0.78);
-                    const isActive = minute === m;
-                    return (
-                      <TouchableOpacity
-                        key={`m-${m}`}
-                        style={[
-                          styles.numBtn,
-                          {
-                            left: pos.x - 18,
-                            top: pos.y - 18,
-                          },
-                          isActive && styles.numBtnActive,
-                        ]}
-                        onPress={() => setMinute(m)}
-                      >
-                        <AppText style={[styles.numText, isActive && styles.numTextActive]} weight="bold">
-                          {m.toString().padStart(2, '0')}
-                        </AppText>
-                      </TouchableOpacity>
-                    );
-                  })}
+              {mode === 'hour' ? (
+                HOURS.map((h) => {
+                  const angle = (h / 12) * 360;
+                  const pos = polarToCartesian(angle, CENTER * 0.78);
+                  const isActive = hour === h;
+                  
+                  return (
+                    <View
+                      key={`h-${h}`}
+                      style={[
+                        styles.numBtn,
+                        { left: pos.x - 20, top: pos.y - 20 },
+                        isActive && styles.numBtnActive
+                      ]}
+                    >
+                      <AppText style={[styles.numText, isActive && styles.numTextActive]} weight="bold">
+                        {h}
+                      </AppText>
+                    </View>
+                  );
+                })
+              ) : (
+                MINUTES.map((m) => {
+                  const angle = (m / 60) * 360;
+                  const pos = polarToCartesian(angle, CENTER * 0.78);
+                  const isActive = minute === m;
+                  
+                  return (
+                    <View
+                      key={`m-${m}`}
+                      style={[
+                        styles.numBtn,
+                        { left: pos.x - 20, top: pos.y - 20 },
+                        isActive && styles.numBtnActive
+                      ]}
+                    >
+                      <AppText style={[styles.numText, isActive && styles.numTextActive]} weight="bold">
+                        {m.toString().padStart(2, '0')}
+                      </AppText>
+                    </View>
+                  );
+                })
+              )}
 
-              {/* Tick marks */}
-              {Array.from({ length: 60 }, (_, i) => {
-                const a = (i / 60) * 360;
-                const isMajor = i % 5 === 0;
-                const inner = polarToCartesian(a, RADIUS * (isMajor ? 0.88 : 0.92));
-                const outer = polarToCartesian(a, RADIUS * 0.97);
-                return (
-                  <View
-                    key={`tick-${i}`}
-                    style={{
-                      position: 'absolute',
-                      width: isMajor ? 2 : 1,
-                      height: RADIUS * (isMajor ? 0.09 : 0.05),
-                      backgroundColor: isMajor ? 'rgba(73,94,113,0.4)' : 'rgba(73,94,113,0.15)',
-                      left: outer.x - (isMajor ? 1 : 0.5),
-                      top: outer.y,
-                      transform: [{ rotate: `${a}deg` }],
-                    }}
-                  />
-                );
-              })}
+              {/* Invisible Overlay for PanResponder (ensures locationX/Y are robust) */}
+              <View 
+                style={StyleSheet.absoluteFill} 
+                {...panResponder.panHandlers} 
+                collapsable={false}
+              />
             </View>
           </View>
 
           {/* Actions */}
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.8}>
               <AppText style={styles.cancelText} weight="bold">Cancel</AppText>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
+            <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm} activeOpacity={0.8}>
               <AppText style={styles.confirmText} weight="bold">Set {formattedTime}</AppText>
             </TouchableOpacity>
           </View>
@@ -417,22 +345,22 @@ const styles = StyleSheet.create({
   clockContainer: {
     width: CLOCK_SIZE,
     height: CLOCK_SIZE,
-    marginBottom: 24,
+    marginBottom: 32,
+    marginTop: 8,
   },
   clockFace: {
     width: CLOCK_SIZE,
     height: CLOCK_SIZE,
-    borderRadius: RADIUS,
+    borderRadius: CLOCK_SIZE / 2,
     backgroundColor: theme.colors.surface,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: 'rgba(73,94,113,0.1)',
     position: 'relative',
-    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   centerDot: {
     position: 'absolute',
@@ -446,18 +374,18 @@ const styles = StyleSheet.create({
   },
   numBtn: {
     position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 7,
+    zIndex: 4,
   },
   numBtnActive: {
     backgroundColor: theme.colors.primaryDark,
   },
   numText: {
-    fontSize: 13,
+    fontSize: 15,
     color: theme.colors.textPrimary,
   },
   numTextActive: {

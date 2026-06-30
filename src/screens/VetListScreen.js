@@ -111,7 +111,6 @@ export default function VetListScreen({ navigation, route }) {
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.introSection}>
           <AppText style={styles.introTitle} type="heading" weight="bold">Available Veterinarians</AppText>
-          <AppText style={styles.introSubtitle}>Choose a trusted professional for {consultType}</AppText>
         </View>
 
         {loading && <ActivityIndicator size="large" color={theme.colors.primaryDark} style={{ marginTop: 40 }} />}
@@ -135,7 +134,7 @@ export default function VetListScreen({ navigation, route }) {
               key={vet.id}
               expert={vet}
               onView={() => setActiveModalExpert(vet)}
-              onSelect={() => navigation.navigate('BookVendor', { ...route.params, expert: vet, total: vet.price, serviceType: 'Veterinary' })}
+              onSelect={() => navigation.navigate('BookVendor', { ...route.params, expert: vet, total: vet.price, serviceType: 'Veterinary', visitType: route.params?.consultType || 'Clinic Visit' })}
               isSelected={selectedVet === vet.id}
             />
           ))}
@@ -150,7 +149,7 @@ export default function VetListScreen({ navigation, route }) {
           activeOpacity={0.8}
           onPress={() => {
             const vet = vets.find(w => w.id === selectedVet);
-            navigation.navigate('BookVendor', { ...route.params, expert: vet, total: vet.price, serviceType: 'Veterinary' });
+            navigation.navigate('BookVendor', { ...route.params, expert: vet, total: vet.price, serviceType: 'Veterinary', visitType: route.params?.consultType || 'Clinic Visit' });
           }}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Continue with Vet</AppText>
@@ -163,7 +162,7 @@ export default function VetListScreen({ navigation, route }) {
         onClose={() => setActiveModalExpert(null)}
         onSelect={() => {
           setActiveModalExpert(null);
-          navigation.navigate('BookVendor', { ...route.params, expert: activeModalExpert, total: activeModalExpert.price, serviceType: 'Veterinary' });
+          navigation.navigate('BookVendor', { ...route.params, expert: activeModalExpert, total: activeModalExpert.price, serviceType: 'Veterinary', visitType: route.params?.consultType || 'Clinic Visit' });
         }}
       />
 
@@ -218,8 +217,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    marginHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,

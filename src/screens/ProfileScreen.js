@@ -43,7 +43,7 @@ const ProfileScreen = ({ navigation }) => {
       setUser({
         name: profileData.name || 'User',
         email: profileData.email || '',
-        avatar: profileData.image || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300',
+        avatar: (profileData.image && profileData.image !== 'null') ? (profileData.image.startsWith('http') ? profileData.image : `${BASE_URL}${profileData.image}`) : null,
         stats: [
           { label: 'Bookings', value: '12' },
           { label: 'My Pets', value: String(petsData.length) },
@@ -56,6 +56,15 @@ const ProfileScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getInitials = (name) => {
+    if (!name || name === 'User') return 'U';
+    const parts = name.trim().split(' ');
+    if (parts.length > 1 && parts[1]) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   const confirmDeletePet = (id, name) => {
@@ -170,7 +179,7 @@ const ProfileScreen = ({ navigation }) => {
       title: 'Support',
       items: [
         { icon: 'help-circle-outline', label: 'Help & FAQ', route: 'Help' },
-        { icon: 'chat-outline', label: 'Contact Us', route: 'Contact' },
+        { icon: 'chat-outline', label: 'Contact Us', route: 'SupportChat' },
         { icon: 'information-outline', label: 'About Scoobyz', route: 'About' },
       ]
     }
@@ -199,7 +208,7 @@ const ProfileScreen = ({ navigation }) => {
             <Ionicons name="menu" size={28} color={theme.colors.textBlack} />
           </TouchableOpacity>
           <AppText style={styles.appBarTitle} weight="bold">Profile</AppText>
-          <View style={{ width: 28 }} /> {/* Spacer to center title */}
+          <View style={{ width: 28 }} />{/* Spacer to center title */}
         </View>
 
         {/* Floating Profile Card */}
@@ -217,7 +226,7 @@ const ProfileScreen = ({ navigation }) => {
                 <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <AppText style={styles.avatarInitial} weight="bold">{user.name.charAt(0)}</AppText>
+                  <AppText style={styles.avatarInitial} weight="bold">{getInitials(user.name)}</AppText>
                 </View>
               )}
               <View style={styles.headerEditBadge}>

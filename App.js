@@ -1,6 +1,11 @@
+import 'react-native-gesture-handler';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import Toast from 'react-native-toast-message';
+import { DiscountProvider } from './src/contexts/DiscountContext';
 import { NavigationContainer } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SplashScreen from 'expo-splash-screen';
@@ -100,8 +105,13 @@ export default function App() {
         const authCheck = (async () => {
           try {
             const token = await AsyncStorage.getItem('authToken');
+            const isOnboarded = await AsyncStorage.getItem('isOnboarded');
             if (token) {
-              setInitialRoute('LandingScreen');
+              if (isOnboarded === 'true') {
+                setInitialRoute('LandingScreen');
+              } else {
+                setInitialRoute('RegisterName');
+              }
             }
           } catch (e) {
             console.error('Auth check error:', e);
@@ -130,70 +140,75 @@ export default function App() {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
-          <Stack.Screen name="OtpScreen" component={OtpScreen} />
-          <Stack.Screen name="RegisterName" component={RegisterNameScreen} />
-          <Stack.Screen name="AddPetProfile" component={AddPetProfileScreen} />
-          <Stack.Screen name="LandingScreen" component={AppDrawer} />
-          <Stack.Screen name="SlotSelect" component={SlotSelectScreen} />
-          <Stack.Screen name="SelectGroomer" component={SelectGroomerScreen} />
-          <Stack.Screen name="SelectCompany" component={SelectCompanyScreen} />
-          <Stack.Screen name="ExplorePackages" component={ExplorePackagesScreen} />
-          <Stack.Screen name="ExpertProfile" component={ExpertProfileScreen} />
-          <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
-          <Stack.Screen name="BookingCardDetails" component={BookingCardDetailsScreen} />
-          <Stack.Screen name="BookingCancelledStatus" component={BookingCancelledStatusScreen} />
-          <Stack.Screen name="BookingRescheduledStatus" component={BookingRescheduledStatusScreen} />
-          <Stack.Screen name="AddressBook" component={AddressBookScreen} />
+    <DiscountProvider>
+      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
+            <Stack.Screen name="OtpScreen" component={OtpScreen} />
+            <Stack.Screen name="RegisterName" component={RegisterNameScreen} />
+            <Stack.Screen name="AddPetProfile" component={AddPetProfileScreen} />
+            <Stack.Screen name="LandingScreen" component={AppDrawer} />
+            <Stack.Screen name="SlotSelect" component={SlotSelectScreen} />
+            <Stack.Screen name="SelectGroomer" component={SelectGroomerScreen} />
+            <Stack.Screen name="SelectCompany" component={SelectCompanyScreen} />
+            <Stack.Screen name="ExplorePackages" component={ExplorePackagesScreen} />
+            <Stack.Screen name="ExpertProfile" component={ExpertProfileScreen} />
+            <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+            <Stack.Screen name="BookingCardDetails" component={BookingCardDetailsScreen} />
+            <Stack.Screen name="BookingCancelledStatus" component={BookingCancelledStatusScreen} />
+            <Stack.Screen name="BookingRescheduledStatus" component={BookingRescheduledStatusScreen} />
+            <Stack.Screen name="AddressBook" component={AddressBookScreen} />
 
-          {/* Dog Boarding Flow */}
-          <Stack.Screen name="BoardingService" component={BoardingServiceScreen} />
-          <Stack.Screen name="BoardingLocation" component={BoardingLocationScreen} />
-          <Stack.Screen name="BoardingMealSetup" component={BoardingMealSetupScreen} />
-          <Stack.Screen name="BoardingConfirmed" component={BoardingConfirmedScreen} />
+            {/* Dog Boarding Flow */}
+            <Stack.Screen name="BoardingService" component={BoardingServiceScreen} />
+            <Stack.Screen name="BoardingLocation" component={BoardingLocationScreen} />
+            <Stack.Screen name="BoardingMealSetup" component={BoardingMealSetupScreen} />
+            <Stack.Screen name="BoardingConfirmed" component={BoardingConfirmedScreen} />
 
-          {/* Dog Walking Flow */}
-          <Stack.Screen name="WalkingService" component={WalkingServiceScreen} />
-          <Stack.Screen name="WalkingWalkerList" component={WalkingWalkerListScreen} />
-          <Stack.Screen name="WalkingConfirmed" component={WalkingConfirmedScreen} />
+            {/* Dog Walking Flow */}
+            <Stack.Screen name="WalkingService" component={WalkingServiceScreen} />
+            <Stack.Screen name="WalkingWalkerList" component={WalkingWalkerListScreen} />
+            <Stack.Screen name="WalkingConfirmed" component={WalkingConfirmedScreen} />
 
-          {/* Veterinary Flow */}
-          <Stack.Screen name="VetService" component={VetServiceScreen} />
-          <Stack.Screen name="VetList" component={VetListScreen} />
-          <Stack.Screen name="VetConfirmed" component={VetConfirmedScreen} />
+            {/* Veterinary Flow */}
+            <Stack.Screen name="VetService" component={VetServiceScreen} />
+            <Stack.Screen name="VetList" component={VetListScreen} />
+            <Stack.Screen name="VetConfirmed" component={VetConfirmedScreen} />
 
-          {/* Support & Chat */}
-          <Stack.Screen name="Help" component={HelpSupportScreen} />
-          <Stack.Screen name="SupportChat" component={SupportChatScreen} />
-          <Stack.Screen name="Contact" component={ChatScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
+            {/* Support & Chat */}
+            <Stack.Screen name="Help" component={HelpSupportScreen} />
+            <Stack.Screen name="SupportChat" component={SupportChatScreen} />
+            <Stack.Screen name="Contact" component={ChatScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
 
-          {/* Articles */}
-          <Stack.Screen name="Articles" component={ArticlesScreen} />
-          <Stack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
+            {/* Articles */}
+            <Stack.Screen name="Articles" component={ArticlesScreen} />
+            <Stack.Screen name="ArticleDetail" component={ArticleDetailScreen} />
 
-          {/* Reviews */}
-          <Stack.Screen name="RatingReview" component={RatingReviewScreen} />
-          <Stack.Screen name="ViewSubmittedReview" component={ViewSubmittedReviewScreen} />
+            {/* Reviews */}
+            <Stack.Screen name="RatingReview" component={RatingReviewScreen} />
+            <Stack.Screen name="ViewSubmittedReview" component={ViewSubmittedReviewScreen} />
 
-          {/* Tracking */}
-          <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
-          <Stack.Screen name="VideoCall" component={VideoCallScreen} />
+            {/* Tracking */}
+            <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+            <Stack.Screen name="VideoCall" component={VideoCallScreen} />
 
-          {/* New Booking Request Flow */}
-          <Stack.Screen name="BookVendor" component={BookVendorScreen} />
-          <Stack.Screen name="BookingPending" component={BookingPendingScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-      <BookingStatusOverlay />
-      <PushNotificationManager />
-    </View>
+            {/* New Booking Request Flow */}
+            <Stack.Screen name="BookVendor" component={BookVendorScreen} />
+            <Stack.Screen name="BookingPending" component={BookingPendingScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+        </SafeAreaProvider>
+        <BookingStatusOverlay />
+        <PushNotificationManager />
+        <Toast />
+      </GestureHandlerRootView>
+    </DiscountProvider>
   );
 }

@@ -75,9 +75,7 @@
       "expo-location",
       "expo-image-picker"
     ],
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "extra": {
       "eas": {
         "projectId": "6671a92e-629c-4556-9744-52fda3da0ab0"

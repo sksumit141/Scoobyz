@@ -5,6 +5,7 @@ import AppText from '../components/AppText';
 import CustomCalendar from '../components/CustomCalendar';
 import ServiceHeader from '../components/ServiceHeader';
 import CustomTimePicker from '../components/CustomTimePicker';
+import SelectionChoiceModal from '../components/SelectionChoiceModal';
 import { theme } from '../styles/theme';
 import { useRoute } from '@react-navigation/native';
 import { formatISTDate } from '../utils/date_utils';
@@ -54,6 +55,7 @@ export default function SlotSelectScreen({ navigation }) {
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
   const [selectedSlot, setSelectedSlot] = useState('09:00 AM');
   const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [choiceModalVisible, setChoiceModalVisible] = useState(false);
 
   const handlePrevMonth = () => {
     const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
@@ -112,38 +114,50 @@ export default function SlotSelectScreen({ navigation }) {
     setSuggestionOverlay({ ...suggestionOverlay, visible: false });
   };
 
-  const renderSlotSection = (title, icon, slots) => (
-    <View style={styles.slotSection}>
-      <View style={styles.slotSectionHeader}>
-        <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
-        <AppText style={styles.slotSectionTitle} weight="bold">{title}</AppText>
-      </View>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.slotsHorizontalScroll}
-        style={styles.slotsScrollWrapper}
-      >
-        {slots.map((slot, index) => {
-          const isActive = selectedSlot === slot;
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[styles.slotItem, styles.slotItemHorizontal, isActive && styles.slotItemActive]}
-              onPress={() => setSelectedSlot(slot)}
-              activeOpacity={0.8}
-            >
-              <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
-    </View>
-  );
+  const getFilteredSlots = () => {
+    // 1. Get current time parts in IST
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false
+    });
+
+    const parts = formatter.formatToParts(new Date());
+    const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+
+    // 2. Create a Date object that reflects the exact IST date and time
+    const nowIST = new Date(
+      getPart('year'), getPart('month') - 1, getPart('day'),
+      getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
+    );
+
+    const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+
+    if (!isToday) return ALL_SLOTS.slice(0, 9);
+
+    // Filter slots to be at least 1 hour from now (in IST)
+    const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+
+    return ALL_SLOTS.filter(slot => {
+      const [time, period] = slot.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+
+      const slotTimeIST = new Date(nowIST);
+      slotTimeIST.setHours(hours, minutes, 0, 0);
+
+      return slotTimeIST > oneHourFromNowIST;
+    }).slice(0, 9);
+  };
+
+  const availableSlots = getFilteredSlots();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ServiceHeader title={`Schedule ${serviceName}`} />
+      <ServiceHeader title={`Schedule ${serviceName}`} showAddress={false} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -163,7 +177,7 @@ export default function SlotSelectScreen({ navigation }) {
             activeOpacity={0.8}
           >
             <MaterialCommunityIcons name="storefront-outline" size={20} color={visitType === 'Studio' ? theme.colors.white : theme.colors.primaryDark} />
-            <AppText style={[styles.toggleText, visitType === 'Studio' && styles.toggleTextActive]}>Studio</AppText>
+            <AppText style={[styles.toggleText, visitType === 'Studio' && styles.toggleTextActive]}>Vans & Studio</AppText>
           </TouchableOpacity>
         </View>
 
@@ -184,9 +198,27 @@ export default function SlotSelectScreen({ navigation }) {
           <AppText style={styles.sectionTitle} type="heading" weight="bold">Available Slots</AppText>
         </View>
 
-        {renderSlotSection('Morning', 'weather-sunny', MORNING_SLOTS)}
-        {renderSlotSection('Noon', 'white-balance-sunny', NOON_SLOTS)}
-        {renderSlotSection('Night', 'weather-night', NIGHT_SLOTS)}
+        <View style={styles.slotsGrid}>
+          {availableSlots.length > 0 ? (
+            availableSlots.map((slot, index) => {
+              const isActive = selectedSlot === slot;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.slotItem, isActive && styles.slotItemActive]}
+                  onPress={() => setSelectedSlot(slot)}
+                  activeOpacity={0.8}
+                >
+                  <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
+                </TouchableOpacity>
+              )
+            })
+          ) : (
+            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 10 }}>
+              No slots available for today. Please select a future date.
+            </AppText>
+          )}
+        </View>
 
         {/* Custom Slot Button */}
         <TouchableOpacity
@@ -199,10 +231,10 @@ export default function SlotSelectScreen({ navigation }) {
           onPress={() => setTimePickerVisible(true)}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons 
-            name="plus" 
-            size={18} 
-            color={!ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark} 
+          <MaterialCommunityIcons
+            name="plus"
+            size={18}
+            color={!ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark}
           />
           <AppText
             style={[
@@ -253,16 +285,16 @@ export default function SlotSelectScreen({ navigation }) {
           style={styles.confirmBtn}
           activeOpacity={0.8}
           onPress={() => {
-            const params = {
-              serviceName,
-              pet,
-              date: selectedDate,
-              time: selectedSlot,
-              visitType
-            };
             if (visitType === 'Home Visit') {
-              navigation.navigate('SelectGroomer', params);
+              setChoiceModalVisible(true);
             } else {
+              const params = {
+                serviceName,
+                pet,
+                date: selectedDate,
+                time: selectedSlot,
+                visitType
+              };
               navigation.navigate('SelectCompany', params);
             }
           }}
@@ -270,6 +302,43 @@ export default function SlotSelectScreen({ navigation }) {
           <AppText style={styles.confirmBtnText} weight="bold">Confirm</AppText>
         </TouchableOpacity>
       </View>
+
+      <SelectionChoiceModal
+        visible={choiceModalVisible}
+        onClose={() => setChoiceModalVisible(false)}
+        serviceType="Grooming"
+        onSelectYourself={() => {
+          setChoiceModalVisible(false);
+          const params = {
+            serviceName,
+            pet,
+            date: selectedDate,
+            time: selectedSlot,
+            visitType
+          };
+          navigation.navigate('SelectGroomer', params);
+        }}
+        onScoobyzMatch={() => {
+          setChoiceModalVisible(false);
+          const params = {
+            serviceName,
+            pet,
+            date: selectedDate,
+            time: selectedSlot,
+            visitType,
+            serviceType: 'Grooming',
+            expert: { id: 'scoobyz_match', name: 'Scoobyz Team Match' },
+            cart: [{
+              id: 'generic_grooming',
+              title: 'Standard Home Visit Grooming',
+              price: 0,
+              features: ['Custom package assigned by Admin']
+            }],
+            total: 0
+          };
+          navigation.navigate('BookVendor', params);
+        }}
+      />
 
       {/* Suggestion Options Overlay */}
       <Modal

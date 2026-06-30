@@ -84,7 +84,6 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.introSection}>
           <AppText style={styles.introTitle} type="heading" weight="bold">Available Walkers</AppText>
-          <AppText style={styles.introSubtitle}>Choose a trusted walker for your dog</AppText>
         </View>
 
         {loading && <ActivityIndicator size="large" color={theme.colors.primaryDark} style={{ marginTop: 40 }} />}
@@ -199,8 +198,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    marginHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,

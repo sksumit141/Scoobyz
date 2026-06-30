@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import AppText from '../components/AppText';
 import AppScreen from '../components/AppScreen';
@@ -93,13 +94,18 @@ const AddPetProfileScreen = ({ navigation, route }) => {
         await petsApi.create(formData);
       }
       
+      // Once a pet is created during signup, they are fully onboarded
+      if (!isEdit) {
+        await AsyncStorage.setItem('isOnboarded', 'true');
+      }
+
       setAlertConfig({ 
         visible: true, 
         title: 'Success!', 
         message: isEdit ? 'Pet profile updated successfully!' : 'Pet profile created successfully!',
         onClose: () => {
           setAlertConfig({ ...alertConfig, visible: false });
-          navigation.navigate('LandingScreen');
+          navigation.replace('LandingScreen');
         }
       });
     } catch (error) {

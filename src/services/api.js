@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const BASE_URL = 'https://scoooobys.onrender.com';
+export const BASE_URL = 'https://scoobyz-backend.onrender.com';
 // export const BASE_URL = 'http://192.168.1.33:8000';
 
 const DEV_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjUsImlhdCI6MTc3NjUzMjY4OSwiZXhwIjoxNzc5MTI0Njg5fQ.60CHG4cZc8yBKr1HdzyJhYHVZADjsn2MJKDFaPD-_xI';
@@ -14,6 +14,17 @@ const getHeaders = async () => {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+};
+
+const buildQuery = (params) => {
+    if (!params) return '';
+    const parts = [];
+    for (const key in params) {
+        if (params[key] !== undefined && params[key] !== null) {
+            parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+        }
+    }
+    return parts.length > 0 ? '?' + parts.join('&') : '';
 };
 
 export const api = {
@@ -144,16 +155,16 @@ export const addressApi = {
 
 // ── Discovery ──
 export const discoverApi = {
-    groomers: (params) => api.get(`/discover/groomers${params ? '?' + new URLSearchParams(params) : ''}`),
+    groomers: (params) => api.get(`/discover/groomers${buildQuery(params)}`),
     groomerDetail: (id) => api.get(`/discover/groomers/${id}`),
     groomerPackages: (id) => api.get(`/discover/groomers/${id}/packages`),
     groomerSlots: (id, date) => api.get(`/discover/groomers/${id}/slots?date=${date}`),
-    boarding: (params) => api.get(`/discover/boarding${params ? '?' + new URLSearchParams(params) : ''}`),
+    boarding: (params) => api.get(`/discover/boarding${buildQuery(params)}`),
     boardingDetail: (id) => api.get(`/discover/boarding/${id}`),
-    walkers: (params) => api.get(`/discover/walkers${params ? '?' + new URLSearchParams(params) : ''}`),
+    walkers: (params) => api.get(`/discover/walkers${buildQuery(params)}`),
     walkerDetail: (id) => api.get(`/discover/walkers/${id}`),
     companies: () => api.get('/discover/companies'),
-    byService: (serviceName, params) => api.get(`/discover/by-service/${encodeURIComponent(serviceName)}${params ? '?' + new URLSearchParams(params) : ''}`),
+    byService: (serviceName, params) => api.get(`/discover/by-service/${encodeURIComponent(serviceName)}${buildQuery(params)}`),
 };
 
 // ── Bookings ──
@@ -163,7 +174,7 @@ export const bookingsApi = {
     createWalking: (data) => api.post('/customer/bookings/walking', data),
     createVeterinary: (data) => api.post('/customer/bookings/veterinary', data),
     getWalkingQuote: (data) => api.post('/customer/bookings/walking-quote', data),
-    list: (params) => api.get(`/customer/bookings${params ? '?' + new URLSearchParams(params) : ''}`),
+    list: (params) => api.get(`/customer/bookings${buildQuery(params)}`),
     get: (id) => api.get(`/customer/bookings/${id}`),
     getStatus: (id) => api.get(`/customer/bookings/${id}/status`),
     cancel: (id, data) => api.put(`/customer/bookings/${id}/cancel`, data),

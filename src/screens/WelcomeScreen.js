@@ -29,15 +29,19 @@ import { supabase } from '../lib/supabase';
 WebBrowser.maybeCompleteAuthSession();
 
 // Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+try {
+  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+} catch (e) {
+  console.log('LayoutAnimation not supported');
 }
 
 const { width, height } = Dimensions.get('window');
 const isSmallDevice = height < 700;
 
 const WelcomeScreen = ({ navigation }) => {
-  const [authState, setAuthState] = useState('initial');
+  const [authState, setAuthState] = useState('selection');
   const [selectedMode, setSelectedMode] = useState(null);
   const [loading, setLoading] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', icon: 'alert-circle-outline' });
@@ -53,106 +57,107 @@ const WelcomeScreen = ({ navigation }) => {
   };
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-      redirectUri: Platform.OS === 'web' 
-          ? AuthSession.makeRedirectUri({ path: 'oauthredirect' })
-          : 'com.googleusercontent.apps.1013005276460-pusoouaic016hst3dsb938mm22h36bed:/oauthredirect',
-      scopes: ['openid', 'profile', 'email'],
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    redirectUri: Platform.OS === 'web'
+      ? AuthSession.makeRedirectUri({ path: 'oauthredirect' })
+      : 'com.googleusercontent.apps.1013005276460-pusoouaic016hst3dsb938mm22h36bed:/oauthredirect',
+    scopes: ['openid', 'profile', 'email'],
   });
 
   React.useEffect(() => {
-      if (response?.type === 'success') {
-          const idToken = response.authentication?.idToken;
-          const accessToken = response.authentication?.accessToken;
-          if (idToken) {
-              handleSupabaseGoogle(idToken);
-          } else if (accessToken) {
-              handleGoogleFallback(accessToken);
-          }
+    if (response?.type === 'success') {
+      const idToken = response.authentication?.idToken;
+      const accessToken = response.authentication?.accessToken;
+      if (idToken) {
+        handleSupabaseGoogle(idToken);
+      } else if (accessToken) {
+        handleGoogleFallback(accessToken);
       }
+    }
   }, [response]);
 
   // Path 1: idToken → Supabase verification → your backend
   const handleSupabaseGoogle = async (idToken) => {
-      setLoading(true);
-      try {
-          const { data: sd, error: se } = await supabase.auth.signInWithIdToken({
-              provider: 'google',
-              token: idToken,
-          });
-          if (se) { showAlert('Login Error', se.message); setLoading(false); return; }
-          const u = sd.user;
-          await sendToBackend(u.email, u.user_metadata?.full_name || u.user_metadata?.name || '', u.user_metadata?.sub || u.id);
-      } catch (e) {
-          console.error('Supabase Google error:', e);
-          showAlert('Error', e.message || 'Google sign-in failed.');
-      } finally {
-          setLoading(false);
-      }
+    setLoading(true);
+    try {
+      const { data: sd, error: se } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+      if (se) { showAlert('Login Error', se.message); setLoading(false); return; }
+      const u = sd.user;
+      await sendToBackend(u.email, u.user_metadata?.full_name || u.user_metadata?.name || '', u.user_metadata?.sub || u.id);
+    } catch (e) {
+      console.error('Supabase Google error:', e);
+      showAlert('Error', e.message || 'Google sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Path 2 (fallback): accessToken → Google UserInfo API → your backend
   const handleGoogleFallback = async (accessToken) => {
-      setLoading(true);
-      try {
-          const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-              headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (!r.ok) throw new Error('Failed to fetch Google user info');
-          const p = await r.json();
-          await sendToBackend(p.email, p.name, p.sub);
-      } catch (e) {
-          console.error('Google fallback error:', e);
-          showAlert('Error', e.message || 'Google sign-in failed.');
-      } finally {
-          setLoading(false);
-      }
+    setLoading(true);
+    try {
+      const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!r.ok) throw new Error('Failed to fetch Google user info');
+      const p = await r.json();
+      await sendToBackend(p.email, p.name, p.sub);
+    } catch (e) {
+      console.error('Google fallback error:', e);
+      showAlert('Error', e.message || 'Google sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Shared: send verified user info to YOUR backend
   const sendToBackend = async (email, name, googleId) => {
-      setLoading(true);
-      try {
-          const res = await fetch(`${BASE_URL}/auth/google-supabase`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, name, googleId, app: 'customer', type: selectedMode }),
-          });
-          const data = await res.json();
-          if (data.success) {
-              await AsyncStorage.setItem('authToken', data.token);
-              await AsyncStorage.setItem('userId', String(data.userId));
-              if (data.isOnboarded) {
-                  navigation.replace('LandingScreen');
-              } else {
-                  navigation.replace('RegisterName');
-              }
-          } else {
-              if (res.status === 403) {
-                  showAlert('Wrong App', data.message || 'You have a Partner account. Please use the Scoob Partner app.');
-              } else if (data.error === 'Account Exists') {
-                  showAlert(
-                    'Login/Signup Mixup',
-                    'Oops! It looks like you already have an account. Please select "Log In" instead of "Sign Up".',
-                    'account-alert-outline'
-                  );
-              } else if (data.error === 'No Account Found') {
-                  showAlert(
-                    'Login/Signup Mixup',
-                    'We couldn\'t find an account with this email. Please select "Sign Up" to create a new account.',
-                    'account-plus-outline'
-                  );
-              } else {
-                  showAlert(data.error || 'Login Failed', data.message || 'Unknown error');
-              }
-          }
-      } catch (error) {
-          console.error('Backend auth error:', error);
-          showAlert('Error', 'Failed to connect to server.');
-      } finally {
-          setLoading(false);
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/auth/google-supabase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, googleId, app: 'customer', type: selectedMode }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await AsyncStorage.setItem('authToken', data.token);
+        await AsyncStorage.setItem('userId', String(data.userId));
+        await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
+        if (data.isOnboarded) {
+          navigation.replace('LandingScreen');
+        } else {
+          navigation.replace('RegisterName');
+        }
+      } else {
+        if (res.status === 403) {
+          showAlert('Wrong App', data.message || 'You have a Partner account. Please use the Scoob Partner app.');
+        } else if (data.error === 'Account Exists') {
+          showAlert(
+            'Login/Signup Mixup',
+            'Oops! It looks like you already have an account. Please select "Log In" instead of "Sign Up".',
+            'account-alert-outline'
+          );
+        } else if (data.error === 'No Account Found') {
+          showAlert(
+            'Login/Signup Mixup',
+            'We couldn\'t find an account with this email. Please select "Sign Up" to create a new account.',
+            'account-plus-outline'
+          );
+        } else {
+          showAlert(data.error || 'Login Failed', data.message || 'Unknown error');
+        }
       }
+    } catch (error) {
+      console.error('Backend auth error:', error);
+      showAlert('Error', 'Failed to connect to server.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderActionSection = () => {
@@ -213,7 +218,7 @@ const WelcomeScreen = ({ navigation }) => {
                 <MaterialCommunityIcons name="cellphone" size={22} color={theme.colors.textPrimary} />
                 <AppText style={styles.socialButtonText}>Continue with Phone</AppText>
               </AppButton>
-              
+
               <AppButton
                 style={styles.socialButton}
                 onPress={() => promptAsync()}
@@ -222,7 +227,7 @@ const WelcomeScreen = ({ navigation }) => {
                 <MaterialCommunityIcons name="google" size={22} color={theme.colors.accent} />
                 <AppText style={styles.socialButtonText}>Continue with Google</AppText>
               </AppButton>
-              
+
               <AppButton
                 style={styles.socialButton}
                 onPress={() => navigation.navigate('RegisterName')}

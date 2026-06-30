@@ -8,6 +8,7 @@ import {
     Alert,
     Image,
     Dimensions,
+    Platform,
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
@@ -55,7 +56,7 @@ function buildPayload(params, paymentDetails) {
     const base = {
         vendorUserId,
         petId: pet?.id,
-        totalCost: total || 0,
+        totalCost: paymentDetails.totalCost || total || 0,
         serviceDate: safeDate,
         serviceTimeSlot: safeTime,
         petName: pet?.name || 'Pet',
@@ -187,57 +188,95 @@ export default function BookVendorScreen({ navigation, route }) {
         setLoading(true);
         try {
             const apiCall = getServiceApi(serviceType);
-            const payload = {
-                ...buildPayload(params, { paymentType, amountPaid: discountedAmountPaid, remainingAmount: discountedRemainingAmount }),
-                addressId: selectedAddress?.id,
-                requiresAdminAssignment: isScoobyzMatch,
-                isDemo: isDemo || false
-            };
-            const result = await apiCall(payload);
-            const bookingId = result?.bookingId || result?.id;
+            let finalPaymentReferenceId = null;
 
-            if (!bookingId) throw new Error('Booking created but no ID returned.');
-
-            // Call Razorpay if not Scoobyz match and not a demo
+            // Call Razorpay FIRST if not Scoobyz match and not a demo
             if (!isScoobyzMatch && !isDemo && discountedAmountPaid > 0) {
                 try {
-                    // Create order on backend
-                    const orderRes = await fetch(`${BASE_URL}/payment/create-order`, {
+                    // Create order on backend directly with amount
+                    const orderRes = await fetch(`${BASE_URL}/payment/create-order-direct`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${await require('@react-native-async-storage/async-storage').default.getItem('userToken')}`
+                            'Authorization': `Bearer ${await require('@react-native-async-storage/async-storage').default.getItem('authToken')}`
                         },
-                        body: JSON.stringify({ bookingId })
+                        body: JSON.stringify({ amount: discountedAmountPaid })
                     });
                     const orderData = await orderRes.json();
                     
                     if (orderData.error) throw new Error(orderData.error);
 
                     const options = {
-                        description: `Booking #${bookingId}`,
+                        description: `Payment for ${serviceType}`,
                         image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
                         currency: orderData.currency,
-                        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'YOUR_RAZORPAY_KEY_ID', // Replace with real key id in production
+                        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T3ueH6b31wuS9u', // Replace with real key id in production
                         amount: orderData.amount,
                         name: 'Scoobyz',
                         order_id: orderData.orderId,
                         theme: { color: '#3d2a5e' }
                     };
 
-                    const paymentData = await RazorpayCheckout.open(options);
-                    // Webhook will handle updating status on backend
+                    const paymentData = await new Promise((resolve, reject) => {
+                        if (Platform.OS === 'web') {
+                            const loadScript = src => new Promise((resolveScript) => {
+                                const script = document.createElement('script');
+                                script.src = src;
+                                script.onload = () => resolveScript(true);
+                                script.onerror = () => resolveScript(false);
+                                document.body.appendChild(script);
+                            });
+                            
+                            loadScript('https://checkout.razorpay.com/v1/checkout.js').then((res) => {
+                                if (!res) return reject(new Error('Razorpay SDK failed to load'));
+                                const rzp = new window.Razorpay({
+                                    ...options,
+                                    handler: function (response) {
+                                        resolve(response);
+                                    },
+                                    modal: {
+                                        ondismiss: function() {
+                                            reject(new Error('Payment cancelled'));
+                                        }
+                                    }
+                                });
+                                rzp.on('payment.failed', function (response){
+                                    reject(new Error(response.error.description));
+                                });
+                                rzp.open();
+                            });
+                        } else {
+                            RazorpayCheckout.open(options).then(resolve).catch(reject);
+                        }
+                    });
+
                     console.log('Payment Success:', paymentData);
+                    finalPaymentReferenceId = paymentData.razorpay_payment_id;
                 } catch (paymentError) {
                     console.error('Payment Error:', paymentError);
                     setAlertConfig({
                         visible: true,
                         title: 'Payment Failed',
-                        message: 'Booking created but payment failed. You can retry from My Bookings.'
+                        message: 'Payment was cancelled or failed. Your booking has not been created.'
                     });
-                    // Navigate to pending booking page anyway
+                    setLoading(false);
+                    return; // Stop execution, do not create booking
                 }
             }
+
+            const originalNotes = params.notes || '';
+            const payload = {
+                ...buildPayload(params, { paymentType, amountPaid: discountedAmountPaid, remainingAmount: discountedRemainingAmount, totalCost: discountedTotal }),
+                addressId: selectedAddress?.id,
+                requiresAdminAssignment: isScoobyzMatch,
+                isDemo: isDemo || false,
+                paymentReferenceId: finalPaymentReferenceId,
+                notes: `_OP:${total}_ ${originalNotes}`.trim()
+            };
+            const result = await apiCall(payload);
+            const bookingId = result?.bookingId || result?.id;
+
+            if (!bookingId) throw new Error('Booking created but no ID returned.');
 
             navigation.replace('BookingPending', {
                 bookingId,
@@ -350,7 +389,9 @@ export default function BookVendorScreen({ navigation, route }) {
                         >
                             <View style={styles.paymentOptionInfo}>
                                 <AppText style={[styles.paymentOptionTitle, paymentType === 'full' && { color: theme.colors.success }]} weight="bold">Pay 100% Now</AppText>
-                                <AppText style={styles.paymentOptionSub}>Pay the full amount ₹{total} now</AppText>
+                                <AppText style={styles.paymentOptionSub}>
+                                    Pay the full amount <AppText style={{ textDecorationLine: 'line-through', opacity: 0.6 }}>₹{total}</AppText> <AppText weight="bold" style={{ color: theme.colors.success, fontSize: 18 }}>₹{discountedTotal}</AppText> now
+                                </AppText>
                             </View>
                             <View style={[styles.radioCircle, paymentType === 'full' && styles.radioCircleActive]}>
                                 {paymentType === 'full' && <View style={styles.radioInner} />}
@@ -364,7 +405,9 @@ export default function BookVendorScreen({ navigation, route }) {
                             >
                                 <View style={styles.paymentOptionInfo}>
                                     <AppText style={[styles.paymentOptionTitle, paymentType === 'partial' && { color: theme.colors.success }]} weight="bold">Pay 30% Now</AppText>
-                                    <AppText style={styles.paymentOptionSub}>Pay ₹{(total * 0.3).toFixed(2)} now, balance ₹{(total * 0.7).toFixed(2)} at service</AppText>
+                                    <AppText style={styles.paymentOptionSub}>
+                                        Pay <AppText style={{ textDecorationLine: 'line-through', opacity: 0.6 }}>₹{(total * 0.3).toFixed(2)}</AppText> <AppText weight="bold" style={{ color: theme.colors.success, fontSize: 16 }}>₹{discountedAmountPaid.toFixed(2)}</AppText> now, balance <AppText style={{ textDecorationLine: 'line-through', opacity: 0.6 }}>₹{(total * 0.7).toFixed(2)}</AppText> <AppText weight="bold" style={{ color: theme.colors.success, fontSize: 16 }}>₹{discountedRemainingAmount.toFixed(2)}</AppText> at service
+                                    </AppText>
                                 </View>
                                 <View style={[styles.radioCircle, paymentType === 'partial' && styles.radioCircleActive]}>
                                     {paymentType === 'partial' && <View style={styles.radioInner} />}
@@ -470,7 +513,7 @@ export default function BookVendorScreen({ navigation, route }) {
             <View style={styles.footer}>
                 <View style={styles.footerLeft}>
                     <AppText style={styles.footerLabel}>{isScoobyzMatch ? 'Estimated Price' : 'Payable Now'}</AppText>
-                    <AppText style={[styles.footerTotal, isScoobyzMatch && { fontSize: 18 }]} weight="bold">{isScoobyzMatch ? 'To be decided' : `₹ ${amountPaid.toFixed(2)}`}</AppText>
+                    <AppText style={[styles.footerTotal, isScoobyzMatch && { fontSize: 18 }]} weight="bold">{isScoobyzMatch ? 'To be decided' : `₹ ${discountedAmountPaid.toFixed(2)}`}</AppText>
                 </View>
                 <TouchableOpacity
                     style={[styles.bookBtn, loading && { opacity: 0.7 }]}

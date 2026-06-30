@@ -22,6 +22,13 @@ export default function MyBookingsScreen({ navigation }) {
             // Fetch all bookings at once to support fast, instantaneous client-side filtering
             const data = await bookingsApi.list();
             setAllBookings(data);
+            
+            // Auto-popup payment screen if there's a pending order waiting for payment
+            const pendingPayment = data.find(b => b.isAdminAssigned && b.status === 'pending' && b.paymentStatus === 'awaiting_payment');
+            if (pendingPayment) {
+                setSelectedBooking(pendingPayment);
+                setInvoiceVisible(true);
+            }
         } catch (error) {
             console.error('Fetch bookings error:', error);
         } finally {
@@ -93,9 +100,10 @@ export default function MyBookingsScreen({ navigation }) {
     };
 
     const BookingCard = ({ item }) => {
-        // Resolve service icon with appropriate fallback
-        const serviceLogo = item.serviceIcon
-            ? (item.serviceIcon.startsWith('http') ? item.serviceIcon : `${BASE_URL}${item.serviceIcon}`)
+        // Resolve pet photo or fallback to service icon / placeholder
+        const rawImageUrl = item.petPhotoUrl || item.serviceIcon;
+        const serviceLogo = rawImageUrl
+            ? (rawImageUrl.startsWith('http') ? rawImageUrl : `${BASE_URL}${rawImageUrl}`)
             : 'https://images.unsplash.com/photo-1591160690555-5debfba289f0?q=80&w=256&auto=format&fit=crop';
 
         // Resolve vendor image or use default placeholder
@@ -173,7 +181,7 @@ export default function MyBookingsScreen({ navigation }) {
                         <Ionicons name="pricetag-outline" size={18} color={theme.colors.primary} style={styles.metaIcon} />
                         <View style={styles.metaTextContainer}>
                             <AppText style={styles.metaLabel} weight="bold">DATE & TIME</AppText>
-                            <AppText style={styles.metaValue} weight="bold">
+                            <AppText style={styles.metaValue}>
                                 {formatBookingDate(item.serviceDate)}{item.timeSlot ? ` • ${item.timeSlot}` : ''}
                             </AppText>
                         </View>
@@ -187,7 +195,7 @@ export default function MyBookingsScreen({ navigation }) {
                         <Ionicons name="person-outline" size={18} color={theme.colors.primary} style={styles.metaIcon} />
                         <View style={styles.metaTextContainer}>
                             <AppText style={styles.metaLabel} weight="bold">{vendorRoleLabel}</AppText>
-                            <AppText style={styles.metaValue} weight="bold" numberOfLines={1}>
+                            <AppText style={styles.metaValue} numberOfLines={1}>
                                 {item.vendorName || 'Sarah Jenkins'}
                             </AppText>
                         </View>
@@ -202,7 +210,7 @@ export default function MyBookingsScreen({ navigation }) {
                     <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} style={styles.metaIcon} />
                     <View style={styles.metaTextContainer}>
                         <AppText style={styles.metaLabel} weight="bold">LOCATION</AppText>
-                        <AppText style={styles.locationValue} weight="bold">
+                        <AppText style={styles.locationValue}>
                             {addressString}
                         </AppText>
                     </View>
@@ -227,16 +235,16 @@ export default function MyBookingsScreen({ navigation }) {
                                 </TouchableOpacity>
                             )}
 
-                            {/* Invoice Button */}
+                            {/* Invoice / Pay Now Button */}
                             <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
+                                style={[styles.actionBtn, { backgroundColor: (item.paymentStatus === 'pending' || item.paymentStatus === 'awaiting_payment') ? '#E65100' : theme.colors.primary }]}
                                 onPress={() => {
                                     setSelectedBooking(item);
                                     setInvoiceVisible(true);
                                 }}
                             >
-                                <Ionicons name="receipt-outline" size={14} color="#FFF" />
-                                <AppText style={styles.actionBtnText} weight="bold">Invoice</AppText>
+                                <Ionicons name={(item.paymentStatus === 'pending' || item.paymentStatus === 'awaiting_payment') ? "card-outline" : "receipt-outline"} size={14} color="#FFF" />
+                                <AppText style={styles.actionBtnText} weight="bold">{(item.paymentStatus === 'pending' || item.paymentStatus === 'awaiting_payment') ? 'Pay Now' : 'Invoice'}</AppText>
                             </TouchableOpacity>
 
                             {/* Track Button (only for walking/boarding in progress) */}
@@ -309,7 +317,7 @@ export default function MyBookingsScreen({ navigation }) {
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => navigation.navigate('LandingScreen')}
+                    onPress={() => navigation.goBack()}
                     hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 >
                     <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
@@ -520,8 +528,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     metaLabel: {
-        fontSize: 9,
-        color: theme.colors.textTertiary,
+        fontSize: 10,
+        color: theme.colors.textBlack,
         letterSpacing: 0.5,
     },
     metaValue: {

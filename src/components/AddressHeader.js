@@ -6,7 +6,7 @@ import AppText from './AppText';
 import { theme } from '../styles/theme';
 import { addressApi } from '../services/api';
 
-export default function AddressHeader({ 
+export default function AddressHeader({
   onPress,
   lightTheme = false
 }) {
@@ -38,30 +38,23 @@ export default function AddressHeader({
   };
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
-        styles.container, 
+        styles.container,
         lightTheme ? styles.containerLight : styles.containerDark
-      ]} 
-      onPress={handlePress} 
+      ]}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, lightTheme ? styles.iconContainerLight : styles.iconContainerDark]}>
-         <MaterialCommunityIcons 
-           name="near-me" 
-           size={20} 
-           color={lightTheme ? theme.colors.white : theme.colors.primaryDark} 
-         />
-      </View>
       <View style={styles.textContainer}>
         <View style={styles.titleRow}>
           <AppText style={[styles.title, lightTheme && { color: theme.colors.white }]} weight="bold">
             {defaultAddress?.label || "Select Location"}
           </AppText>
-          <MaterialCommunityIcons 
-            name="chevron-down" 
-            size={16} 
-            color={lightTheme ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary} 
+          <MaterialCommunityIcons
+            name="chevron-down"
+            size={16}
+            color={lightTheme ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary}
             style={{ marginLeft: 4 }}
           />
         </View>
@@ -82,9 +75,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   containerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    // Removed white background/border for a transparent look
   },
   containerDark: {
     backgroundColor: theme.colors.white,
@@ -102,10 +93,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginLeft: 12, // changed from marginRight to marginLeft since it's on the right now
   },
   iconContainerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    // Removed white background
   },
   iconContainerDark: {
     backgroundColor: 'rgba(78, 108, 72, 0.08)',

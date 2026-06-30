@@ -15,6 +15,7 @@ import { theme } from '../styles/theme';
 import { bookingsApi } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatISTDate } from '../utils/date_utils';
+import InvoiceComponent from '../components/InvoiceComponent';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 120000; // 2 minutes
@@ -35,6 +36,10 @@ export default function BookingPendingScreen({ navigation, route }) {
     const [showDeclinedModal, setShowDeclinedModal] = useState(false);
     const [timedOut, setTimedOut] = useState(false);
     const [dotCount, setDotCount] = useState(1);
+    
+    const [invoiceVisible, setInvoiceVisible] = useState(false);
+    const [bookingData, setBookingData] = useState(null);
+    const [paying, setPaying] = useState(false);
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const intervalRef = useRef(null);
@@ -46,13 +51,21 @@ export default function BookingPendingScreen({ navigation, route }) {
         startPolling();
         startDotAnimation();
 
+        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+            // Prevent going back if still pending and not timed out
+            if (!timedOut && status === 'pending') {
+                e.preventDefault();
+            }
+        });
+
         return () => {
             clearInterval(intervalRef.current);
             clearTimeout(timeoutRef.current);
             clearInterval(dotRef.current);
             pulseAnim.stopAnimation();
+            unsubscribe();
         };
-    }, []);
+    }, [navigation, timedOut, status]);
 
     const startPulsing = () => {
         Animated.loop(
@@ -87,6 +100,10 @@ export default function BookingPendingScreen({ navigation, route }) {
                     handleAccepted(data);
                 } else if (data?.status === 'declined') {
                     handleDeclined();
+                } else if (data?.status === 'pending' && data?.paymentStatus === 'awaiting_payment') {
+                    stopPolling();
+                    setBookingData(data);
+                    setInvoiceVisible(true);
                 }
             } catch (err) {
                 console.warn('[Pending] Poll error:', err.message);
@@ -129,13 +146,13 @@ export default function BookingPendingScreen({ navigation, route }) {
                             expert,
                             pet,
                             serviceType,
-                            total,
+                            total: bookingData?.totalCost || total,
                             date,
                             time,
                             visitType,
-                            paymentType: route.params?.paymentType || 'full',
-                            amountPaid: route.params?.amountPaid || total,
-                            remainingAmount: route.params?.remainingAmount || 0,
+                            paymentType: bookingData?.paymentType || route.params?.paymentType || 'full',
+                            amountPaid: bookingData?.amountPaid || route.params?.amountPaid || bookingData?.totalCost || total,
+                            remainingAmount: bookingData?.remainingAmount || route.params?.remainingAmount || 0,
                             paymentMethod: 'online',
                             bookingData,
                         },
@@ -151,21 +168,31 @@ export default function BookingPendingScreen({ navigation, route }) {
         setShowDeclinedModal(true);
     };
 
+    const handlePayBalance = async () => {
+        if (!bookingData) return;
+        setPaying(true);
+        try {
+            await bookingsApi.payRemaining(bookingData.id, { amountPaid: bookingData.remainingAmount });
+            setInvoiceVisible(false);
+            const updatedData = await bookingsApi.getStatus(bookingData.id);
+            handleAccepted(updatedData);
+        } catch (error) {
+            console.error('Payment error:', error);
+            alert('Failed to process payment. Please try again.');
+        } finally {
+            setPaying(false);
+        }
+    };
+
     const dots = '.'.repeat(dotCount);
 
     return (
-        <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.primaryDark}>
+        <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.success}>
             <LinearGradient
-                colors={[theme.colors.primaryDark, theme.colors.primary]}
+                colors={[theme.colors.success, theme.colors.success]}
                 style={styles.container}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.white} />
-                    </TouchableOpacity>
-                    <AppText style={styles.headerTitle} weight="bold">Request Sent</AppText>
-                </View>
+
 
                 <View style={styles.body}>
                     {/* Pulse Animation */}
@@ -247,11 +274,40 @@ export default function BookingPendingScreen({ navigation, route }) {
                                 navigation.navigate('LandingScreen');
                             }}
                         >
-                            <AppText style={styles.backHomeBtnText}>Back to Home</AppText>
+                            <AppText style={styles.backHomeBtnText} weight="bold">Back to Home</AppText>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
+
+            {/* Invoice Modal */}
+            <Modal transparent animationType="slide" visible={invoiceVisible}>
+                <View style={styles.invoiceModalOverlay}>
+                    <View style={styles.invoiceModalContent}>
+                        <TouchableOpacity style={styles.closeInvoiceBtn} onPress={() => {
+                            setInvoiceVisible(false);
+                            // If they close, maybe they can pay later from MyBookings
+                            navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'LandingScreen' }]
+                            });
+                        }}>
+                            <Ionicons name="close" size={24} color="#333" />
+                        </TouchableOpacity>
+                        <InvoiceComponent 
+                            booking={bookingData} 
+                            onPayBalance={handlePayBalance} 
+                        />
+                        {paying && (
+                            <View style={styles.payingOverlay}>
+                                <ActivityIndicator size="large" color={theme.colors.primary} />
+                                <AppText style={{ marginTop: 10, color: '#333' }} weight="bold">Processing Payment...</AppText>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+
         </AppScreen>
     );
 }
@@ -365,7 +421,36 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: 12,
     },
-    searchAnotherBtnText: { color: theme.colors.white, fontSize: 16 },
-    backHomeBtn: { paddingVertical: 12 },
-    backHomeBtnText: { fontSize: 14, color: theme.colors.textSecondary },
+    searchAnotherBtnText: { color: '#FFF', fontSize: 15 },
+    backHomeBtn: {
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+    },
+    backHomeBtnText: { color: theme.colors.textSecondary, fontSize: 15 },
+
+    // Invoice Modal
+    invoiceModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        padding: 20
+    },
+    invoiceModalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 10,
+    },
+    closeInvoiceBtn: {
+        alignSelf: 'flex-end',
+        padding: 10,
+        zIndex: 10
+    },
+    payingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 24,
+        zIndex: 20
+    }
 });

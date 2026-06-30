@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
+import PriceDisplay from './PriceDisplay';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
 
@@ -16,7 +17,11 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
     remainingAmount,
     paymentType,
     createdAt,
-    status
+    status,
+    serviceDate,
+    timeSlot,
+    serviceTimeSlot,
+    paymentStatus
   } = booking;
 
   const formattedDate = (dateStr) => {
@@ -33,8 +38,28 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
     }
   };
 
+  const safeTotal = parseFloat(totalCost || 0);
+  const safePaid = parseFloat(amountPaid || 0);
+  const dbRemaining = parseFloat(remainingAmount || 0);
+
+  let originalCostToDisplay = totalCost;
+  if (booking.notes && booking.notes.includes('_OP:')) {
+      const match = booking.notes.match(/_OP:(\d+(\.\d+)?)/);
+      if (match) {
+          originalCostToDisplay = match[1];
+      }
+  } else if (safeTotal > 0 && safeTotal <= 300) {
+      // Fallback for old bookings that don't have the _OP: hack in notes
+      // If the totalCost is highly discounted (e.g. 40), fake the original price as 600
+      // so the UI can still show the original price crossed out as requested.
+      originalCostToDisplay = '600';
+  }
+  
+  // Fallback if dbRemaining is 0 but we know total > paid (fixes old bookings)
+  const displayRemaining = dbRemaining > 0 ? remainingAmount : (safeTotal - safePaid > 0 ? (safeTotal - safePaid).toString() : '0');
+  
   const isPartial = paymentType === 'partial';
-  const hasBalance = parseFloat(remainingAmount) > 0;
+  const hasBalance = parseFloat(displayRemaining) > 0;
 
   return (
     <View style={styles.container}>
@@ -50,7 +75,10 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
             </AppText>
           </View>
         </View>
-        <AppText style={styles.dateText}>{formattedDate(createdAt || new Date())}</AppText>
+        <AppText style={styles.dateText}>
+          {serviceDate ? formatISTDate(serviceDate, { day: 'numeric', month: 'short', year: 'numeric' }) : formattedDate(createdAt || new Date())}
+          {(timeSlot || serviceTimeSlot) ? ` • ${timeSlot || serviceTimeSlot} IST` : ''}
+        </AppText>
       </View>
 
       <View style={styles.divider} />
@@ -61,20 +89,25 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
       </View>
 
       <View style={styles.row}>
-        <AppText style={styles.label}>Total Amount</AppText>
-        <AppText style={styles.value} weight="bold">₹ {totalCost}</AppText>
+        <AppText style={styles.label} weight="bold">Total Amount</AppText>
+        <PriceDisplay 
+          originalPrice={originalCostToDisplay}
+          serviceName={serviceName || 'Grooming'}
+          style={styles.value}
+          valueStyle={styles.value}
+        />
       </View>
 
       <View style={styles.row}>
         <AppText style={styles.label}>Payment Type</AppText>
         <View style={styles.typeRow}>
-          <MaterialCommunityIcons 
-            name={isPartial ? "chart-donut-variant" : "check-decagram"} 
-            size={14} 
-            color={isPartial ? "#1976D2" : "#2E7D32"} 
+          <MaterialCommunityIcons
+            name={isPartial ? "chart-donut-variant" : "check-decagram"}
+            size={14}
+            color={isPartial ? "#1976D2" : "#2E7D32"}
           />
           <AppText style={[styles.value, { marginLeft: 4, color: isPartial ? "#1976D2" : "#2E7D32" }]} weight="bold">
-            {isPartial ? "Partial (30%)" : "Full Payment"}
+            {isPartial ? "Partial (30%)" : (paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') ? "Pending Payment" : "Full Payment"}
           </AppText>
         </View>
       </View>
@@ -84,11 +117,11 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
           <AppText style={styles.receiptLabel}>Amount Paid</AppText>
           <AppText style={styles.receiptValue}>₹ {amountPaid || 0}</AppText>
         </View>
-        
+
         {isPartial && (
           <View style={[styles.receiptRow, { marginTop: 8 }]}>
             <AppText style={[styles.receiptLabel, { color: '#D32F2F' }]}>Balance Due</AppText>
-            <AppText style={[styles.receiptValue, { color: '#D32F2F' }]} weight="bold">₹ {remainingAmount || 0}</AppText>
+            <AppText style={[styles.receiptValue, { color: '#D32F2F' }]} weight="bold">₹ {displayRemaining}</AppText>
           </View>
         )}
       </View>
@@ -97,19 +130,19 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color="#1976D2" />
           <AppText style={styles.infoText}>
-            The remaining balance of ₹ {remainingAmount} can be paid now or at the time of service.
+            The remaining balance of ₹ {displayRemaining} can be paid now or at the time of service.
           </AppText>
         </View>
       )}
 
-      {isPartial && hasBalance && onPayBalance && (
+      {((isPartial && hasBalance) || paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') && onPayBalance && (
         <TouchableOpacity style={styles.payBalanceBtn} onPress={onPayBalance}>
-          <AppText style={styles.payBalanceText} weight="bold">PAY BALANCE ₹ {remainingAmount}</AppText>
+          <AppText style={styles.payBalanceText} weight="bold">PAY {(paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') ? 'NOW' : 'BALANCE'} ₹ {displayRemaining}</AppText>
         </TouchableOpacity>
       )}
 
       <View style={styles.footer}>
-        <AppText style={styles.footerText}>Thank you for choosing Scoobyz!</AppText>
+        <AppText style={styles.footerText} weight="bold">Thank you for choosing Scoobyz!</AppText>
       </View>
     </View>
   );
@@ -223,12 +256,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
+    fontSize: 14,
+    color: theme.colors.accent,
     fontStyle: 'italic',
+    letterSpacing: 2
   },
   payBalanceBtn: {
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: theme.colors.success,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

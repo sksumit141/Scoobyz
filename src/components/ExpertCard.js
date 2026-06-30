@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
+import PriceDisplay from './PriceDisplay';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 import ScoobyzBadge from './ScoobyzBadge';
@@ -29,7 +30,12 @@ export default function ExpertCard({ expert, onView, onSelect, isSelected }) {
         </View>
         <View style={styles.priceContainer}>
           <AppText style={styles.startingAt}>Starting at</AppText>
-          <AppText style={styles.price} weight="bold">₹ {expert.price}</AppText>
+          <PriceDisplay 
+            originalPrice={expert.price} 
+            serviceName={expert.services?.[0] || 'Grooming'} 
+            style={styles.price} 
+            valueStyle={styles.price}
+          />
         </View>
       </View>
 
@@ -118,12 +124,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startingAt: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.colors.textSecondary,
     marginBottom: 2,
   },
   price: {
-    fontSize: 16,
+    fontSize: 13,
     color: theme.colors.textBlack,
   },
   cardRight: {

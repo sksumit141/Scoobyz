@@ -74,9 +74,9 @@ const AddressBookScreen = ({ navigation }) => {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(currentLocation.latitude)) *
-        Math.cos(toRad(lat)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos(toRad(lat)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = R * c;
     if (d < 1) return `${Math.round(d * 1000)} m`;
@@ -101,18 +101,18 @@ const AddressBookScreen = ({ navigation }) => {
     try {
       const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) throw new Error('Maps API key missing');
-      
+
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
       );
       const data = await response.json();
-      
+
       if (data.status === 'OK' && data.results.length > 0) {
         const result = data.results[0];
         const components = result.address_components;
-        
+
         const getComp = (type) => components.find(c => c.types.includes(type))?.long_name || '';
-        
+
         return {
           name: getComp('premise') || getComp('sublocality_level_1'),
           streetNumber: getComp('street_number'),
@@ -134,7 +134,7 @@ const AddressBookScreen = ({ navigation }) => {
   const autoFillFromLocation = async (openModal = true) => {
     try {
       setLocating(true);
-      
+
       let status;
       if (Platform.OS === 'web') {
         // Simple permission check for web if needed, but getCurrentPosition handles it
@@ -149,8 +149,8 @@ const AddressBookScreen = ({ navigation }) => {
         return;
       }
 
-      const loc = await Location.getCurrentPositionAsync({ 
-        accuracy: Platform.OS === 'web' ? Location.Accuracy.Balanced : Location.Accuracy.BestForNavigation 
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Platform.OS === 'web' ? Location.Accuracy.Balanced : Location.Accuracy.BestForNavigation
       });
 
       let place;
@@ -168,7 +168,7 @@ const AddressBookScreen = ({ navigation }) => {
         console.log('Reverse Geocode Result:', place);
         const houseInfo = [place.name, place.streetNumber, place.street].filter(Boolean).join(', ');
         const areaInfo = [place.district, place.subregion, place.city].filter(Boolean).join(', ');
-        
+
         setFormData({
           label: 'Home',
           fullAddress: houseInfo,
@@ -249,8 +249,8 @@ const AddressBookScreen = ({ navigation }) => {
     <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
       <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerTitleRow}>
-          <Ionicons name="chevron-down" size={28} color={theme.colors.textBlack} />
-          <AppText weight="bold" style={styles.headerTitle}>Select a location</AppText>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
+          <AppText weight="bold" style={styles.headerTitle}>Address</AppText>
         </TouchableOpacity>
 
         {/* Search Bar */}
@@ -282,8 +282,8 @@ const AddressBookScreen = ({ navigation }) => {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity 
-            style={styles.quickOptionRow} 
+          <TouchableOpacity
+            style={styles.quickOptionRow}
             onPress={() => {
               setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: true });
               setModalVisible(true);
@@ -315,24 +315,24 @@ const AddressBookScreen = ({ navigation }) => {
             <TouchableOpacity key={`${item.id}-${index}`} style={styles.addressCard}>
               <View style={styles.cardTop}>
                 <View style={styles.cardIconWrapper}>
-                   <MaterialCommunityIcons 
-                    name={item.label.toLowerCase() === 'work' ? 'briefcase-outline' : 'home-outline'} 
-                    size={24} 
-                    color={theme.colors.primaryDark} 
+                  <MaterialCommunityIcons
+                    name={item.label.toLowerCase() === 'work' ? 'briefcase-outline' : 'home-outline'}
+                    size={24}
+                    color={theme.colors.primaryDark}
                   />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <View style={styles.cardTitleRow}>
                     <AppText style={styles.cardLabel} weight="bold">{item.label}</AppText>
                     {currentLocation && (
-                       <AppText style={styles.distanceText}>{calculateDistance(item.latitude, item.longitude)}</AppText>
+                      <AppText style={styles.distanceText}>{calculateDistance(item.latitude, item.longitude)}</AppText>
                     )}
                   </View>
                   <AppText style={styles.cardAddress} numberOfLines={2}>
                     {item.fullAddress}, {item.areaLocality}, {item.city}
                   </AppText>
                   <AppText style={styles.cardPhone}>Phone number: +91-8116870514</AppText>
-                  
+
                   <View style={styles.cardActionRow}>
                     <TouchableOpacity style={styles.miniActionBtn}>
                       <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.colors.success} />

@@ -48,14 +48,27 @@ export default function ExplorePackagesScreen({ route, navigation }) {
         );
 
         // Map backend format to what PackageCard expects
-        const mapped = rawPackages.map(p => ({
-          id: String(p.id),
-          title: p.name || p.serviceName || 'Package',
-          price: Number(p.price) || 0,
-          duration: p.duration || '',
-          features: [],
-          badge: p.serviceName || '',
-        }));
+        const mapped = rawPackages.map(p => {
+          const titleLower = (p.name || '').toLowerCase();
+
+          let imageUri = p.image || 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=600&q=80';
+
+          if (titleLower.includes('delux')) {
+            imageUri = 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600&q=80';
+          } else if (titleLower.includes('basic')) {
+            imageUri = 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&q=80';
+          }
+
+          return {
+            id: String(p.id),
+            title: p.name || p.serviceName || 'Package',
+            price: Number(p.price) || 0,
+            duration: p.duration || '',
+            features: [],
+            badge: p.serviceName || '',
+            image: imageUri,
+          };
+        });
         setPackages(mapped);
       }
       setAddons(data.addons || []);
