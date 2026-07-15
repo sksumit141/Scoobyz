@@ -22,6 +22,7 @@ import AppScreen from '../components/AppScreen';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../services/api';
 import { supabase } from '../lib/supabase';
@@ -138,15 +139,13 @@ const WelcomeScreen = ({ navigation }) => {
           showAlert('Wrong App', data.message || 'You have a Partner account. Please use the Scoob Partner app.');
         } else if (data.error === 'Account Exists') {
           showAlert(
-            'Login/Signup Mixup',
-            'Oops! It looks like you already have an account. Please select "Log In" instead of "Sign Up".',
-            'account-alert-outline'
+            'Account Exists',
+            data.message || 'You already have an account. Please Login.'
           );
         } else if (data.error === 'No Account Found') {
           showAlert(
-            'Login/Signup Mixup',
-            'We couldn\'t find an account with this email. Please select "Sign Up" to create a new account.',
-            'account-plus-outline'
+            'No Account Found',
+            data.message || "We couldn't find an account. Please sign up."
           );
         } else {
           showAlert(data.error || 'Login Failed', data.message || 'Unknown error');
@@ -155,6 +154,93 @@ const WelcomeScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Backend auth error:', error);
       showAlert('Error', 'Failed to connect to server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Apple Login
+  const handleAppleLogin = async () => {
+    setLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      
+      const { identityToken, fullName, email } = credential;
+      
+      if (!identityToken) {
+        throw new Error('No identityToken returned from Apple');
+      }
+
+      // Log into Supabase with the identity token
+      const { data: sd, error: se } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: identityToken,
+      });
+
+      if (se) { 
+        showAlert('Apple Login Error', se.message); 
+        setLoading(false); 
+        return; 
+      }
+
+      const u = sd.user;
+      
+      // Extract name from Apple payload if available, else from Supabase
+      let name = '';
+      if (fullName?.givenName || fullName?.familyName) {
+        name = `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim();
+      } else {
+        name = u.user_metadata?.full_name || u.user_metadata?.name || '';
+      }
+
+      const userEmail = email || u.email;
+
+      // Send to backend
+      const res = await fetch(`${BASE_URL}/auth/apple-supabase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: userEmail, 
+          name, 
+          appleId: u.user_metadata?.sub || u.id, 
+          app: 'customer', 
+          type: selectedMode 
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        await AsyncStorage.setItem('authToken', data.token);
+        await AsyncStorage.setItem('userId', String(data.userId));
+        await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
+        if (data.isOnboarded) {
+          navigation.replace('LandingScreen');
+        } else {
+          navigation.replace('RegisterName');
+        }
+      } else {
+        if (res.status === 403) {
+          showAlert('Wrong App', data.message || 'You have a Partner account. Please use the Scoob Partner app.');
+        } else if (data.error === 'Account Exists') {
+          showAlert('Account Exists', data.message);
+        } else if (data.error === 'No Account Found') {
+          showAlert('No Account Found', data.message);
+        } else {
+          showAlert('Login Failed', data.error || 'Unknown error');
+        }
+      }
+    } catch (e) {
+      if (e.code === 'ERR_REQUEST_CANCELED') {
+        // user canceled
+      } else {
+        console.error('Apple Login error:', e);
+        showAlert('Error', e.message || 'Apple sign-in failed.');
+      }
     } finally {
       setLoading(false);
     }
@@ -228,13 +314,13 @@ const WelcomeScreen = ({ navigation }) => {
                 <AppText style={styles.socialButtonText}>Continue with Google</AppText>
               </AppButton>
 
-              {/* <AppButton
+              <AppButton
                 style={styles.socialButton}
-                onPress={() => navigation.navigate('RegisterName')}
+                onPress={handleAppleLogin}
               >
                 <MaterialCommunityIcons name="apple" size={22} color="black" />
                 <AppText style={styles.socialButtonText}>Continue with Apple</AppText>
-              </AppButton> */}
+              </AppButton>
             </View>
 
             <TouchableOpacity

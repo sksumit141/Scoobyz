@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, Dimensions, Modal, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
+import { BASE_URL } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +45,59 @@ export default function HelpSupportScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState('1');
 
+  // Account Deletion State
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteRequest = async () => {
+    if (!deleteReason.trim()) {
+      Alert.alert('Required', 'Please let us know why you are deleting your account.');
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      const authToken = await AsyncStorage.getItem('authToken');
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || BASE_URL || 'https://scoobyz-backend.onrender.com';
+
+      const response = await fetch(`${API_URL}/user/delete-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ reason: deleteReason })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setIsDeleteModalVisible(false);
+        Alert.alert(
+          'Request Submitted',
+          'Your account deletion request has been received. You will be logged out now.',
+          [{
+            text: 'OK',
+            onPress: async () => {
+              await AsyncStorage.removeItem('authToken');
+              await AsyncStorage.removeItem('userId');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Welcome' }],
+              });
+            }
+          }]
+        );
+      } else {
+        throw new Error(data.error || 'Failed to submit request');
+      }
+    } catch (error) {
+      console.error('Delete request error:', error);
+      Alert.alert('Error', 'Could not submit your request. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredFaqs = FAQS.filter(faq => {
     const matchesCategory = activeCategory === 'All' || faq.category === activeCategory;
     const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase());
@@ -52,7 +107,7 @@ export default function HelpSupportScreen({ navigation }) {
   return (
     <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        
+
         {/* Header Section */}
         <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
           <View style={styles.headerTopRow}>
@@ -60,11 +115,7 @@ export default function HelpSupportScreen({ navigation }) {
               <Ionicons name="arrow-back" size={28} color={theme.colors.white} />
             </TouchableOpacity>
 
-            <Image
-              source={require('../../assets/scoobyz_logo-removebg-preview.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+
 
             <TouchableOpacity style={styles.notificationBtn}>
               <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
@@ -87,7 +138,7 @@ export default function HelpSupportScreen({ navigation }) {
         <View style={styles.content}>
           {/* Popular FAQs */}
           <AppText type="heading" weight="bold" style={styles.sectionTitle}>Popular FAQs</AppText>
-          
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             {FAQ_CATEGORIES.map(cat => (
               <TouchableOpacity
@@ -104,18 +155,18 @@ export default function HelpSupportScreen({ navigation }) {
             {filteredFaqs.map(faq => {
               const isExpanded = expandedId === faq.id;
               return (
-                <TouchableOpacity 
-                  key={faq.id} 
+                <TouchableOpacity
+                  key={faq.id}
                   style={[styles.faqCard, isExpanded && styles.faqCardExpanded]}
                   onPress={() => setExpandedId(isExpanded ? null : faq.id)}
                   activeOpacity={0.8}
                 >
                   <View style={styles.faqHeader}>
                     <AppText style={styles.faqQuestion} weight="bold">{faq.question}</AppText>
-                    <MaterialCommunityIcons 
-                      name={isExpanded ? "chevron-up" : "chevron-down"} 
-                      size={20} 
-                      color="#888" 
+                    <MaterialCommunityIcons
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={20}
+                      color="#888"
                     />
                   </View>
                   {isExpanded && (
@@ -128,9 +179,9 @@ export default function HelpSupportScreen({ navigation }) {
 
           {/* Contact Us Section */}
           <AppText type="heading" weight="bold" style={[styles.sectionTitle, { marginTop: 10 }]}>Contact Us</AppText>
-          
-          <TouchableOpacity 
-            style={styles.contactCard} 
+
+          <TouchableOpacity
+            style={styles.contactCard}
             activeOpacity={0.8}
             onPress={() => navigation.navigate('SupportChat')}
           >
@@ -155,8 +206,85 @@ export default function HelpSupportScreen({ navigation }) {
             <MaterialCommunityIcons name="chevron-right" size={24} color="#BBB" />
           </TouchableOpacity>
 
+          {/* Account Management Section */}
+          <AppText type="heading" weight="bold" style={[styles.sectionTitle, { marginTop: 20 }]}>Account Management</AppText>
+
+          <TouchableOpacity
+            style={[styles.contactCard, { borderColor: 'rgba(231, 76, 60, 0.3)' }]}
+            activeOpacity={0.8}
+            onPress={() => setIsDeleteModalVisible(true)}
+          >
+            <View style={[styles.contactIconWrapper, { backgroundColor: 'rgba(231, 76, 60, 0.1)' }]}>
+              <MaterialCommunityIcons name="delete-outline" size={24} color={theme.colors.error} />
+            </View>
+            <View style={styles.contactInfo}>
+              <AppText style={[styles.contactTitle, { color: theme.colors.error }]} weight="bold">Delete Account</AppText>
+              <AppText style={styles.contactSubtitle}>Request permanent deletion</AppText>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#BBB" />
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => !isDeleting && setIsDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconCircle}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={32} color={theme.colors.error} />
+              </View>
+              <AppText type="heading" weight="bold" style={styles.modalTitle}>Delete Account</AppText>
+            </View>
+
+            <AppText style={styles.modalDescription}>
+              Submitting this request will mark your account for permanent deletion. All data, bookings, and pet profiles will be removed.
+            </AppText>
+
+            <AppText style={styles.modalLabel} weight="bold">Why are you leaving?</AppText>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Please tell us why (required)"
+              placeholderTextColor="#999"
+              value={deleteReason}
+              onChangeText={setDeleteReason}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              editable={!isDeleting}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setIsDeleteModalVisible(false)}
+                disabled={isDeleting}
+              >
+                <AppText style={styles.modalCancelText} weight="bold">Cancel</AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                onPress={handleDeleteRequest}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <AppText style={styles.modalSubmitText} weight="bold">Submit Request</AppText>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </AppScreen>
   );
 }
@@ -299,5 +427,90 @@ const styles = StyleSheet.create({
   contactSubtitle: {
     fontSize: 13,
     color: '#777',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 22,
+    color: '#333',
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: '#F9F9F9',
+    borderWidth: 1,
+    borderColor: '#EEE',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+    minHeight: 80,
+    marginBottom: 24,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: '#666',
+    fontSize: 15,
+  },
+  modalSubmitBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: theme.colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSubmitText: {
+    color: '#FFF',
+    fontSize: 15,
   }
 });

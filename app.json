@@ -69,7 +69,8 @@
       "expo-web-browser",
       "expo-location",
       "expo-image-picker",
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication"
     ],
     "runtimeVersion": "1.0.0",
     "extra": {
