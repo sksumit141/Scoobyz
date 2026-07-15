@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Image, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Platform } from 'react-native';
-import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
-import AppText from './AppText';
-import CustomAlert from './CustomAlert';
+import AppText from '../components/AppText';
+import CustomAlert from '../components/CustomAlert';
 import { customerApi, BASE_URL } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 
 const { width } = Dimensions.get('window');
 
@@ -15,9 +14,9 @@ const menuGroups = [
   {
     title: 'MAIN MENU',
     items: [
-      { id: 'Landing', title: 'Home', icon: 'home-variant' },
+      { id: 'LandingScreen', title: 'Home', icon: 'home-variant' },
       { id: 'Explore', title: 'Explore', icon: 'magnify' },
-      { id: 'Bookings', title: 'My Bookings', icon: 'calendar-check' },
+      { id: 'MyBookings', title: 'My Bookings', icon: 'calendar-check' },
     ]
   },
   {
@@ -25,7 +24,7 @@ const menuGroups = [
     items: [
       { id: 'Profile', title: 'My Profile', icon: 'account-outline' },
       { id: 'AddressBook', title: 'Saved Addresses', icon: 'map-marker-outline' },
-      { id: 'Notifications', title: 'Notifications', icon: 'bell-outline' },
+      // { id: 'Notifications', title: 'Notifications', icon: 'bell-outline' },
     ]
   },
   {
@@ -37,10 +36,10 @@ const menuGroups = [
   }
 ];
 
-export default function CustomDrawer(props) {
+export default function MenuScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState({ name: 'User', email: '', avatar: null });
   const [logoutAlertVisible, setLogoutAlertVisible] = useState(false);
-  const currentRouteName = props.state.routeNames[props.state.index];
 
   useEffect(() => {
     fetchProfile();
@@ -55,7 +54,7 @@ export default function CustomDrawer(props) {
         avatar: (profileData.image && profileData.image !== 'null') ? (profileData.image.startsWith('http') ? profileData.image : `${BASE_URL}${profileData.image}`) : null
       });
     } catch (error) {
-      console.error('Drawer profile fetch error:', error);
+      console.error('Menu profile fetch error:', error);
     }
   };
 
@@ -75,19 +74,34 @@ export default function CustomDrawer(props) {
   const confirmLogout = async () => {
     setLogoutAlertVisible(false);
     await AsyncStorage.removeItem('authToken');
-    props.navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+    navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+  };
+
+  const navigateTo = (routeName) => {
+    if (routeName === 'LandingScreen') {
+      navigation.goBack();
+    } else {
+      navigation.navigate(routeName);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Premium Header */}
       <View style={styles.headerContainer}>
         <View
-          style={[styles.headerGradient, { backgroundColor: theme.colors.primaryDark }]}
+          style={[styles.headerGradient, { backgroundColor: theme.colors.primaryDark, paddingTop: Math.max(insets.top + 10, 40) }]}
         >
+          <TouchableOpacity 
+            style={styles.closeBtn} 
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <Ionicons name="close" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.profileSection}
-            onPress={() => props.navigation.navigate('Profile')}
+            onPress={() => navigation.navigate('Profile')}
             activeOpacity={0.9}
           >
             <View style={styles.avatarContainer}>
@@ -113,8 +127,7 @@ export default function CustomDrawer(props) {
         </View>
       </View>
 
-      <DrawerContentScrollView
-        {...props}
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -123,54 +136,34 @@ export default function CustomDrawer(props) {
             <View key={groupIndex} style={styles.groupWrapper}>
               <AppText style={styles.groupTitle} weight="bold">{group.title}</AppText>
               {group.items.map((item) => {
-                const isActive = currentRouteName === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.menuItem, isActive && styles.activeMenuItem]}
-                    onPress={() => props.navigation.navigate(item.id)}
+                    style={styles.menuItem}
+                    onPress={() => navigateTo(item.id)}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.iconBox, isActive && styles.activeIconBox]}>
+                    <View style={styles.iconBox}>
                       <MaterialCommunityIcons
                         name={item.icon}
                         size={22}
-                        color={isActive ? theme.colors.white : theme.colors.textSecondary}
+                        color={theme.colors.textSecondary}
                       />
                     </View>
                     <AppText
-                      style={[styles.menuText, isActive && styles.activeMenuText]}
-                      weight={isActive ? "bold" : "500"}
+                      style={styles.menuText}
+                      weight="500"
                     >
                       {item.title}
                     </AppText>
-                    {isActive && (
-                      <View style={styles.activeIndicator} />
-                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
           ))}
         </View>
+      </ScrollView>
 
-        {/* Promo Section */}
-        {/* <View style={styles.promoContainer}>
-          <View
-            style={[styles.promoBox, { backgroundColor: '#FFF9F1' }]}
-          >
-            <View style={styles.promoIcon}>
-              <Ionicons name="gift-outline" size={20} color="#F57C00" />
-            </View>
-            <View style={styles.promoText}>
-              <AppText weight="bold" style={styles.promoTitle}>Invite Friends</AppText>
-              <AppText style={styles.promoSubtitle}>Get 20% off next booking</AppText>
-            </View>
-          </View>
-        </View> */}
-      </DrawerContentScrollView>
-
-      {/* Styled Footer */}
       <View style={styles.footerContainer}>
         <TouchableOpacity
           style={styles.logoutButton}
@@ -210,11 +203,15 @@ const styles = StyleSheet.create({
   headerContainer: {
     overflow: 'hidden',
     borderBottomRightRadius: 40,
+    ...theme.shadows?.medium,
   },
   headerGradient: {
-    paddingTop: 64,
     paddingBottom: 32,
     paddingHorizontal: 20,
+  },
+  closeBtn: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
   },
   profileSection: {
     flexDirection: 'row',
@@ -279,7 +276,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   scrollContent: {
-    paddingTop: 8,
+    paddingTop: 24,
   },
   menuContainer: {
     paddingHorizontal: 16,
@@ -303,9 +300,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 6,
   },
-  activeMenuItem: {
-    backgroundColor: theme.colors.primary + '10',
-  },
   iconBox: {
     width: 42,
     height: 42,
@@ -315,68 +309,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  activeIconBox: {
-    backgroundColor: theme.colors.primaryDark,
-    shadowColor: theme.colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   menuText: {
     fontSize: 16,
     color: theme.colors.textBlack,
     flex: 1,
     letterSpacing: 0.2,
   },
-  activeMenuText: {
-    color: theme.colors.primaryDark,
-  },
-  activeIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.primaryDark,
-  },
-  promoContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  promoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-  },
-  promoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  promoText: {
-    flex: 1,
-  },
-  promoTitle: {
-    fontSize: 14,
-    color: '#E65100',
-  },
-  promoSubtitle: {
-    fontSize: 12,
-    color: '#FB8C00',
-    marginTop: 1,
-  },
   footerContainer: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#F5F5F5',
     backgroundColor: '#FFFFFF',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
   },
   logoutButton: {
     flexDirection: 'row',

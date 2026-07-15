@@ -3,13 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const BASE_URL = 'https://scoobyz-backend.onrender.com';
 // export const BASE_URL = 'http://192.168.1.33:8000';
 
-const DEV_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjUsImlhdCI6MTc3NjUzMjY4OSwiZXhwIjoxNzc5MTI0Njg5fQ.60CHG4cZc8yBKr1HdzyJhYHVZADjsn2MJKDFaPD-_xI';
-
 const getHeaders = async () => {
     let token = await AsyncStorage.getItem('authToken');
-    if (!token) {
-        token = DEV_TOKEN;
-    }
     return {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -100,9 +95,7 @@ export const api = {
 
     upload: async (endpoint, formData, method = 'POST') => {
         let token = await AsyncStorage.getItem('authToken');
-        if (!token) {
-            token = DEV_TOKEN;
-        }
+
         const res = await fetch(`${BASE_URL}${endpoint}`, {
             method: method,
             headers: {

@@ -17,12 +17,14 @@
       "backgroundColor": "#F7F6F2"
     },
     "ios": {
+      "bundleIdentifier": "com.scobys.scoooobys",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Scoobys needs your camera for video consultations.",
-        "NSMicrophoneUsageDescription": "Scoobys needs your microphone for video consultations.",
-        "NSLocationWhenInUseUsageDescription": "Scoobys needs your location to find nearby pet experts and services.",
-        "NSPhotoLibraryUsageDescription": "Scoobys needs access to your photos to let you upload pet profile pictures."
+        "NSCameraUsageDescription": "Scoobyz needs your camera for video consultations.",
+        "NSMicrophoneUsageDescription": "Scoobyz needs your microphone for video consultations.",
+        "NSLocationWhenInUseUsageDescription": "Scoobyz needs your location to find nearby pet experts and services.",
+        "NSPhotoLibraryUsageDescription": "Scoobyz needs access to your photos to let you upload pet profile pictures.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bitcode": false
     },
@@ -40,23 +42,16 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WAKE_LOCK",
-        "android.permission.BLUETOOTH",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.INTERNET",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.WAKE_LOCK",
         "android.permission.BLUETOOTH"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAHHPAAfAsDMV20PM40LlKKxWFEhM8LiXc"
+        }
       }
     },
     "web": {
@@ -73,16 +68,14 @@
       "expo-sharing",
       "expo-web-browser",
       "expo-location",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-font"
     ],
     "runtimeVersion": "1.0.0",
     "extra": {
       "eas": {
-        "projectId": "6671a92e-629c-4556-9744-52fda3da0ab0"
+        "projectId": "f964d43a-732c-4ca7-b5b0-6f1a00ccebc1"
       }
-    },
-    "updates": {
-      "url": "https://u.expo.dev/6671a92e-629c-4556-9744-52fda3da0ab0"
     }
   }
 }

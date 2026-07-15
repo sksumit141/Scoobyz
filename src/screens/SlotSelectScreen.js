@@ -115,42 +115,47 @@ export default function SlotSelectScreen({ navigation }) {
   };
 
   const getFilteredSlots = () => {
-    // 1. Get current time parts in IST
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric', month: 'numeric', day: 'numeric',
-      hour: 'numeric', minute: 'numeric', second: 'numeric',
-      hour12: false
-    });
+    try {
+      // 1. Get current time parts in IST
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false
+      });
 
-    const parts = formatter.formatToParts(new Date());
-    const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+      const parts = formatter.formatToParts(new Date());
+      const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
 
-    // 2. Create a Date object that reflects the exact IST date and time
-    const nowIST = new Date(
-      getPart('year'), getPart('month') - 1, getPart('day'),
-      getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
-    );
+      // 2. Create a Date object that reflects the exact IST date and time
+      const nowIST = new Date(
+        getPart('year'), getPart('month') - 1, getPart('day'),
+        getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
+      );
 
-    const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+      const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
 
-    if (!isToday) return ALL_SLOTS.slice(0, 9);
+      if (!isToday) return ALL_SLOTS.slice(0, 9);
 
-    // Filter slots to be at least 1 hour from now (in IST)
-    const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+      // Filter slots to be at least 1 hour from now (in IST)
+      const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
 
-    return ALL_SLOTS.filter(slot => {
-      const [time, period] = slot.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
+      return ALL_SLOTS.filter(slot => {
+        const [time, period] = slot.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
 
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
 
-      const slotTimeIST = new Date(nowIST);
-      slotTimeIST.setHours(hours, minutes, 0, 0);
+        const slotTimeIST = new Date(nowIST);
+        slotTimeIST.setHours(hours, minutes, 0, 0);
 
-      return slotTimeIST > oneHourFromNowIST;
-    }).slice(0, 9);
+        return slotTimeIST > oneHourFromNowIST;
+      }).slice(0, 9);
+    } catch (e) {
+      console.warn('getFilteredSlots fallback:', e);
+      return ALL_SLOTS.slice(0, 9);
+    }
   };
 
   const availableSlots = getFilteredSlots();
@@ -183,7 +188,7 @@ export default function SlotSelectScreen({ navigation }) {
 
         {/* Date Selection */}
         <View style={styles.sectionHeader}>
-          <AppText style={styles.sectionTitle} type="heading" weight="bold">Select Date</AppText>
+          <AppText style={[styles.sectionTitle, { marginTop: 24, fontFamily: theme.fonts.body, fontStyle: 'normal' }]} weight="bold">Select Date</AppText>
         </View>
 
         <View style={styles.calendarCard}>
@@ -195,7 +200,7 @@ export default function SlotSelectScreen({ navigation }) {
 
         {/* Available Slots */}
         <View style={[styles.sectionHeader, { marginTop: 24, marginBottom: 8 }]}>
-          <AppText style={styles.sectionTitle} type="heading" weight="bold">Available Slots</AppText>
+          <AppText style={[styles.sectionTitle, { marginBottom: 10, fontFamily: theme.fonts.body, fontStyle: 'normal' }]} weight="bold">Available Slots</AppText>
         </View>
 
         <View style={styles.slotsGrid}>
@@ -272,7 +277,8 @@ export default function SlotSelectScreen({ navigation }) {
           ))}
         </View>
 
-        <View style={{ height: 120 }} /> {/* Bottom spacing to avoid overlapping with absolute bottom bar */}
+        {/* Bottom spacing to avoid overlapping with absolute bottom bar */}
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* Bottom Fixed Bar */}
@@ -441,7 +447,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: theme.colors.textBlack,
     fontFamily: theme.fonts.heading,
   },

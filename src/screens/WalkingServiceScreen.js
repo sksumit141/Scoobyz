@@ -113,39 +113,44 @@ export default function WalkingServiceScreen({ navigation }) {
   };
 
   const getFilteredSlots = () => {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric', month: 'numeric', day: 'numeric',
-      hour: 'numeric', minute: 'numeric', second: 'numeric',
-      hour12: false
-    });
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false
+      });
 
-    const parts = formatter.formatToParts(new Date());
-    const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+      const parts = formatter.formatToParts(new Date());
+      const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
 
-    const nowIST = new Date(
-      getPart('year'), getPart('month') - 1, getPart('day'),
-      getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
-    );
+      const nowIST = new Date(
+        getPart('year'), getPart('month') - 1, getPart('day'),
+        getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
+      );
 
-    const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+      const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
 
-    if (!isToday) return ALL_SLOTS.slice(0, 9);
+      if (!isToday) return ALL_SLOTS.slice(0, 9);
 
-    const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+      const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
 
-    return ALL_SLOTS.filter(slot => {
-      const [time, period] = slot.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
+      return ALL_SLOTS.filter(slot => {
+        const [time, period] = slot.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
 
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
 
-      const slotTimeIST = new Date(nowIST);
-      slotTimeIST.setHours(hours, minutes, 0, 0);
+        const slotTimeIST = new Date(nowIST);
+        slotTimeIST.setHours(hours, minutes, 0, 0);
 
-      return slotTimeIST > oneHourFromNowIST;
-    }).slice(0, 9);
+        return slotTimeIST > oneHourFromNowIST;
+      }).slice(0, 9);
+    } catch (e) {
+      console.warn('getFilteredSlots fallback:', e);
+      return ALL_SLOTS.slice(0, 9);
+    }
   };
 
   const availableSlots = getFilteredSlots();
@@ -197,7 +202,7 @@ export default function WalkingServiceScreen({ navigation }) {
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Settings Card */}
-        <View style={[styles.card, isDemo && { borderColor: theme.colors.primaryDark, borderWidth: 1 }]}>
+        <View style={styles.card}>
           <AppText style={styles.label} weight="bold">Duration</AppText>
           {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to 30 mins</AppText>}
           <View style={styles.chipRow}>

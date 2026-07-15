@@ -202,10 +202,10 @@ const ProfileScreen = ({ navigation }) => {
         {/* Simple App Bar just for the menu button */}
         <View style={styles.appBar}>
           <TouchableOpacity
-            onPress={() => navigation.openDrawer()}
+            onPress={() => navigation.goBack()}
             style={styles.menuButton}
           >
-            <Ionicons name="menu" size={28} color={theme.colors.textBlack} />
+            <Ionicons name="arrow-back" size={28} color={theme.colors.textBlack} />
           </TouchableOpacity>
           <AppText style={styles.appBarTitle} weight="bold">Profile</AppText>
           <View style={{ width: 28 }} />{/* Spacer to center title */}

@@ -70,9 +70,8 @@ export default function PushNotificationManager() {
         try {
           const authToken = await AsyncStorage.getItem('authToken');
           if (authToken) {
-            // NOTE: Change API URL based on your network when testing
-            // Using API url assuming it might be configured globally or using a local dev IP
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.18:5000'; // Fallback to a common local IP structure if not set
+            // Using the global BASE_URL for API requests
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://scoobyz-backend.onrender.com';
             
             await fetch(`${API_URL}/api/notifications/push-token`, {
               method: 'POST',

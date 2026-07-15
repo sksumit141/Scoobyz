@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
     StatusBar,
     Dimensions,
     Linking,
+    Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -199,7 +200,11 @@ const NotificationsScreen = () => {
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <TouchableOpacity 
+                            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.replace('LandingScreen')} 
+                            style={styles.backButton}
+                            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                        >
                             <Ionicons name="chevron-back" size={28} color={theme.colors.textPrimary} />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Notifications</Text>

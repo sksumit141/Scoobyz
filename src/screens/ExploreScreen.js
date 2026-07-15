@@ -72,10 +72,10 @@ export default function ExploreScreen({ navigation }) {
           <View style={styles.headerTopRow}>
             <TouchableOpacity
               style={styles.headerIconBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              onPress={() => navigation.openDrawer ? navigation.openDrawer() : navigation.goBack()}
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <Ionicons name={navigation.openDrawer ? "menu" : "arrow-back"} size={26} color={theme.colors.white} />
+              <Ionicons name="arrow-back" size={26} color={theme.colors.white} />
             </TouchableOpacity>
 
             <View style={{ flex: 1 }} />

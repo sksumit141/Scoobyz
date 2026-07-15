@@ -1,6 +1,5 @@
 import 'react-native-gesture-handler';
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { DiscountProvider } from './src/contexts/DiscountContext';
 import { NavigationContainer } from '@react-navigation/native';
@@ -29,7 +28,9 @@ import RegisterNameScreen from './src/screens/RegisterNameScreen';
 import PhoneLoginScreen from './src/screens/PhoneLoginScreen';
 import OtpScreen from './src/screens/OtpScreen';
 import AddPetProfileScreen from './src/screens/AddPetProfileScreen';
-import AppDrawer from './src/navigation/AppDrawer';
+import LandingScreen from './src/screens/LandingScreen';
+import MenuScreen from './src/screens/MenuScreen';
+import ExploreScreen from './src/screens/ExploreScreen';
 import SlotSelectScreen from './src/screens/SlotSelectScreen';
 import SelectGroomerScreen from './src/screens/SelectGroomerScreen';
 import SelectCompanyScreen from './src/screens/SelectCompanyScreen';
@@ -106,11 +107,14 @@ export default function App() {
           try {
             const token = await AsyncStorage.getItem('authToken');
             const isOnboarded = await AsyncStorage.getItem('isOnboarded');
+            
             if (token) {
               if (isOnboarded === 'true') {
                 setInitialRoute('LandingScreen');
               } else {
-                setInitialRoute('RegisterName');
+                // Stale token from partial onboarding or backup restore. Clear it and start fresh.
+                await AsyncStorage.removeItem('authToken');
+                setInitialRoute('Welcome');
               }
             }
           } catch (e) {
@@ -150,19 +154,27 @@ export default function App() {
             <Stack.Screen name="OtpScreen" component={OtpScreen} />
             <Stack.Screen name="RegisterName" component={RegisterNameScreen} />
             <Stack.Screen name="AddPetProfile" component={AddPetProfileScreen} />
-            <Stack.Screen name="LandingScreen" component={AppDrawer} />
+            <Stack.Screen name="LandingScreen" component={LandingScreen} />
+            <Stack.Screen name="Menu" component={MenuScreen} />
+            <Stack.Screen name="Explore" component={ExploreScreen} />
+            
+            {/* Drawer Screens restored to Stack for proper back-button behavior */}
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+            <Stack.Screen name="AddressBook" component={AddressBookScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Help" component={HelpSupportScreen} />
+            <Stack.Screen name="SupportChat" component={SupportChatScreen} />
+
             <Stack.Screen name="SlotSelect" component={SlotSelectScreen} />
             <Stack.Screen name="SelectGroomer" component={SelectGroomerScreen} />
             <Stack.Screen name="SelectCompany" component={SelectCompanyScreen} />
             <Stack.Screen name="ExplorePackages" component={ExplorePackagesScreen} />
             <Stack.Screen name="ExpertProfile" component={ExpertProfileScreen} />
             <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
             <Stack.Screen name="BookingCardDetails" component={BookingCardDetailsScreen} />
             <Stack.Screen name="BookingCancelledStatus" component={BookingCancelledStatusScreen} />
             <Stack.Screen name="BookingRescheduledStatus" component={BookingRescheduledStatusScreen} />
-            <Stack.Screen name="AddressBook" component={AddressBookScreen} />
 
             {/* Dog Boarding Flow */}
             <Stack.Screen name="BoardingService" component={BoardingServiceScreen} />
@@ -181,8 +193,6 @@ export default function App() {
             <Stack.Screen name="VetConfirmed" component={VetConfirmedScreen} />
 
             {/* Support & Chat */}
-            <Stack.Screen name="Help" component={HelpSupportScreen} />
-            <Stack.Screen name="SupportChat" component={SupportChatScreen} />
             <Stack.Screen name="Contact" component={ChatScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
 
@@ -201,13 +211,12 @@ export default function App() {
             {/* New Booking Request Flow */}
             <Stack.Screen name="BookVendor" component={BookVendorScreen} />
             <Stack.Screen name="BookingPending" component={BookingPendingScreen} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} />
           </Stack.Navigator>
         </NavigationContainer>
-        </SafeAreaProvider>
         <BookingStatusOverlay />
         <PushNotificationManager />
         <Toast />
+        </SafeAreaProvider>
       </GestureHandlerRootView>
     </DiscountProvider>
   );

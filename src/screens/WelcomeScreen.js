@@ -228,13 +228,13 @@ const WelcomeScreen = ({ navigation }) => {
                 <AppText style={styles.socialButtonText}>Continue with Google</AppText>
               </AppButton>
 
-              <AppButton
+              {/* <AppButton
                 style={styles.socialButton}
                 onPress={() => navigation.navigate('RegisterName')}
               >
                 <MaterialCommunityIcons name="apple" size={22} color="black" />
                 <AppText style={styles.socialButtonText}>Continue with Apple</AppText>
-              </AppButton>
+              </AppButton> */}
             </View>
 
             <TouchableOpacity

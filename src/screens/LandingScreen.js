@@ -43,10 +43,10 @@ const LandingScreen = ({ navigation }) => {
         return true;
       };
 
-      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
 
       return () => {
-        BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+        subscription.remove();
       };
     }, [])
   );
@@ -124,10 +124,10 @@ const LandingScreen = ({ navigation }) => {
           <View style={styles.headerTopRow}>
             <TouchableOpacity 
               style={styles.headerIconBtn}
-              onPress={() => navigation.openDrawer ? navigation.openDrawer() : navigation.goBack()}
+              onPress={() => navigation.navigate('Menu')}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-              <Ionicons name={navigation.openDrawer ? "menu" : "arrow-back"} size={28} color={theme.colors.white} />
+              <Ionicons name="menu" size={28} color={theme.colors.white} />
             </TouchableOpacity>
 
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
