@@ -61,6 +61,8 @@ import VetConfirmedScreen from './src/screens/VetConfirmedScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import SupportChatScreen from './src/screens/SupportChatScreen';
 import ChatScreen from './src/screens/ChatScreen';
+import TermsConditionsScreen from './src/screens/TermsConditionsScreen';
+import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 
 import ArticlesScreen from './src/screens/ArticlesScreen';
 import ArticleDetailScreen from './src/screens/ArticleDetailScreen';
@@ -165,6 +167,8 @@ export default function App() {
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Help" component={HelpSupportScreen} />
             <Stack.Screen name="SupportChat" component={SupportChatScreen} />
+            <Stack.Screen name="Terms" component={TermsConditionsScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyPolicyScreen} />
 
             <Stack.Screen name="SlotSelect" component={SlotSelectScreen} />
             <Stack.Screen name="SelectGroomer" component={SelectGroomerScreen} />

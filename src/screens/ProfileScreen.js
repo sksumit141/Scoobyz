@@ -181,6 +181,8 @@ const ProfileScreen = ({ navigation }) => {
         { icon: 'help-circle-outline', label: 'Help & FAQ', route: 'Help' },
         { icon: 'chat-outline', label: 'Contact Us', route: 'SupportChat' },
         { icon: 'information-outline', label: 'About Scoobyz', route: 'About' },
+        { icon: 'file-document-outline', label: 'Terms & Conditions', route: 'Terms' },
+        { icon: 'shield-check-outline', label: 'Privacy Policy', route: 'Privacy' },
       ]
     }
   ];
