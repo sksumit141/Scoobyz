@@ -23,6 +23,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../services/api';
 import { supabase } from '../lib/supabase';
@@ -166,11 +167,19 @@ const WelcomeScreen = ({ navigation }) => {
   const handleAppleLogin = async () => {
     setLoading(true);
     try {
+      // Supabase requires a nonce for Apple Sign-In to prevent replay attacks
+      const rawNonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
       
       const { identityToken, fullName, email } = credential;
@@ -179,10 +188,11 @@ const WelcomeScreen = ({ navigation }) => {
         throw new Error('No identityToken returned from Apple');
       }
 
-      // Log into Supabase with the identity token
+      // Log into Supabase with the identity token AND the raw nonce
       const { data: sd, error: se } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: identityToken,
+        nonce: rawNonce,
       });
 
       if (se) { 
