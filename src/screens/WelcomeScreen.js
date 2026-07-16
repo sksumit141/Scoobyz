@@ -60,8 +60,11 @@ const WelcomeScreen = ({ navigation }) => {
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     redirectUri: Platform.OS === 'web'
       ? AuthSession.makeRedirectUri({ path: 'oauthredirect' })
+      : Platform.OS === 'ios'
+      ? 'com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1:/oauthredirect'
       : 'com.googleusercontent.apps.1013005276460-pusoouaic016hst3dsb938mm22h36bed:/oauthredirect',
     scopes: ['openid', 'profile', 'email'],
   });
