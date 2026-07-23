@@ -16,7 +16,7 @@ if (Platform.OS !== 'web') {
 
 export default function LiveTrackingMap({ bookingId, initialLocation }) {
     const mapRef = useRef(null);
-    
+
     // Fallback for Web
     if (Platform.OS === 'web') {
         return (
@@ -70,7 +70,7 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
 
         const handleLocationUpdate = (data) => {
             if (!data || !data.latitude || !data.longitude) return;
-            
+
             const newLat = parseFloat(data.latitude);
             const newLng = parseFloat(data.longitude);
             const newHeading = parseFloat(data.heading) || 0;
@@ -97,7 +97,7 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
 
     return (
         <View style={styles.container}>
-            <MapView 
+            <MapView
                 ref={mapRef}
                 style={styles.map}
                 provider={PROVIDER_GOOGLE}
@@ -121,7 +121,7 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
                                 })
                             }
                         ]} />
-                        
+
                         <View style={[styles.pawContainer, { transform: [{ rotate: `${heading}deg` }] }]}>
                             <Ionicons name="paw" size={30} color={theme.colors.accent} />
                         </View>
@@ -133,9 +133,9 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
 }
 
 const styles = StyleSheet.create({
-    container: { 
-        flex: 1, 
-        borderRadius: 16, 
+    container: {
+        flex: 1,
+        borderRadius: 16,
         overflow: 'hidden',
         backgroundColor: '#f0f0f0'
     },
@@ -153,9 +153,9 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.body,
         textAlign: 'center'
     },
-    map: { 
-        width: '100%', 
-        height: '100%' 
+    map: {
+        width: '100%',
+        height: '100%'
     },
     markerWrapper: {
         alignItems: 'center',

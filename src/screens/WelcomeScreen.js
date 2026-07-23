@@ -20,8 +20,8 @@ import AppButton from '../components/AppButton';
 import CustomAlert from '../components/CustomAlert';
 import AppScreen from '../components/AppScreen';
 import * as WebBrowser from 'expo-web-browser';
+import { configureGoogleAuth, signInWithGoogle } from '../utils/GoogleAuth';
 import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,6 +30,7 @@ import { supabase } from '../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+configureGoogleAuth();
 // Enable LayoutAnimation for Android
 try {
   if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -58,20 +59,14 @@ const WelcomeScreen = ({ navigation }) => {
     if (mode) setSelectedMode(mode);
   };
 
+  // Web-only Google Sign-In hook
   const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    redirectUri: Platform.OS === 'web'
-      ? AuthSession.makeRedirectUri({ path: 'oauthredirect' })
-      : Platform.OS === 'ios'
-      ? 'com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1:/oauthredirect'
-      : 'com.googleusercontent.apps.1013005276460-pusoouaic016hst3dsb938mm22h36bed:/oauthredirect',
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     scopes: ['openid', 'profile', 'email'],
   });
 
   React.useEffect(() => {
-    if (response?.type === 'success') {
+    if (Platform.OS === 'web' && response?.type === 'success') {
       const idToken = response.authentication?.idToken;
       const accessToken = response.authentication?.accessToken;
       if (idToken) {
@@ -81,6 +76,27 @@ const WelcomeScreen = ({ navigation }) => {
       }
     }
   }, [response]);
+
+  const handleGoogleSignIn = async () => {
+    if (Platform.OS === 'web') {
+      promptAsync();
+      return;
+    }
+
+    try {
+      const idToken = await signInWithGoogle();
+      if (idToken) {
+        await handleSupabaseGoogle(idToken);
+      } else {
+        showAlert('Error', 'No ID token found from Google Sign-In.');
+      }
+    } catch (error) {
+      console.error('Google Sign-In Error:', error);
+      if (error.code !== 'SIGN_IN_CANCELLED') {
+        showAlert('Login Error', error.message || 'Google sign-in failed.');
+      }
+    }
+  };
 
   // Path 1: idToken → Supabase verification → your backend
   const handleSupabaseGoogle = async (idToken) => {
@@ -135,6 +151,8 @@ const WelcomeScreen = ({ navigation }) => {
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
         if (data.isOnboarded) {
           navigation.replace('LandingScreen');
+        } else if (data.hasName) {
+          navigation.replace('AddPetProfile');
         } else {
           navigation.replace('RegisterName');
         }
@@ -181,9 +199,9 @@ const WelcomeScreen = ({ navigation }) => {
         ],
         nonce: hashedNonce,
       });
-      
+
       const { identityToken, fullName, email } = credential;
-      
+
       if (!identityToken) {
         throw new Error('No identityToken returned from Apple');
       }
@@ -195,14 +213,14 @@ const WelcomeScreen = ({ navigation }) => {
         nonce: rawNonce,
       });
 
-      if (se) { 
-        showAlert('Apple Login Error', se.message); 
-        setLoading(false); 
-        return; 
+      if (se) {
+        showAlert('Apple Login Error', se.message);
+        setLoading(false);
+        return;
       }
 
       const u = sd.user;
-      
+
       // Extract name from Apple payload if available, else from Supabase
       let name = '';
       if (fullName?.givenName || fullName?.familyName) {
@@ -217,12 +235,12 @@ const WelcomeScreen = ({ navigation }) => {
       const res = await fetch(`${BASE_URL}/auth/apple-supabase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: userEmail, 
-          name, 
-          appleId: u.user_metadata?.sub || u.id, 
-          app: 'customer', 
-          type: selectedMode 
+        body: JSON.stringify({
+          email: userEmail,
+          name,
+          appleId: u.user_metadata?.sub || u.id,
+          app: 'customer',
+          type: selectedMode
         }),
       });
 
@@ -233,6 +251,8 @@ const WelcomeScreen = ({ navigation }) => {
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
         if (data.isOnboarded) {
           navigation.replace('LandingScreen');
+        } else if (data.hasName) {
+          navigation.replace('AddPetProfile');
         } else {
           navigation.replace('RegisterName');
         }
@@ -320,8 +340,7 @@ const WelcomeScreen = ({ navigation }) => {
 
               <AppButton
                 style={styles.socialButton}
-                onPress={() => promptAsync()}
-                disabled={!request}
+                onPress={handleGoogleSignIn}
               >
                 <MaterialCommunityIcons name="google" size={22} color={theme.colors.accent} />
                 <AppText style={styles.socialButtonText}>Continue with Google</AppText>

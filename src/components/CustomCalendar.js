@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   dayBox: {
-    width: `${100 / 7}%`,
+    width: '14.28%',
     aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pastDayText: {
-    color: 'rgba(0,0,0,0.1)',
+    color: 'rgba(0,0,0,0.35)',
   },
   todayText: {
     color: theme.colors.primaryDark,

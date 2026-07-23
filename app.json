@@ -8,7 +8,7 @@
       "com.googleusercontent.apps.1013005276460-pvst0rk84acjh4cldopluoue688jsp55",
       "com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1"
     ],
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -72,7 +72,8 @@
       "expo-location",
       "expo-image-picker",
       "expo-font",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@react-native-google-signin/google-signin"
     ],
     "runtimeVersion": "1.0.0",
     "extra": {
