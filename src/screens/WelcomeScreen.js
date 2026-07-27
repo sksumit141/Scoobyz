@@ -407,7 +407,7 @@ const WelcomeScreen = ({ navigation }) => {
             </AppText>
 
             <AppText style={styles.tagline} weight="600">
-              INDIA'S NO.1 PET CARE PLATFORM
+              PET CARE PLATFORM
             </AppText>
           </View>
 
