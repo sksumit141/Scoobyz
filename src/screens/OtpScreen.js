@@ -51,7 +51,8 @@ const OtpScreen = ({ navigation, route }) => {
         if (data.isOnboarded) {
              navigation.replace('LandingScreen');
         } else {
-             navigation.replace('RegisterName');
+             // Bypassing RegisterName screen
+             navigation.replace('AddPetProfile');
         }
       } else {
         setError(data.details || 'Verification failed.');

@@ -151,10 +151,9 @@ const WelcomeScreen = ({ navigation }) => {
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
         if (data.isOnboarded) {
           navigation.replace('LandingScreen');
-        } else if (data.hasName) {
-          navigation.replace('AddPetProfile');
         } else {
-          navigation.replace('RegisterName');
+          // Bypassing RegisterName screen for all users
+          navigation.replace('AddPetProfile');
         }
       } else {
         if (res.status === 403) {
@@ -251,10 +250,9 @@ const WelcomeScreen = ({ navigation }) => {
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
         if (data.isOnboarded) {
           navigation.replace('LandingScreen');
-        } else if (data.hasName) {
-          navigation.replace('AddPetProfile');
         } else {
-          navigation.replace('RegisterName');
+          // Bypassing RegisterName screen for all users
+          navigation.replace('AddPetProfile');
         }
       } else {
         if (res.status === 403) {
