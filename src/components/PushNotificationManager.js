@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { navigationRef } from '../../App';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -82,6 +83,16 @@ export async function registerAndSendPushToken() {
   }
 }
 
+export async function sendLocalWelcomeNotification() {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Hi 👋",
+      body: "How are you?",
+    },
+    trigger: null,
+  });
+}
+
 export default function PushNotificationManager() {
   const notificationListener = useRef();
   const responseListener = useRef();
@@ -95,7 +106,19 @@ export default function PushNotificationManager() {
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification tapped:', response);
-      // Here you could handle navigation deep linking based on response.notification.request.content.data.actionUrl
+      const data = response?.notification?.request?.content?.data;
+      if (data && data.actionUrl && navigationRef.isReady()) {
+        try {
+          navigationRef.navigate(data.actionUrl, data.params || {});
+        } catch (err) {
+          console.error('Failed to navigate from push notification:', err);
+        }
+      } else {
+        // Fallback or default behavior, e.g., open notifications tab
+        if (navigationRef.isReady()) {
+          navigationRef.navigate('Notifications');
+        }
+      }
     });
 
     return () => {
