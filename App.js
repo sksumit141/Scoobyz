@@ -49,6 +49,7 @@ import AddressBookScreen from './src/screens/AddressBookScreen';
 import BookingStatusOverlay from './src/components/BookingStatusOverlay';
 import CartBanner from './src/components/CartBanner';
 import { CartProvider } from './src/contexts/CartContext';
+import { registerAndSendPushToken } from './src/components/PushNotificationManager';
 
 import BoardingServiceScreen from './src/screens/BoardingServiceScreen';
 import BoardingLocationScreen from './src/screens/BoardingLocationScreen';
@@ -122,6 +123,7 @@ export default function App() {
             if (token) {
               if (isOnboarded === 'true') {
                 setInitialRoute('LandingScreen');
+                registerAndSendPushToken().catch(console.error);
               } else {
                 // Stale token from partial onboarding or backup restore. Clear it and start fresh.
                 await AsyncStorage.removeItem('authToken');

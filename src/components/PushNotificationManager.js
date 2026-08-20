@@ -13,7 +13,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function registerForPushNotificationsAsync() {
+export async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'web') return;
   let token;
 
@@ -59,35 +59,35 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
+export async function registerAndSendPushToken() {
+  try {
+    const token = await registerForPushNotificationsAsync();
+    if (token) {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (authToken) {
+        const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://scoobyz-backend.onrender.com';
+        await fetch(`${API_URL}/api/notifications/push-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ pushToken: token })
+        });
+        console.log('Push token sent to backend after login');
+      }
+    }
+  } catch (e) {
+    console.error('Error sending push token:', e);
+  }
+}
+
 export default function PushNotificationManager() {
   const notificationListener = useRef();
   const responseListener = useRef();
 
   useEffect(() => {
-    registerForPushNotificationsAsync().then(async token => {
-      if (token) {
-        // Send to backend if logged in
-        try {
-          const authToken = await AsyncStorage.getItem('authToken');
-          if (authToken) {
-            // Using the global BASE_URL for API requests
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://scoobyz-backend.onrender.com';
-            
-            await fetch(`${API_URL}/api/notifications/push-token`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-              },
-              body: JSON.stringify({ pushToken: token })
-            });
-            console.log('Push token sent to backend');
-          }
-        } catch (e) {
-          console.error('Failed to send push token to backend', e);
-        }
-      }
-    });
+    registerAndSendPushToken();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received:', notification);

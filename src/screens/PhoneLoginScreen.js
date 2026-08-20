@@ -65,7 +65,7 @@ const PhoneLoginScreen = ({ navigation, route }) => {
 
   return (
     <>
-      <AppScreen scrollable={true} padding={false}>
+      <AppScreen scrollable={false} padding={false}>
         <AppHeader title="" />
         {/* Full-screen loading overlay */}
         {loading && (
@@ -79,7 +79,7 @@ const PhoneLoginScreen = ({ navigation, route }) => {
 
         <KeyboardAvoidingView 
           style={{ flex: 1, width: '100%' }} 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
         <View style={styles.content}>
 

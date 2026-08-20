@@ -543,7 +543,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
             <View style={{ flex: 1, marginLeft: 8 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <AppText style={styles.smallLabel}>MODE</AppText>
-                <TouchableOpacity onPress={() => navigation.navigate('AddressBook', { returnScreen: 'ReviewDetails' })}>
+                <TouchableOpacity onPress={() => navigation.navigate('AddressBook', { returnScreen: 'ReviewDetails', reviewParams: route.params })}>
                   <AppText style={{ color: theme.colors.primary, fontSize: 10 }} weight="bold">CHANGE</AppText>
                 </TouchableOpacity>
               </View>

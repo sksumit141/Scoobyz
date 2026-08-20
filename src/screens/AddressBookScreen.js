@@ -435,7 +435,7 @@ const AddressBookScreen = ({ navigation, route }) => {
                 if (route.params?.returnScreen) {
                   navigation.navigate({
                     name: route.params.returnScreen,
-                    params: { selectedAddress: item },
+                    params: { ...(route.params.reviewParams || {}), selectedAddress: item },
                     merge: true,
                   });
                 } else {

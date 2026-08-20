@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, Dimensions, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableOpacity, Image, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import AppScreen from '../components/AppScreen';
 import { authApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PawLoader from '../components/PawLoader';
+import { registerAndSendPushToken } from '../components/PushNotificationManager';
 
 const { width } = Dimensions.get('window');
 
@@ -80,6 +81,8 @@ const OtpScreen = ({ navigation, route }) => {
         await AsyncStorage.setItem('userId', String(data.userId));
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
         
+        registerAndSendPushToken();
+
         if (data.isOnboarded) {
              navigation.replace('LandingScreen');
         } else {
