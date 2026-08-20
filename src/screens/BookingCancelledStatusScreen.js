@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-nat
 import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -40,6 +41,8 @@ export default function BookingCancelledStatusScreen({ route, navigation }) {
 
     // Resolve service tasks / details
     let serviceTasks = booking?.notes || '';
+    if (serviceTasks.includes('_OP:1_')) serviceTasks = '';
+    
     if (!serviceTasks && booking) {
         if (booking.bookingType === 'grooming') {
             serviceTasks = 'Full groom, nail trim, ear cleaning';
@@ -76,12 +79,7 @@ export default function BookingCancelledStatusScreen({ route, navigation }) {
     return (
         <AppScreen padding={false} style={styles.screen}>
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton} activeOpacity={0.7}>
-                    <Ionicons name="arrow-back-outline" size={26} color={theme.colors.textBlack} />
-                </TouchableOpacity>
-                <AppText style={styles.headerTitle} type="heading" weight="bold">Booking Status</AppText>
-            </View>
+            <AppHeader title="Booking Status" onBack={handleBack} />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 
@@ -209,7 +207,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 40,
+        paddingTop: 10,
         paddingBottom: 10,
         backgroundColor: '#F8F7F3',
     },

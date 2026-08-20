@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import ExpertCard from '../components/ExpertCard';
 import ExpertDetailsModal from '../components/ExpertDetailsModal';
 import FilterModal from '../components/FilterModal';
 import { discoverApi } from '../services/api';
 import { theme } from '../styles/theme';
+import PawLoader from '../components/PawLoader';
 
 export default function WalkingWalkerListScreen({ navigation, route }) {
-  const { duration = '45 min' } = route.params || {};
+  // total is pre-computed by WalkingServiceScreen using Scoobyz static pricing
+  const { total: routeTotal = 0 } = route.params || {};
   const [walkers, setWalkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,14 +27,15 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
     try {
       setLoading(true);
       setError(null);
-      const data = await discoverApi.walkers({ duration });
+      // Fetch all walking vendors - no duration/price filter since pricing is Scoobyz-fixed
+      const data = await discoverApi.walkers({});
       setWalkers(data);
     } catch (err) {
       setError(err.message || 'Failed to load walkers');
     } finally {
       setLoading(false);
     }
-  }, [duration]);
+  }, []);
 
   useEffect(() => { fetchWalkers(); }, [fetchWalkers]);
 
@@ -42,34 +46,36 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
       return matchesBadge && matchesSearch;
     })
     .sort((a, b) => {
-      if (activeFilters.sort === 'price_asc') return Number(a.price) - Number(b.price);
-      if (activeFilters.sort === 'price_desc') return Number(b.price) - Number(a.price);
       if (activeFilters.sort === 'rating_desc') return Number(b.rating) - Number(a.rating);
       if (activeFilters.sort === 'reviews_desc') return Number(b.reviews) - Number(a.reviews);
       return 0;
     });
 
+  const navigateToBook = (walker) => {
+    navigation.navigate('BookVendor', {
+      ...route.params,
+      expert: walker,
+      total: routeTotal,
+      serviceType: 'Walking',
+    });
+  };
+
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} type="heading" weight="bold">Select Walker</AppText>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterVisible(true)}>
-          <MaterialCommunityIcons
-            name="tune-variant"
-            size={24}
-            color={(activeFilters.tiers.length > 0 || activeFilters.sort) ? theme.colors.primaryDark : theme.colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+      <AppHeader
+        title="Select Walker"
+        rightComponent={
+          <TouchableOpacity onPress={() => setFilterVisible(true)} activeOpacity={0.7}>
+            <MaterialCommunityIcons name="tune-variant" size={24} color={theme.colors.primaryDark} />
+          </TouchableOpacity>
+        }
+      />
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search experts by name..."
+          placeholder="Search walkers by name..."
           placeholderTextColor={theme.colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -81,12 +87,22 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
         )}
       </View>
 
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      {/* Price info banner */}
+      {routeTotal > 0 && (
+        <View style={styles.priceBanner}>
+          <MaterialCommunityIcons name="tag-outline" size={16} color={theme.colors.primaryDark} />
+          <AppText style={styles.priceBannerText}>
+            Scoobyz price: <AppText weight="bold" style={{ color: theme.colors.primaryDark }}>₹{routeTotal}</AppText> — same for all walkers
+          </AppText>
+        </View>
+      )}
+
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={styles.introSection}>
           <AppText style={styles.introTitle} type="heading" weight="bold">Available Walkers</AppText>
         </View>
 
-        {loading && <ActivityIndicator size="large" color={theme.colors.primaryDark} style={{ marginTop: 40 }} />}
+        {loading && <PawLoader fullScreen={false} />}
 
         {error && (
           <View style={styles.errorBox}>
@@ -105,14 +121,9 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
           {displayed.map((walker) => (
             <ExpertCard
               key={walker.id}
-              expert={walker}
+              expert={{ ...walker, price: routeTotal > 0 ? String(routeTotal) : walker.price }}
               onView={() => setActiveModalExpert(walker)}
-              onSelect={() => {
-                const multiplier = route.params?.frequency === 'Weekly' ? 7 : (route.params?.frequency === 'Monthly' ? 25 : 1);
-                const timesPerDay = route.params?.timesPerDay || 1;
-                const newTotal = (Number(walker.price) || 0) * multiplier * timesPerDay;
-                navigation.navigate('BookVendor', { ...route.params, expert: walker, total: newTotal, serviceType: 'Walking' });
-              }}
+              onSelect={() => navigateToBook(walker)}
               isSelected={selectedWalker === walker.id}
             />
           ))}
@@ -127,7 +138,7 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
           activeOpacity={0.8}
           onPress={() => {
             const walker = walkers.find(w => w.id === selectedWalker);
-            navigation.navigate('BookVendor', { ...route.params, expert: walker, serviceType: 'Walking' });
+            navigateToBook(walker);
           }}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Continue with Walker</AppText>
@@ -139,11 +150,8 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
         expert={activeModalExpert}
         onClose={() => setActiveModalExpert(null)}
         onSelect={() => {
-          const multiplier = route.params?.frequency === 'Weekly' ? 7 : (route.params?.frequency === 'Monthly' ? 25 : 1);
-          const timesPerDay = route.params?.timesPerDay || 1;
-          const newTotal = (Number(activeModalExpert.price) || 0) * multiplier * timesPerDay;
           setActiveModalExpert(null);
-          navigation.navigate('BookVendor', { ...route.params, expert: activeModalExpert, total: newTotal, serviceType: 'Walking' });
+          navigateToBook(activeModalExpert);
         }}
       />
 
@@ -159,42 +167,6 @@ export default function WalkingWalkerListScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    ...theme.shadows.small,
-  },
-  headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, flex: 1, marginLeft: -5 },
-  filterButton: { padding: 4 },
-  scrollContent: { paddingHorizontal: 24 },
-  introSection: { marginTop: 16, marginBottom: 24 },
-  introTitle: { fontSize: 18, color: theme.colors.textBlack, marginBottom: 6 },
-  introSubtitle: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 20 },
-  listContainer: { gap: 16 },
-  errorBox: { alignItems: 'center', marginTop: 40 },
-  errorText: { color: theme.colors.error || 'red', fontSize: 14, marginBottom: 12, textAlign: 'center' },
-  retryBtn: { backgroundColor: theme.colors.primaryDark, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 12 },
-  retryText: { color: theme.colors.white, fontSize: 14 },
-  emptyText: { textAlign: 'center', color: theme.colors.textSecondary, marginTop: 60, fontSize: 15 },
-  bottomBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 24, paddingTop: 16, paddingBottom: 30,
-  },
-  confirmBtn: {
-    backgroundColor: theme.colors.success, paddingVertical: 16,
-    borderRadius: 16, alignItems: 'center',
-  },
-  confirmBtnText: { color: theme.colors.white, fontSize: 16 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,4 +184,39 @@ const styles = StyleSheet.create({
     color: theme.colors.textBlack,
     paddingVertical: 0,
   },
+  priceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primaryLight || '#F0F4FF',
+    marginHorizontal: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 8,
+  },
+  priceBannerText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    flex: 1,
+  },
+  scrollContent: { paddingHorizontal: 24 },
+  introSection: { marginTop: 16, marginBottom: 24 },
+  introTitle: { fontSize: 18, color: theme.colors.textBlack, marginBottom: 6 },
+  listContainer: { gap: 16 },
+  errorBox: { alignItems: 'center', marginTop: 40 },
+  errorText: { color: theme.colors.error || 'red', fontSize: 14, marginBottom: 12, textAlign: 'center' },
+  retryBtn: { backgroundColor: theme.colors.primaryDark, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 12 },
+  retryText: { color: theme.colors.white, fontSize: 14 },
+  emptyText: { textAlign: 'center', color: theme.colors.textSecondary, marginTop: 60, fontSize: 15 },
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 24, paddingTop: 16, paddingBottom: 30,
+  },
+  confirmBtn: {
+    backgroundColor: theme.colors.success, paddingVertical: 16,
+    borderRadius: 16, alignItems: 'center',
+  },
+  confirmBtnText: { color: theme.colors.white, fontSize: 16 },
 });

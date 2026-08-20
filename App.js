@@ -2,7 +2,8 @@ import 'react-native-gesture-handler';
 import React, { useCallback, useEffect, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import { DiscountProvider } from './src/contexts/DiscountContext';
-import { NavigationContainer } from '@react-navigation/native';
+import { LoadingProvider } from './src/contexts/LoadingContext';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,15 +36,19 @@ import SlotSelectScreen from './src/screens/SlotSelectScreen';
 import SelectGroomerScreen from './src/screens/SelectGroomerScreen';
 import SelectCompanyScreen from './src/screens/SelectCompanyScreen';
 import ExplorePackagesScreen from './src/screens/ExplorePackagesScreen';
+import GroomingPackagesScreen from './src/screens/GroomingPackagesScreen';
 import ExpertProfileScreen from './src/screens/ExpertProfileScreen';
 import BookingConfirmedScreen from './src/screens/BookingConfirmedScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 import MyBookingsScreen from './src/screens/MyBookingsScreen';
 import BookingCardDetailsScreen from './src/screens/BookingCardDetailsScreen';
 import BookingCancelledStatusScreen from './src/screens/BookingCancelledStatusScreen';
 import BookingRescheduledStatusScreen from './src/screens/BookingRescheduledStatusScreen';
 import AddressBookScreen from './src/screens/AddressBookScreen';
 import BookingStatusOverlay from './src/components/BookingStatusOverlay';
+import CartBanner from './src/components/CartBanner';
+import { CartProvider } from './src/contexts/CartContext';
 
 import BoardingServiceScreen from './src/screens/BoardingServiceScreen';
 import BoardingLocationScreen from './src/screens/BoardingLocationScreen';
@@ -71,6 +76,7 @@ import ViewSubmittedReviewScreen from './src/screens/ViewSubmittedReviewScreen';
 import TrackingScreen from './src/screens/TrackingScreen';
 import VideoCallScreen from './src/screens/VideoCallScreen';
 import BookVendorScreen from './src/screens/BookVendorScreen';
+import ReviewDetailsScreen from './src/screens/ReviewDetailsScreen';
 import BookingPendingScreen from './src/screens/BookingPendingScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 
@@ -83,9 +89,12 @@ const Stack = createNativeStackNavigator();
 // Keep the splash screen visible while we fetch resources 
 SplashScreen.preventAutoHideAsync();
 
+export const navigationRef = createNavigationContainerRef();
+
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState('Welcome');
+  const [currentRoute, setCurrentRoute] = useState();
 
   useEffect(() => {
     async function prepare() {
@@ -146,12 +155,22 @@ export default function App() {
   }
 
   return (
-    <DiscountProvider>
-      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <SafeAreaProvider>
-        <NavigationContainer>
-          <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+    <LoadingProvider>
+    <CartProvider>
+      <DiscountProvider>
+        <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          <SafeAreaProvider>
+          <NavigationContainer 
+            ref={navigationRef}
+            onReady={() => {
+              setCurrentRoute(navigationRef.getCurrentRoute()?.name);
+            }}
+            onStateChange={() => {
+              setCurrentRoute(navigationRef.getCurrentRoute()?.name);
+            }}
+          >
+            <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
             <Stack.Screen name="OtpScreen" component={OtpScreen} />
             <Stack.Screen name="RegisterName" component={RegisterNameScreen} />
@@ -162,6 +181,7 @@ export default function App() {
             
             {/* Drawer Screens restored to Stack for proper back-button behavior */}
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
             <Stack.Screen name="AddressBook" component={AddressBookScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
@@ -174,7 +194,9 @@ export default function App() {
             <Stack.Screen name="SelectGroomer" component={SelectGroomerScreen} />
             <Stack.Screen name="SelectCompany" component={SelectCompanyScreen} />
             <Stack.Screen name="ExplorePackages" component={ExplorePackagesScreen} />
+            <Stack.Screen name="GroomingPackages" component={GroomingPackagesScreen} />
             <Stack.Screen name="ExpertProfile" component={ExpertProfileScreen} />
+            <Stack.Screen name="ReviewDetails" component={ReviewDetailsScreen} />
             <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
             <Stack.Screen name="BookingCardDetails" component={BookingCardDetailsScreen} />
             <Stack.Screen name="BookingCancelledStatus" component={BookingCancelledStatusScreen} />
@@ -216,12 +238,20 @@ export default function App() {
             <Stack.Screen name="BookVendor" component={BookVendorScreen} />
             <Stack.Screen name="BookingPending" component={BookingPendingScreen} />
           </Stack.Navigator>
+          
+          {/* Global Banners */}
+          {currentRoute === 'LandingScreen' && (
+            <CartBanner />
+          )}
+
         </NavigationContainer>
         <BookingStatusOverlay />
         <PushNotificationManager />
         <Toast />
         </SafeAreaProvider>
       </GestureHandlerRootView>
-    </DiscountProvider>
+      </DiscountProvider>
+    </CartProvider>
+    </LoadingProvider>
   );
 }

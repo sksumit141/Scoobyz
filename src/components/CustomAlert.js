@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, StyleSheet, Dimensions, TouchableOpacity, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import AppText from './AppText';
@@ -18,10 +19,11 @@ const CustomAlert = ({
   confirmText = 'Confirm',
   type = 'info' // info, success, warning, error
 }) => {
+  const insets = useSafeAreaInsets();
   // Map type to colors if iconColor is not provided specifically
   const getColors = () => {
     switch (type) {
-      case 'success': return { icon: '#4CAF50', bg: '#E8F5E9' };
+      case 'success': return { icon: theme.colors.success, bg: `${theme.colors.success}15` };
       case 'warning': return { icon: '#FF9800', bg: '#FFF3E0' };
       case 'error': return { icon: '#F44336', bg: '#FFEBEE' };
       default: return { icon: iconColor, bg: `${iconColor}15` }; // 15 is ~8% opacity
@@ -29,6 +31,7 @@ const CustomAlert = ({
   };
 
   const colors = getColors();
+  const styles = getStyles(insets);
 
   return (
     <Modal
@@ -57,22 +60,22 @@ const CustomAlert = ({
 
           <View style={onConfirm ? styles.buttonRow : styles.singleButtonContainer}>
             <TouchableOpacity 
-              style={[styles.button, onConfirm ? styles.cancelButton : styles.primaryButton]} 
+              style={[styles.button, onConfirm ? styles.cancelButton : [styles.primaryButton, { backgroundColor: colors.icon }]]} 
               onPress={onClose} 
               activeOpacity={0.8}
             >
-              <AppText style={[styles.buttonText, onConfirm ? styles.cancelButtonText : styles.primaryButtonText]} weight="bold">
+              <AppText style={[styles.buttonText, onConfirm ? styles.cancelButtonText : [styles.primaryButtonText, { color: theme.colors.white }]]} weight="bold">
                 {buttonText}
               </AppText>
             </TouchableOpacity>
 
             {onConfirm && (
               <TouchableOpacity 
-                style={[styles.button, styles.confirmButton]} 
+                style={[styles.button, styles.confirmButton, { backgroundColor: colors.icon }]} 
                 onPress={onConfirm} 
                 activeOpacity={0.8}
               >
-                <AppText style={styles.primaryButtonText} weight="bold">{confirmText}</AppText>
+                <AppText style={[styles.primaryButtonText, { color: theme.colors.white }]} weight="bold">{confirmText}</AppText>
               </TouchableOpacity>
             )}
           </View>
@@ -83,7 +86,7 @@ const CustomAlert = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (insets) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -95,7 +98,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     paddingHorizontal: 16, // Reduced padding to make buttons wider
-    paddingBottom: Platform.OS === 'ios' ? 44 : 34,
+    paddingBottom: Math.max(insets.bottom + 10, 34),
     paddingTop: 30,
     alignItems: 'center',
     shadowColor: '#000',

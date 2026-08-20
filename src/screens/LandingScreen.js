@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, BackHandler, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, BackHandler, Alert, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,24 +17,50 @@ const { width } = Dimensions.get('window');
 const CARDS_DATA = [
   { id: '1', title: 'Grooming', icon: 'scissors-cutting' },
   { id: '2', title: 'Walking', icon: 'dog-service' },
-  { id: '3', title: 'Boarding', icon: 'home-variant' },
-  { id: '4', title: 'Veterinary', icon: 'stethoscope' },
+  // { id: '3', title: 'Boarding', icon: 'home-variant' },
+  // { id: '4', title: 'Veterinary', icon: 'stethoscope' },
 ];
 
 const LandingScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const [pets, setPets] = useState([]);
+  const [pets, setPets] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState('User');
+  const [userName, setUserName] = useState(null);
   const [hasUsedFreeDemo, setHasUsedFreeDemo] = useState(false);
   const [activeBooking, setActiveBooking] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
-      fetchPets();
-      fetchProfile();
-      fetchActiveBookings();
+      const loadAllData = async () => {
+        try {
+          const [cachedPets, cachedProfile] = await Promise.all([
+            AsyncStorage.getItem('cached_pets'),
+            AsyncStorage.getItem('cached_profile')
+          ]);
+          if (cachedPets) {
+            const parsedPets = JSON.parse(cachedPets);
+            setPets(parsedPets);
+            if (parsedPets.length > 0 && !selectedPet) setSelectedPet(parsedPets[0]);
+          }
+          if (cachedProfile) {
+            const parsedProfile = JSON.parse(cachedProfile);
+            if (parsedProfile && parsedProfile.name) setUserName(parsedProfile.name.split(' ')[0]);
+            if (parsedProfile && parsedProfile.hasUsedFreeDemo !== undefined) setHasUsedFreeDemo(parsedProfile.hasUsedFreeDemo);
+          }
+        } catch (e) {
+          console.warn('Cache load error:', e);
+        }
+
+        // Fetch fresh data concurrently
+        Promise.all([
+          fetchPets(),
+          fetchProfile(),
+          fetchActiveBookings()
+        ]);
+      };
+
+      loadAllData();
 
       const onBackPress = () => {
         Alert.alert('Exit App', 'Are you sure you want to exit?', [
@@ -53,10 +80,18 @@ const LandingScreen = ({ navigation }) => {
 
   const fetchPets = async () => {
     try {
-      setLoading(true);
+      if (pets === null) setLoading(true);
       const data = await petsApi.list();
       setPets(data);
-      if (data.length > 0) setSelectedPet(data[0]);
+      if (data.length > 0) {
+        setSelectedPet(prev => {
+          if (prev && data.find(p => p.id === prev.id)) return prev;
+          return data[0];
+        });
+      } else {
+        setSelectedPet(null);
+      }
+      await AsyncStorage.setItem('cached_pets', JSON.stringify(data));
     } catch (error) {
       console.error('Fetch pets error:', error);
     } finally {
@@ -71,6 +106,7 @@ const LandingScreen = ({ navigation }) => {
       if (data && data.hasUsedFreeDemo !== undefined) {
         setHasUsedFreeDemo(data.hasUsedFreeDemo);
       }
+      await AsyncStorage.setItem('cached_profile', JSON.stringify(data));
     } catch (error) {
       console.error('Fetch profile error:', error);
     }
@@ -78,11 +114,11 @@ const LandingScreen = ({ navigation }) => {
 
   const fetchActiveBookings = async () => {
     try {
-      // Fetch both confirmed and in_progress
+      const pending = await bookingsApi.list({ status: 'pending' });
       const confirmed = await bookingsApi.list({ status: 'confirmed' });
       const inProgress = await bookingsApi.list({ status: 'in_progress' });
 
-      const allActive = [...(inProgress || []), ...(confirmed || [])];
+      const allActive = [...(pending || []), ...(inProgress || []), ...(confirmed || [])];
       if (allActive.length > 0) {
         // Show the most recent or upcoming one
         setActiveBooking(allActive[0]);
@@ -99,9 +135,9 @@ const LandingScreen = ({ navigation }) => {
     if (service.title === 'Boarding') {
       navigation.navigate('BoardingService', params);
     } else if (service.title === 'Walking') {
-      if (!hasUsedFreeDemo) {
-        params.isDemo = true;
-      }
+      // if (!hasUsedFreeDemo) {
+      //   params.isDemo = true;
+      // }
       navigation.navigate('WalkingService', params);
     } else if (service.title === 'Veterinary') {
       navigation.navigate('VetService', params);
@@ -111,7 +147,7 @@ const LandingScreen = ({ navigation }) => {
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header Section */}
@@ -122,7 +158,7 @@ const LandingScreen = ({ navigation }) => {
           }]}
         >
           <View style={styles.headerTopRow}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.headerIconBtn}
               onPress={() => navigation.navigate('Menu')}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -130,23 +166,27 @@ const LandingScreen = ({ navigation }) => {
               <Ionicons name="menu" size={28} color={theme.colors.white} />
             </TouchableOpacity>
 
-            <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <AddressHeader lightTheme={true} />
+            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+              <AddressHeader lightTheme={true} rightAlign={false} />
             </View>
           </View>
 
 
           <View style={styles.greetingWrapper}>
-            <AppText style={styles.greeting} type="heading" weight="bold">
-              Hi, {userName}
-            </AppText>
+            {userName ? (
+              <AppText style={styles.greeting} type="heading" weight="bold">
+                Hi, {userName}
+              </AppText>
+            ) : (
+              <View style={{ width: 120, height: 28, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, marginBottom: 4 }} />
+            )}
             <AppText style={styles.subtitle}>Let's take care of your pet today!</AppText>
           </View>
         </View>
 
         <View style={styles.content}>
-          {!hasUsedFreeDemo && (
-            <TouchableOpacity 
+          {/* !hasUsedFreeDemo && (
+            <TouchableOpacity
               style={styles.demoBanner}
               activeOpacity={0.9}
               onPress={() => navigation.navigate('WalkingService', { isDemo: true, serviceName: 'Walking', pet: selectedPet })}
@@ -161,10 +201,15 @@ const LandingScreen = ({ navigation }) => {
                 </View>
               </View>
             </TouchableOpacity>
-          )}
+          ) */}
 
           {/* Auto Scrolling Banners */}
-          <AutoScrollBanners autoScrollTime={5000}>
+          {activeBooking && (
+            <View style={{ marginBottom: 12 }}>
+              <AppText type="heading" style={styles.sectionTitle}>Upcoming Booking</AppText>
+            </View>
+          )}
+          <AutoScrollBanners autoScrollTime={30000}>
             {activeBooking && (
               <BookingStatusBanner
                 booking={activeBooking}
@@ -172,13 +217,13 @@ const LandingScreen = ({ navigation }) => {
               />
             )}
 
-            {/* Promo Banner Placeholder */}
-            <View style={[styles.banner, { backgroundColor: theme.colors.accent }]}>
+            {/* Promo Banner */}
+            <View style={[styles.banner, { backgroundColor: '#E3F2FD' }]}>
               <View style={styles.bannerTextContainer}>
                 <AppText style={{ color: theme.colors.textBlack, fontWeight: '900', fontSize: width < 360 ? 12 : 14, marginBottom: 4 }}>
                   WELCOME TO{'\n'}MY DOGGIE DEALS
                 </AppText>
-                <AppText style={{ fontSize: width < 360 ? 9 : 10, color: theme.colors.textPrimary }}>Your one-stop shop for all things pawsome!</AppText>
+                <AppText style={{ fontSize: width < 360 ? 9 : 10, color: theme.colors.textPrimary }}>Your one-stop shop for all your pet needs!</AppText>
               </View>
               <Image
                 source={require('../../assets/hero_dog.jpg')}
@@ -191,48 +236,65 @@ const LandingScreen = ({ navigation }) => {
           {/* My Pets Section */}
           <View style={styles.sectionHeader}>
             <AppText type="heading" style={styles.sectionTitle}>My Pets</AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            <TouchableOpacity onPress={() => navigation.navigate('AddPetProfile', { pet: selectedPet })}>
               <AppText style={styles.manageText}>Manage</AppText>
             </TouchableOpacity>
           </View>
 
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
+            showsHorizontalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            alwaysBounceHorizontal={true}
             contentContainerStyle={styles.petsScrollContent}
             style={styles.petsList}
           >
-            {/* Pet Items */}
-            {pets.map((pet, index) => {
-              const isActive = selectedPet?.id === pet.id;
-              return (
-                <TouchableOpacity
-                  key={pet.id}
-                  style={styles.petItem}
-                  onPress={() => setSelectedPet(pet)}
-                >
-                  <View style={[styles.petImageContainer, { borderColor: isActive ? theme.colors.primaryDark : 'transparent', borderWidth: isActive ? 2 : 0 }]}>
-                    {pet.photoUrl ? (
-                      <Image source={{ uri: pet.photoUrl.startsWith('http') ? pet.photoUrl : `${BASE_URL}${pet.photoUrl}` }} style={{ width: '100%', height: '100%', borderRadius: 18 }} />
-                    ) : (
-                      <MaterialCommunityIcons name="dog" size={26} color={theme.colors.primaryDark} />
-                    )}
-                  </View>
-                  <AppText style={[styles.petName, isActive && { color: theme.colors.primaryDark, fontWeight: 'bold' }]}>{pet.name}</AppText>
-                </TouchableOpacity>
-              );
-            })}
+            {/* Pet Items or Skeletons */}
+            {pets === null ? (
+              <>
+                <View style={styles.petItem}>
+                  <View style={[styles.petImageContainer, { backgroundColor: '#E0E0E0', borderColor: 'transparent' }]} />
+                  <View style={{ width: 50, height: 12, backgroundColor: '#E0E0E0', borderRadius: 4, marginTop: 4 }} />
+                </View>
+                <View style={styles.petItem}>
+                  <View style={[styles.petImageContainer, { backgroundColor: '#E0E0E0', borderColor: 'transparent' }]} />
+                  <View style={{ width: 40, height: 12, backgroundColor: '#E0E0E0', borderRadius: 4, marginTop: 4 }} />
+                </View>
+              </>
+            ) : (
+              <>
+                {/* Add Pet Button */}
+                <View style={styles.petItem}>
+                  <TouchableOpacity
+                    style={styles.addPetBtn}
+                    onPress={() => navigation.navigate('AddPetProfile')}
+                  >
+                    <Ionicons name="add" size={24} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+                  <AppText style={styles.petName}>Add Pet</AppText>
+                </View>
 
-            {/* Add Pet Button */}
-            <View style={styles.petItem}>
-              <TouchableOpacity
-                style={styles.addPetBtn}
-                onPress={() => navigation.navigate('AddPetProfile')}
-              >
-                <Ionicons name="add" size={24} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-              <AppText style={styles.petName}>Add Pet</AppText>
-            </View>
+                {pets.map((pet, index) => {
+                  const isActive = selectedPet?.id === pet.id;
+                  return (
+                    <TouchableOpacity
+                      key={pet.id}
+                      style={styles.petItem}
+                      onPress={() => setSelectedPet(pet)}
+                    >
+                      <View style={[styles.petImageContainer, { borderColor: isActive ? theme.colors.primaryDark : 'transparent', borderWidth: isActive ? 2 : 0 }]}>
+                        {pet.photoUrl ? (
+                          <Image source={{ uri: pet.photoUrl.startsWith('http') ? pet.photoUrl : `${BASE_URL}${pet.photoUrl}` }} style={{ width: '100%', height: '100%', borderRadius: 18 }} />
+                        ) : (
+                          <MaterialCommunityIcons name="dog" size={26} color={theme.colors.primaryDark} />
+                        )}
+                      </View>
+                      <AppText style={[styles.petName, isActive && { color: theme.colors.primaryDark, fontWeight: 'bold' }]}>{pet.name}</AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
           </ScrollView>
 
           {/* Services Section */}
@@ -354,11 +416,17 @@ const styles = StyleSheet.create({
   },
   banner: {
     paddingLeft: 20,
-    borderRadius: 24,
-    height: 110,
+    borderRadius: 16,
+    height: 130, // matched with new BookingStatusBanner height approx
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    marginBottom: 4,
   },
   bannerTextContainer: {
     flex: 1,
@@ -367,10 +435,12 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: 120,
-    height: 110,
+    height: 130,
     position: 'absolute',
-    right: -10,
+    right: 0,
     bottom: 0,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
   },
   sectionHeader: {
     flexDirection: 'row',

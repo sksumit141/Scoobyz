@@ -4,6 +4,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { petsApi, customerApi, BASE_URL } from '../services/api';
 import CustomAlert from '../components/CustomAlert';
@@ -171,7 +172,6 @@ const ProfileScreen = ({ navigation }) => {
       title: 'Account Settings',
       items: [
         { icon: 'map-marker-outline', label: 'Address Book', route: 'AddressBook' },
-        { icon: 'credit-card-outline', label: 'Payment Methods', route: 'Payments' },
         { icon: 'bell-outline', label: 'Notification Preferences', route: 'Notifications' },
       ]
     },
@@ -180,7 +180,6 @@ const ProfileScreen = ({ navigation }) => {
       items: [
         { icon: 'help-circle-outline', label: 'Help & FAQ', route: 'Help' },
         { icon: 'chat-outline', label: 'Contact Us', route: 'SupportChat' },
-        { icon: 'information-outline', label: 'About Scoobyz', route: 'About' },
         { icon: 'file-document-outline', label: 'Terms & Conditions', route: 'Terms' },
         { icon: 'shield-check-outline', label: 'Privacy Policy', route: 'Privacy' },
       ]
@@ -198,49 +197,45 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={true} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={true} backgroundColor={theme.colors.background}>
+      <AppHeader title="Profile" />
       {/* Top Header Section - Reconfigured into a Card */}
       <View style={styles.topSection}>
-        {/* Simple App Bar just for the menu button */}
-        <View style={styles.appBar}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.menuButton}
-          >
-            <Ionicons name="arrow-back" size={28} color={theme.colors.textBlack} />
-          </TouchableOpacity>
-          <AppText style={styles.appBarTitle} weight="bold">Profile</AppText>
-          <View style={{ width: 28 }} />{/* Spacer to center title */}
-        </View>
 
         {/* Floating Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.cardHeaderRow}>
-            <View style={styles.nameContainer}>
-              <AppText style={styles.profileName} weight="bold">{user.name}</AppText>
-              {user.email ? (
-                <AppText style={styles.profileEmail}>{user.email}</AppText>
-              ) : null}
-            </View>
-
+            {/* Avatar on the left */}
             <TouchableOpacity onPress={handleEditAvatar} style={styles.headerAvatarWrapper}>
               {user.avatar ? (
                 <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <AppText style={styles.avatarInitial} weight="bold">{getInitials(user.name)}</AppText>
+                  <MaterialCommunityIcons name="account" size={54} color="#D1D1D1" />
                 </View>
               )}
-              <View style={styles.headerEditBadge}>
-                <MaterialCommunityIcons name="pencil" size={12} color={theme.colors.white} />
-              </View>
             </TouchableOpacity>
+
+            {/* Info and Edit Profile on the right */}
+            <View style={styles.nameContainer}>
+              <AppText style={styles.profileName} weight="bold">{user.name}</AppText>
+              {user.email ? (
+                <AppText style={styles.profileEmail}>{user.email}</AppText>
+              ) : null}
+              <TouchableOpacity
+                style={styles.editProfileBtn}
+                onPress={() => navigation.navigate('EditProfile')}
+              >
+                <AppText style={styles.editProfileBtnText}>Edit Profile</AppText>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
 
       <View style={styles.contentContainer}>
         {/* My Pets Section - Dropdown Style */}
+        {/* 
         <TouchableOpacity
           style={styles.mainMenuItem}
           onPress={() => setIsPetsExpanded(!isPetsExpanded)}
@@ -259,6 +254,16 @@ const ProfileScreen = ({ navigation }) => {
 
         {isPetsExpanded && (
           <View style={styles.petsDropdown}>
+            <TouchableOpacity
+              style={styles.addNewPetOption}
+              onPress={() => navigation.navigate('AddPetProfile')}
+            >
+              <View style={styles.addPetIconCircle}>
+                <Ionicons name="add" size={16} color={theme.colors.white} />
+              </View>
+              <AppText style={styles.addNewPetText} weight="bold">Add New Pet</AppText>
+            </TouchableOpacity>
+
             {pets.map((pet) => (
               <View key={pet.id} style={styles.petDropdownItem}>
                 <View style={styles.petItemInfo}>
@@ -282,20 +287,11 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             ))}
-
-            <TouchableOpacity
-              style={styles.addNewPetOption}
-              onPress={() => navigation.navigate('AddPetProfile')}
-            >
-              <View style={styles.addPetIconCircle}>
-                <Ionicons name="add" size={16} color={theme.colors.white} />
-              </View>
-              <AppText style={styles.addNewPetText} weight="bold">Add New Pet</AppText>
-            </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.sectionDivider} />
+        <View style={styles.sectionDivider} /> 
+        */}
 
         {/* Account Menu Items */}
         {menuItems[0].items.map((item, index) => (
@@ -367,8 +363,8 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   topSection: {
     backgroundColor: theme.colors.background,
-    paddingTop: 40,
-    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingHorizontal: 24,
     paddingBottom: 10,
   },
   appBar: {
@@ -387,55 +383,53 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.heading,
   },
   profileCard: {
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: theme.colors.white,
     borderRadius: 24,
     padding: 24,
-    shadowColor: theme.colors.primaryDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   nameContainer: {
     flex: 1,
-    paddingRight: 16,
+    paddingLeft: 20,
   },
   profileName: {
-    color: theme.colors.white,
-    fontSize: 26,
+    color: '#333333',
+    fontSize: 22,
     fontFamily: theme.fonts.heading,
     marginBottom: 4,
   },
   profileEmail: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#666666',
     fontSize: 14,
+    marginBottom: 12,
   },
   headerAvatarWrapper: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: theme.colors.white,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    position: 'relative',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 38,
+    borderRadius: 45,
   },
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    borderRadius: 38,
-    backgroundColor: theme.colors.accent,
+    borderRadius: 45,
+    backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -443,18 +437,17 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: theme.colors.primaryDark,
   },
-  headerEditBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: theme.colors.error, // Gives a nice pop of color
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.white,
+  editProfileBtn: {
+    backgroundColor: theme.colors.success,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  editProfileBtnText: {
+    color: theme.colors.white,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   contentContainer: {
     flex: 1,

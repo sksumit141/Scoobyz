@@ -31,7 +31,7 @@ export default function WalkingConfirmedScreen({ navigation }) {
   });
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={handleBack}
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 14,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 24,
     backgroundColor: theme.colors.background,
   },

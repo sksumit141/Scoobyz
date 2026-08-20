@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, TextInput } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import ExpertCard from '../components/ExpertCard';
 import ExpertDetailsModal from '../components/ExpertDetailsModal';
 import FilterModal from '../components/FilterModal';
 import { discoverApi } from '../services/api';
 import { theme } from '../styles/theme';
+import PawLoader from '../components/PawLoader';
 
 export default function SelectGroomerScreen({ navigation, route }) {
   const serviceName = route.params?.serviceName || 'Grooming';
@@ -51,19 +53,7 @@ export default function SelectGroomerScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} type="heading" weight="bold">Select {serviceName} Expert</AppText>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterVisible(true)}>
-          <MaterialCommunityIcons
-            name="tune-variant"
-            size={24}
-            color={(activeFilters.tiers.length > 0 || activeFilters.sort) ? theme.colors.primaryDark : theme.colors.textPrimary}
-          />
-        </TouchableOpacity>
-      </View>
+      <AppHeader title={`Select ${serviceName} Expert`} rightComponent={<TouchableOpacity onPress={() => setFilterVisible(true)} activeOpacity={0.7}><MaterialCommunityIcons name="tune-variant" size={24} color={theme.colors.primaryDark} /></TouchableOpacity>} />
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
@@ -86,7 +76,7 @@ export default function SelectGroomerScreen({ navigation, route }) {
           <AppText style={styles.introTitle} type="heading" weight="bold">Available {serviceName} Experts</AppText>
         </View>
 
-        {loading && <ActivityIndicator size="large" color={theme.colors.primaryDark} style={{ marginTop: 40 }} />}
+        {loading && <PawLoader fullScreen={false} />}
 
         {error && (
           <View style={styles.errorBox}>
@@ -137,7 +127,7 @@ export default function SelectGroomerScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
+    paddingLeft: 18, paddingRight: 24, paddingTop: 10, paddingBottom: 10,
   },
   backButton: {
     width: 40,

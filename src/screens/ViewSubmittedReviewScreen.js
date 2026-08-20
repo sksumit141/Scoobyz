@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
     View,
     StyleSheet,
@@ -15,6 +15,7 @@ import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { reviewsApi } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
+import PawLoader from '../components/PawLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -75,7 +76,7 @@ export default function ViewSubmittedReviewScreen({ navigation, route }) {
 
     if (loading) {
         return (
-            <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+            <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
                 <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
                     <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                         <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
@@ -85,7 +86,7 @@ export default function ViewSubmittedReviewScreen({ navigation, route }) {
                     </AppText>
                 </View>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primaryDark} />
+                    <PawLoader fullScreen={false} />
                 </View>
             </AppScreen>
         );
@@ -93,7 +94,7 @@ export default function ViewSubmittedReviewScreen({ navigation, route }) {
 
     if (!review) {
         return (
-            <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+            <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
                 <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
                     <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                         <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
@@ -119,7 +120,7 @@ export default function ViewSubmittedReviewScreen({ navigation, route }) {
         vendorImage || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop';
 
     return (
-        <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+        <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
                 <TouchableOpacity

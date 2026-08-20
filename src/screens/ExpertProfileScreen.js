@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, ScrollView, SafeAreaView, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import AppScreen from '../components/AppScreen';
 import ExpertGallery from '../components/ExpertGallery';
 import ExpertReviews from '../components/ExpertReviews';
@@ -38,12 +39,7 @@ export default function ExpertProfileScreen({ navigation, route }) {
 
   return (
     <AppScreen padding={false}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} type="heading" weight="bold">Expert Profile</AppText>
-      </View>
+      <AppHeader title={`Expert Profile`.replace("`", "")} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
@@ -144,7 +140,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 14,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 24,
   },
   backButton: {

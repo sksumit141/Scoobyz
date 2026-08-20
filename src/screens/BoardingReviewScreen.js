@@ -36,7 +36,7 @@ export default function BoardingReviewScreen({ navigation, route }) {
   };
 
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 18,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 10,
   },
   backButton: {

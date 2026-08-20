@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, SafeAreaView, Modal } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
+import AppScreen from '../components/AppScreen';
 import CustomCalendar from '../components/CustomCalendar';
 import ServiceHeader from '../components/ServiceHeader';
 import CustomTimePicker from '../components/CustomTimePicker';
@@ -14,20 +15,25 @@ const { width } = Dimensions.get('window');
 
 const generateDates = (monthDate) => {
   const datesArr = [];
-  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
   const now = new Date();
-  const isCurrentMonth = now.getMonth() === monthDate.getMonth() && now.getFullYear() === monthDate.getFullYear();
-  let currentD = isCurrentMonth ? now.getDate() : 1;
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  
+  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonths = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const daysInMonth = daysInMonths[month];
+  
+  const isCurrentMonth = now.getMonth() === month && now.getFullYear() === year;
+  const startDay = isCurrentMonth ? now.getDate() : 1;
 
-  for (let i = 0; i < daysInMonth; i++) {
-    if (currentD + i > daysInMonth) break;
-    const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), currentD + i);
-    const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  for (let day = startDay; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
     datesArr.push({
       day: isToday ? 'Today' : formatISTDate(d, { weekday: 'short' }),
-      date: d.getDate().toString().padStart(2, '0'),
+      date: day.toString().padStart(2, '0'),
       month: formatISTDate(d, { month: 'short' }),
-      year: d.getFullYear(),
+      year: year,
       fullDate: d.toDateString() // Full parsable string
     });
   }
@@ -116,7 +122,6 @@ export default function SlotSelectScreen({ navigation }) {
 
   const getFilteredSlots = () => {
     try {
-      // 1. Get current time parts in IST
       const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: 'Asia/Kolkata',
         year: 'numeric', month: 'numeric', day: 'numeric',
@@ -127,18 +132,19 @@ export default function SlotSelectScreen({ navigation }) {
       const parts = formatter.formatToParts(new Date());
       const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
 
-      // 2. Create a Date object that reflects the exact IST date and time
       const nowIST = new Date(
         getPart('year'), getPart('month') - 1, getPart('day'),
         getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
       );
 
       const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
 
-      if (!isToday) return ALL_SLOTS.slice(0, 9);
+      if (!isToday) return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
 
-      // Filter slots to be at least 1 hour from now (in IST)
       const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+      const nineAmIST = new Date(nowIST);
+      nineAmIST.setHours(9, 0, 0, 0);
 
       return ALL_SLOTS.filter(slot => {
         const [time, period] = slot.split(' ');
@@ -150,18 +156,19 @@ export default function SlotSelectScreen({ navigation }) {
         const slotTimeIST = new Date(nowIST);
         slotTimeIST.setHours(hours, minutes, 0, 0);
 
-        return slotTimeIST > oneHourFromNowIST;
+        return slotTimeIST > oneHourFromNowIST && slotTimeIST >= nineAmIST;
       }).slice(0, 9);
     } catch (e) {
       console.warn('getFilteredSlots fallback:', e);
-      return ALL_SLOTS.slice(0, 9);
+      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
+      return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
     }
   };
 
   const availableSlots = getFilteredSlots();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <ServiceHeader title={`Schedule ${serviceName}`} showAddress={false} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -176,6 +183,7 @@ export default function SlotSelectScreen({ navigation }) {
             <MaterialCommunityIcons name="home-outline" size={20} color={visitType === 'Home Visit' ? theme.colors.white : theme.colors.primaryDark} />
             <AppText style={[styles.toggleText, visitType === 'Home Visit' && styles.toggleTextActive]}>Home Visit</AppText>
           </TouchableOpacity>
+          {/*
           <TouchableOpacity
             style={[styles.toggleBtn, visitType === 'Studio' && styles.toggleBtnActive]}
             onPress={() => setVisitType('Studio')}
@@ -184,23 +192,61 @@ export default function SlotSelectScreen({ navigation }) {
             <MaterialCommunityIcons name="storefront-outline" size={20} color={visitType === 'Studio' ? theme.colors.white : theme.colors.primaryDark} />
             <AppText style={[styles.toggleText, visitType === 'Studio' && styles.toggleTextActive]}>Vans & Studio</AppText>
           </TouchableOpacity>
+          */}
         </View>
 
         {/* Date Selection */}
-        <View style={styles.sectionHeader}>
-          <AppText style={[styles.sectionTitle, { marginTop: 24, fontFamily: theme.fonts.body, fontStyle: 'normal' }]} weight="bold">Select Date</AppText>
+        <View style={[styles.sectionHeader, { marginBottom: 5 }]}>
+          <AppText style={[styles.sectionTitle, { fontFamily: theme.fonts.heading }]} weight="bold">Select Date</AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TouchableOpacity onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+            <AppText style={styles.monthText}>{formatISTDate(monthDate, { month: 'long', year: 'numeric' })}</AppText>
+            <TouchableOpacity onPress={handleNextMonth} activeOpacity={0.7} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.calendarCard}>
+        {/* Keeping CustomCalendar in codebase as requested, but hiding it from UI to use the new date scroller */}
+        {/* <View style={styles.calendarCard}>
           <CustomCalendar
             selectedDate={selectedDate}
             onDateSelect={(date) => setSelectedDate(date)}
           />
-        </View>
+        </View> */}
+
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateScrollContent}
+          style={styles.dateScroll}
+        >
+          {generatedDates.map((d, index) => {
+            const isActive = selectedDate === d.fullDate;
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.dateCard, 
+                  isActive && styles.dateCardActive,
+                  index === generatedDates.length - 1 && { marginRight: 0 } // Remove margin from last item
+                ]}
+                onPress={() => setSelectedDate(d.fullDate)}
+                activeOpacity={0.8}
+              >
+                <AppText style={[styles.dateDay, isActive && styles.slotTextActive]}>{d.day}</AppText>
+                <AppText style={[styles.dateNum, isActive && styles.slotTextActive]} weight="bold">{d.date}</AppText>
+                <AppText style={[styles.dateMonth, isActive && styles.slotTextActive]}>{d.month}</AppText>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
 
         {/* Available Slots */}
-        <View style={[styles.sectionHeader, { marginTop: 24, marginBottom: 8 }]}>
-          <AppText style={[styles.sectionTitle, { marginBottom: 10, fontFamily: theme.fonts.body, fontStyle: 'normal' }]} weight="bold">Available Slots</AppText>
+        <View style={[styles.sectionHeader, { marginTop: -30 }]}>
+          <AppText style={[styles.sectionTitle, { fontFamily: theme.fonts.heading }]} weight="bold">Available Slots</AppText>
         </View>
 
         <View style={styles.slotsGrid}>
@@ -231,7 +277,7 @@ export default function SlotSelectScreen({ navigation }) {
             styles.slotItem,
             styles.customSlotBtn,
             !ALL_SLOTS.includes(selectedSlot) && styles.slotItemActive,
-            { width: '100%', marginTop: 10 }
+            { width: '100%', marginTop: 10, marginBottom: 24 }
           ]}
           onPress={() => setTimePickerVisible(true)}
           activeOpacity={0.8}
@@ -259,8 +305,8 @@ export default function SlotSelectScreen({ navigation }) {
         />
 
         {/* Smart Suggestions */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <AppText style={styles.sectionTitle} type="heading" weight="bold">Smart Suggestions</AppText>
+        <View style={styles.sectionHeader}>
+          <AppText style={[styles.sectionTitle, { fontFamily: theme.fonts.heading }]} weight="bold">Smart Suggestions</AppText>
         </View>
 
         <View style={styles.suggestionsContainer}>
@@ -292,7 +338,19 @@ export default function SlotSelectScreen({ navigation }) {
           activeOpacity={0.8}
           onPress={() => {
             if (visitType === 'Home Visit') {
-              setChoiceModalVisible(true);
+              if (serviceName === 'Grooming') {
+                // Shifted: go directly to ExplorePackages instead of GroomingPackages
+                navigation.navigate('ExplorePackages', {
+                  serviceName,
+                  pet,
+                  date: selectedDate,
+                  time: selectedSlot,
+                  visitType,
+                  isScoobyzGrooming: true
+                });
+              } else {
+                setChoiceModalVisible(true);
+              }
             } else {
               const params = {
                 serviceName,
@@ -381,7 +439,7 @@ export default function SlotSelectScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
@@ -391,7 +449,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 18,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 10,
   },
   backButton: {
@@ -412,20 +470,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: 16,
     padding: 6,
-    marginHorizontal: -4,
-    marginBottom: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    marginBottom: 24, // Uniform gap
   },
   toggleBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 18,
     borderRadius: 12,
     gap: 8,
   },
@@ -433,7 +485,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primaryDark,
   },
   toggleText: {
-    fontSize: 16,
+    fontSize: 18,
     color: theme.colors.primaryDark,
   },
   toggleTextActive: {
@@ -447,7 +499,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 22,
     color: theme.colors.textBlack,
     fontFamily: theme.fonts.heading,
   },
@@ -474,33 +526,44 @@ const styles = StyleSheet.create({
   },
   dateScroll: {
     marginHorizontal: -24,
+    marginBottom: 32, // Increased gap below the date scroller
   },
   dateScrollContent: {
     paddingHorizontal: 24,
-    gap: 12,
+    paddingTop: 8,
+    paddingBottom: 20, // Prevent drop-shadow clipping at the bottom
   },
   dateCard: {
-    width: 72,
-    backgroundColor: theme.colors.surface,
+    width: 60,
+    height: 90, // Strict vertical rectangle
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginRight: 12, // Used instead of gap to fix Android ScrollView truncation
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
-    paddingVertical: 14,
+    justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
   },
   dateCardActive: {
     backgroundColor: theme.colors.primaryDark,
   },
   dateDay: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dateNum: {
-    fontSize: 24,
+    fontSize: 20,
     color: theme.colors.primaryDark,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dateMonth: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
   },
   slotSection: {
@@ -526,6 +589,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     justifyContent: 'flex-start',
+    marginBottom: 24, // Uniform gap
   },
   slotsScrollWrapper: {
     marginHorizontal: -24,
@@ -587,6 +651,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 6,
     flexGrow: 1,
+    justifyContent: 'center',
     minWidth: '46%', // Ensure they sit side-by-side or fill row
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -605,9 +670,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: theme.colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -630,13 +693,13 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     backgroundColor: theme.colors.success,
-    paddingVertical: 16,
-    paddingHorizontal: 36,
+    paddingVertical: 18,
+    paddingHorizontal: 56,
     borderRadius: 16,
   },
   confirmBtnText: {
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: 18,
   },
   overlayBackground: {
     flex: 1,

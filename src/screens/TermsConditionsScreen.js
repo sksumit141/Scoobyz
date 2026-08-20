@@ -1,26 +1,18 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AppHeader from '../components/AppHeader';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 
 export default function TermsConditionsScreen({ navigation }) {
   return (
-    <AppScreen safeArea={true} padding={false} backgroundColor={theme.colors.background}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={28} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Terms & Conditions</AppText>
-        <View style={{ width: 44 }} />
-      </View>
+    <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.background}>
+      <AppHeader title="Terms & Conditions" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <AppText style={styles.sectionTitle} weight="bold">SCOOBYZ TERMS OF SERVICE, PRIVACY POLICY AND SERVICE AGREEMENT</AppText>
+        <AppText style={[styles.sectionTitle, { marginTop: 0 }]} weight="bold">SCOOBYZ TERMS OF SERVICE, PRIVACY POLICY AND SERVICE AGREEMENT</AppText>
         <AppText style={styles.paragraph}>Last Updated: 06/2026</AppText>
         <AppText style={styles.paragraph}>
           These Terms and ConditionsTerms of Service, Privacy Policy and Service Agreement (“Terms”) are issued by [Scoobyz — insert exact registered firm name], a partnership firm registered under applicable laws and having its principal place of business at 205, Narmada Block, Anand Ashray Society, Sector Phi-2, GH-07A, Greater Noida, Uttar Pradesh 201308 (“Scoobyz”, “we”, “us”). These Terms govern access to and use of the Scoobyz mobile application, website, and related pet-care services (collectively, the “Platform”). By creating an account, making a booking, or using the Platform, you agree to be bound by these Terms. By agreeing to these Terms, whether by clicking “I agree”, creating an account, making a booking, or otherwise using the Platform, you confirm that you have read and understood these Terms, and you are legally bound by the terms and conditions specified herein.
@@ -158,26 +150,9 @@ export default function TermsConditionsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: theme.colors.background,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -5,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: theme.colors.textBlack,
-    fontFamily: theme.fonts.heading,
-  },
   content: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   sectionTitle: {
     fontSize: 18,

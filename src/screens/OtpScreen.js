@@ -1,21 +1,53 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, Dimensions, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableOpacity, Image, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import AppText from '../components/AppText';
 import AppButton from '../components/AppButton';
 import AppScreen from '../components/AppScreen';
 import { authApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PawLoader from '../components/PawLoader';
 
 const { width } = Dimensions.get('window');
 
 const OtpScreen = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const { phone, mode } = route.params;
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [timer, setTimer] = useState(30);
   const inputRefs = useRef([]);
+
+  useEffect(() => {
+    let interval = null;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (interval) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
+
+  const handleResend = async () => {
+    if (timer > 0) return;
+    setLoading(true);
+    setError('');
+    try {
+      await authApi.sendOtp(`+91${phone}`, mode);
+      setTimer(30); // reset timer
+      Alert.alert('OTP Sent', 'A new verification code has been sent to your phone.');
+    } catch (err) {
+      console.error('Resend OTP error:', err);
+      setError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (text, index) => {
     const newOtp = [...otp];
@@ -51,8 +83,7 @@ const OtpScreen = ({ navigation, route }) => {
         if (data.isOnboarded) {
              navigation.replace('LandingScreen');
         } else {
-             // Bypassing RegisterName screen
-             navigation.replace('AddPetProfile');
+             navigation.replace('RegisterName');
         }
       } else {
         setError(data.details || 'Verification failed.');
@@ -67,67 +98,82 @@ const OtpScreen = ({ navigation, route }) => {
 
   return (
     <>
-      <AppScreen scrollable={true} padding={true}>
+      <AppScreen scrollable={false} padding={false} safeAreaTop={false}>
         {/* Full-screen loading overlay */}
         {loading && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <PawLoader fullScreen={false} />
               <AppText style={styles.loadingText}>Verifying...</AppText>
             </View>
           </View>
         )}
 
-        <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="arrow-left" size={18} color={theme.colors.primary} />
-            <AppText style={styles.backText} weight="600">Back</AppText>
-          </TouchableOpacity>
+        {/* Header Row with Back Button and Logo */}
+        <View style={[styles.headerRow, { paddingTop: Math.max(20, insets.top) }]}>
+          <Image
+            source={require('../../assets/scoobyz_logo-removebg-preview.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
 
-        <View style={styles.formContainer}>
-          <AppText type="heading" weight="700" style={styles.title}>
-            Verify your number
-          </AppText>
-          <AppText style={styles.subtitle}>
-            Enter the 6-digit code we sent to +91 {phone}
-          </AppText>
+        <KeyboardAvoidingView 
+          style={{ flex: 1, width: '100%' }} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.content, { paddingBottom: Math.max(20, insets.bottom + 10) }]}>
+            <View style={styles.formContainer}>
+              <AppText type="heading" weight="700" style={styles.title}>
+                Verify your number
+              </AppText>
+              <AppText style={styles.subtitle}>
+                Enter the 6-digit code we sent to +91 {phone}
+              </AppText>
 
-          <View style={styles.otpContainer}>
-            {otp.map((digit, index) => (
-              <TextInput
-                key={index}
-                style={styles.otpInput}
-                value={digit}
-                onChangeText={(text) => handleChange(text.replace(/[^0-9]/g, ''), index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                ref={(ref) => (inputRefs.current[index] = ref)}
-                autoFocus={index === 0}
-              />
-            ))}
+              <View style={styles.otpContainer}>
+                {otp.map((digit, index) => (
+                  <TextInput
+                    key={index}
+                    style={styles.otpInput}
+                    value={digit}
+                    onChangeText={(text) => handleChange(text.replace(/[^0-9]/g, ''), index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    ref={(ref) => (inputRefs.current[index] = ref)}
+                  />
+                ))}
+              </View>
+
+              {error ? <AppText style={styles.errorText}>{error}</AppText> : null}
+
+              <AppButton
+                style={[
+                  styles.button,
+                  { opacity: otp.join('').length === 6 && !loading ? 1 : 0.6 }
+                ]}
+                disabled={otp.join('').length !== 6 || loading}
+                onPress={handleVerify}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <AppText style={styles.buttonText} weight="600">Verify & Continue</AppText>
+                )}
+              </AppButton>
+
+              <View style={styles.resendContainer}>
+                <AppText style={styles.resendTextLabel}>Didn't receive the code?</AppText>
+                <TouchableOpacity onPress={handleResend} disabled={timer > 0 || loading}>
+                  <AppText style={timer > 0 ? styles.resendText : styles.resendTextActive} weight={timer > 0 ? '400' : '700'}>
+                    {timer > 0 ? ` Resend in ${timer}s` : ' Resend OTP'}
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-
-          {error ? <AppText style={styles.errorText}>{error}</AppText> : null}
-
-          <AppButton
-            style={[
-              styles.button,
-              { opacity: otp.join('').length === 6 && !loading ? 1 : 0.6 }
-            ]}
-            disabled={otp.join('').length !== 6 || loading}
-            onPress={handleVerify}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <AppText style={styles.buttonText} weight="600">Verify & Continue</AppText>
-            )}
-          </AppButton>
-        </View>
-        </View>
+        </KeyboardAvoidingView>
       </AppScreen>
     </>
   );
@@ -136,24 +182,27 @@ const OtpScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    justifyContent: 'flex-end', // Pushes the form to the bottom for all screen sizes
   },
-  header: {
-      marginTop: 20,
-      marginBottom: 40,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    width: '100%',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 80,
+    height: 40,
   },
   backBtn: {
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
     alignItems: 'center',
-    gap: 4,
-    padding: 8,
-    alignSelf: 'flex-start',
-    marginLeft: -5,
-  },
-  backText: {
-    fontSize: 13,
-    color: theme.colors.primary,
+    justifyContent: 'center',
   },
   formContainer: {
     width: '100%',
@@ -211,8 +260,27 @@ const styles = StyleSheet.create({
   errorText: {
     color: theme.colors.error,
     fontSize: 14,
+    marginTop: 5,
     marginBottom: 10,
-    textAlign: 'center',
+    alignSelf: 'flex-start',
+    marginLeft: 10,
+  },
+  resendContainer: {
+    flexDirection: 'row',
+    marginTop: 25,
+    alignItems: 'center',
+  },
+  resendTextLabel: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  resendText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  resendTextActive: {
+    fontSize: 14,
+    color: theme.colors.primary,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

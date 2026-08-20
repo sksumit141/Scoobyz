@@ -1,62 +1,225 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Alert } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Animated, Easing, Modal, LayoutAnimation, Platform, UIManager } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
-import { BASE_URL } from '../services/api';
-import InvoiceComponent from '../components/InvoiceComponent';
+import { BASE_URL, bookingsApi, discoverApi } from '../services/api';
+import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import { formatISTDate } from '../utils/date_utils';
 import { useBackHandler } from '../hooks/useBackHandler';
 
 const { width } = Dimensions.get('window');
 
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 120000; // 2 minutes
+
 const BookingConfirmedScreen = ({ navigation, route }) => {
   const {
+    bookingId,
     cart = [],
     total = 0,
     expert = {},
     pet = {},
-    date = 'Apr 24, 2026',
-    time = '10:30 AM',
-    visitType = 'Home Service',
-    address = '123 Paws Lane, Noida Sector-42'
+    date = '',
+    time = '',
+    visitType = '',
+    address = '',
+    notes = '',
+    serviceType = 'grooming',
+    selectedRoom,
+    duration,
+    frequency,
+    isScoobyzMatch
   } = route.params || {};
 
-  const mainPackage = cart[0] || {};
-  const addons = mainPackage.addons || [];
+  const svcType = (serviceType || 'grooming').toLowerCase();
+  const isBoarding = svcType === 'boarding';
+  const isWalking = svcType === 'walking';
+  const isVet = svcType === 'veterinary' || svcType === 'vet';
 
-  // Terminal screen — block back into booking flow, always go home
+  const [status, setStatus] = useState('pending');
+  const [timedOut, setTimedOut] = useState(false);
+  const [bookingData, setBookingData] = useState(null);
+  const [invoiceVisible, setInvoiceVisible] = useState(false);
+
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const intervalRef = useRef(null);
+  const timeoutRef = useRef(null);
+
+  const mainPackage = (cart && cart.length > 0) ? cart[0] : {};
+  const addons = (cart && cart.length > 0 && cart[0].addons) ? cart[0].addons : [];
+
+  const [dynamicFeatures, setDynamicFeatures] = useState(mainPackage.features || []);
+  const [isPackageExpanded, setIsPackageExpanded] = useState(false);
+
+  const togglePackageAccordion = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsPackageExpanded(!isPackageExpanded);
+  };
+
+  useEffect(() => {
+    if (!dynamicFeatures || dynamicFeatures.length === 0) {
+      discoverApi.scoobyzPackages()
+        .then(data => {
+          const found = data?.packages?.find(p => p.id === mainPackage.packageId || p.title === mainPackage.title || p.title === mainPackage.name || p.title === mainPackage.addonName);
+          if (found && found.features) {
+            setDynamicFeatures(found.features);
+          }
+        })
+        .catch(e => console.log('Failed to fetch dynamic package details', e));
+    }
+  }, []);
+
+  // Terminal screen — block back into booking flow, always go home unless timed out
   const { handleBack } = useBackHandler({
     onBack: () => {
-      navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] });
+      if (timedOut) {
+        navigation.goBack();
+      } else {
+        navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] });
+      }
       return true;
     }
   });
 
-  const handlePayBalance = () => {
-    Alert.alert(
-      'Pay Balance',
-      `Complete payment of ₹${route.params?.remainingAmount}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Pay Now', 
-          onPress: () => Alert.alert('Success', 'Payment completed!') 
+  useEffect(() => {
+    startRotation();
+    startPolling();
+
+    return () => {
+      clearInterval(intervalRef.current);
+      clearTimeout(timeoutRef.current);
+      rotateAnim.stopAnimation();
+    };
+  }, []);
+
+  const startRotation = () => {
+    rotateAnim.setValue(0);
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 2000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  };
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
+  const addToCalendar = () => {
+    const title = `${svcType.toUpperCase()} Service`;
+    const location = address || '';
+    const eventNotes = notes || `Order ID: #${bookingId}`;
+    
+    // Attempt basic parsing of route.params.date, e.g., 'May 25, 2026'
+    let startDate = new Date();
+    if (date) {
+      try {
+        const parsed = new Date(date);
+        if (!isNaN(parsed.getTime())) startDate = parsed;
+      } catch(e) {}
+    }
+
+    const start = startDate.toISOString().replace(/-|:|\.\d\d\d/g, '');
+    const end = start;
+    const url = Platform.select({
+      ios: `calshow:${Math.floor(startDate.getTime() / 1000)}`,
+      android: `content://com.android.calendar/time/${startDate.getTime()}`,
+      default: `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(title)}&dates=${start}/${end}&details=${encodeURIComponent(eventNotes)}&location=${encodeURIComponent(location)}`
+    });
+    
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(title)}&dates=${start}/${end}&details=${encodeURIComponent(eventNotes)}&location=${encodeURIComponent(location)}`);
+    });
+  };
+
+  const startPolling = () => {
+    if (!bookingId) {
+      // If we got here without a booking ID (e.g. testing mode), just simulate pending forever or skip
+      return;
+    }
+
+    intervalRef.current = setInterval(async () => {
+      try {
+        const data = await bookingsApi.getStatus(bookingId);
+        if (data?.status === 'confirmed' || (data?.status === 'pending' && data?.vendorId)) {
+          stopPolling();
+          try {
+            const fullData = await bookingsApi.get(bookingId);
+            setBookingData(fullData);
+          } catch (e) {
+            setBookingData(data);
+          }
+          setStatus('confirmed');
+        } else if (data?.status === 'declined') {
+          // Keep showing hourglass per user request, wait for timeout
+          // DO NOT stop polling or change status
         }
-      ]
-    );
+      } catch (err) {
+        console.warn('[Pending] Poll error:', err.message);
+      }
+    }, POLL_INTERVAL_MS);
+
+    timeoutRef.current = setTimeout(async () => {
+      clearInterval(intervalRef.current);
+      if (status !== 'confirmed') {
+        setTimedOut(true);
+        if (!isScoobyzMatch) {
+          setStatus('cancelled');
+          if (bookingId) {
+            try {
+              await bookingsApi.cancel(bookingId, { reason: 'System timeout: No vendors available' });
+            } catch (e) {
+              console.warn('Auto-cancel failed:', e);
+            }
+          }
+        }
+      }
+    }, POLL_TIMEOUT_MS);
+  };
+
+  const stopPolling = () => {
+    clearInterval(intervalRef.current);
+    clearTimeout(timeoutRef.current);
+  };
+
+  const petImageUrl = pet.photoUrl
+    ? (pet.photoUrl.startsWith('http') ? pet.photoUrl : `${BASE_URL}${pet.photoUrl}`)
+    : 'https://images.unsplash.com/photo-1591160690555-5debfba289f0?q=80&w=256&auto=format&fit=crop';
+
+  const displayVendorName = bookingData?.vendorName || expert?.name || expert?.businessName || 'Assigned Scoober';
+  const displayVendorImage = bookingData?.vendorImage || expert?.image || expert?.profilePhoto;
+
+  const getInitials = (name) => {
+    if (!name || name === 'Assigned Scoober') return 'S';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
+  const getFormattedRating = () => {
+    const rawRating = bookingData?.vendorRating || expert?.rating;
+    if (!rawRating) return '4.8';
+    const parsed = parseFloat(rawRating);
+    return isNaN(parsed) ? '4.8' : parsed.toFixed(1);
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor="#FAFAF8">
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={handleBack}
+          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'LandingScreen' }] })}
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
+          <Ionicons name="close" size={28} color={theme.colors.textBlack} />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} type="heading" weight="bold">Booking Details</AppText>
       </View>
@@ -64,139 +227,209 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.scrollContainer}
-        contentContainerStyle={{ paddingBottom: 140 }}
+        contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 20 }}
       >
         {/* Top Status Section */}
         <View style={styles.statusSection}>
-          <Image
-            source={{ uri: pet.photoUrl ? (pet.photoUrl.startsWith('http') ? pet.photoUrl : `${BASE_URL}${pet.photoUrl}`) : 'https://images.unsplash.com/photo-1591160690555-5debfba289f0?q=80&w=256&auto=format&fit=crop' }}
-            style={styles.statusPetImage}
-          />
-          <AppText style={styles.statusTitle} type="heading" weight="bold">Booking Confirmed!</AppText>
+          <Image source={{ uri: petImageUrl }} style={styles.statusPetImage} />
+          <AppText style={styles.statusTitle} type="heading" weight="bold">
+            {status === 'confirmed' ? 'Booking Confirmed!' : status === 'cancelled' ? 'Booking Cancelled' : 'Booking Request Sent!'}
+          </AppText>
           <AppText style={styles.statusSubtitle}>
-            Your session for <AppText weight="bold" style={{ color: theme.colors.textBlack }}>{pet.name || 'Your Pet'}</AppText> is confirmed.
+            Your grooming session for <AppText weight="bold" style={{ color: theme.colors.textBlack }}>{pet.name || 'Your Pet'}</AppText> is {status === 'confirmed' ? 'confirmed' : status === 'cancelled' ? 'cancelled due to unavailability' : 'pending'}.
           </AppText>
           <View style={styles.bookingIdBadge}>
-            <AppText style={styles.bookingIdText} weight="bold">BOOKING ID: #23{Math.floor(Math.random() * 90000) + 10000}</AppText>
+            <AppText style={styles.bookingIdText} weight="bold">
+              BOOKING ID: #{bookingId || ''}
+            </AppText>
           </View>
         </View>
 
         {/* Card 1: Package & Addons & Special Request */}
         <View style={styles.card}>
-          <AppText style={styles.smallLabel}>PACKAGE DETAIL</AppText>
-          <AppText style={[styles.valueText, { marginBottom: 16 }]}>{mainPackage.title || 'Service Package'}</AppText>
-
-          {addons.length > 0 && (
-            <>
+          <View style={styles.simplePackageSection}>
+            <AppText style={styles.smallLabel}>PACKAGE DETAIL</AppText>
+            <AppText style={styles.simpleMainPackageText} weight="bold">
+              {isBoarding 
+                ? (selectedRoom?.title || 'Boarding Room')
+                : isWalking 
+                  ? 'Dog Walking'
+                  : isVet
+                    ? (visitType || 'Clinic Visit')
+                    : (mainPackage.title || mainPackage.name || 'Full Grooming Session')}
+            </AppText>
+            {isWalking && (duration || frequency) && (
+              <AppText style={styles.walkingDetailsText}>
+                {[duration ? `${duration} mins` : '', frequency].filter(Boolean).join(' • ')}
+              </AppText>
+            )}
+          </View>
+          
+          {addons && addons.length > 0 && (
+            <View style={styles.simpleAddonsSection}>
               <AppText style={styles.smallLabel}>ADD-ONS</AppText>
-              {addons.map((a, i) => (
-                <AppText key={i} style={styles.valueText}>{a.addonName || a.name}</AppText>
+              {addons.map((addon, idx) => (
+                <AppText key={idx} style={styles.simpleAddonText} weight="bold">
+                  {addon.addonName || addon.name || 'Add-on'}
+                </AppText>
               ))}
-            </>
+            </View>
           )}
 
-          <View style={styles.dottedLine} />
-
-          <View style={styles.specialBadge}>
-            <AppText style={styles.specialBadgeText} weight="bold">SPECIAL REQUEST</AppText>
-          </View>
-          <View style={styles.specialRow}>
-            <MaterialCommunityIcons name="information-outline" size={18} color={theme.colors.textSecondary} style={{ marginTop: 2 }} />
-            <AppText style={styles.specialText}>
-              {mainPackage.medicalInfo || mainPackage.notes || 'None'}
-            </AppText>
-          </View>
+          {notes ? (
+            <>
+              <View style={styles.dottedLine} />
+              <View style={styles.specialRequestContainer}>
+                <View style={styles.specialRequestRow}>
+                  <View style={styles.specialBadge}>
+                    <AppText style={styles.specialBadgeText} weight="bold">SPECIAL REQUEST</AppText>
+                  </View>
+                </View>
+                <View style={styles.notesRow}>
+                  <Ionicons name="information-circle-outline" size={20} color={theme.colors.textSecondary} style={{ marginRight: 8, marginTop: -2 }} />
+                  <AppText style={styles.notesText}>{notes}</AppText>
+                </View>
+              </View>
+            </>
+          ) : null}
         </View>
 
         {/* Card 2: Appointment Detail */}
         <View style={styles.card}>
           <AppText style={[styles.smallLabel, { marginBottom: 16 }]}>APPOINTMENT DETAIL</AppText>
-
-          <View style={styles.expertRow}>
-            <Image
-              source={{ uri: expert.image || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop' }}
-              style={styles.expertImage}
-            />
-            <View style={styles.expertInfo}>
-              <AppText style={styles.smallLabel}>EXPERT</AppText>
-              <AppText style={styles.expertName}>{expert.name || 'Professional'}</AppText>
+          
+          {/* Dynamic Assignment Status */}
+          {status !== 'confirmed' ? (
+            <View style={styles.assignmentBlock}>
+              {timedOut ? (
+                <>
+                  <View style={styles.assignmentHeaderRow}>
+                    <Ionicons name={isScoobyzMatch ? "time-outline" : "close-circle"} size={20} color={isScoobyzMatch ? "#F59E0B" : theme.colors.error} style={{ marginRight: 8 }} />
+                    <AppText style={[styles.assignmentTitle, { color: isScoobyzMatch ? "#F59E0B" : theme.colors.error }]} weight="bold">
+                      {isScoobyzMatch ? 'Still finding a match...' : 'No vendors available'}
+                    </AppText>
+                  </View>
+                  <AppText style={styles.assignmentSubtitle}>
+                    {isScoobyzMatch 
+                      ? `We are still looking for the best scoober for ${pet.name || 'Your Pet'}. You can safely leave this screen, we'll notify you once assigned.`
+                      : `We couldn't find an available scoober for ${pet.name || 'Your Pet'} at this time. Please try again later or choose another date.`}
+                  </AppText>
+                </>
+              ) : (
+                <>
+                  <View style={styles.assignmentHeaderRow}>
+                    <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                      <Ionicons name="hourglass-outline" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
+                    </Animated.View>
+                    <AppText style={[styles.assignmentTitle, { color: '#F59E0B' }]} weight="bold">Assigning a scoober</AppText>
+                  </View>
+                  <AppText style={styles.assignmentSubtitle}>
+                    We're finding an available scoober for {pet.name || 'Your Pet'}. You'll be notified once a scoober is assigned.
+                  </AppText>
+                </>
+              )}
             </View>
-            <View style={styles.expertActions}>
-              <TouchableOpacity style={styles.actionCircleBtn}>
-                <MaterialCommunityIcons name="phone" size={14} color={theme.colors.white} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionCircleBtn}>
-                <MaterialCommunityIcons name="message-text" size={14} color={theme.colors.white} />
-              </TouchableOpacity>
+          ) : (
+            <View style={styles.assignedBlock}>
+              {displayVendorImage ? (
+                <Image 
+                  source={{ uri: displayVendorImage }} 
+                  style={styles.vendorImage} 
+                />
+              ) : (
+                <View style={[styles.vendorImage, { backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center' }]}>
+                  <AppText style={{ color: '#FFF', fontSize: 20 }} weight="bold">
+                    {getInitials(displayVendorName)}
+                  </AppText>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <AppText style={styles.vendorName} weight="bold">{displayVendorName}</AppText>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <AppText style={styles.ratingText} weight="bold">{getFormattedRating()}</AppText>
+                </View>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.detailRow}>
+            <Ionicons name="calendar-outline" size={24} color={theme.colors.primaryDark} style={styles.detailIcon} />
+            <View>
+              <AppText style={styles.detailSmallLabel}>DATE & TIME</AppText>
+              <AppText style={styles.detailValueText} weight="bold">{date} • {time}</AppText>
             </View>
           </View>
 
           <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="calendar-blank-outline" size={20} color={theme.colors.textSecondary} style={styles.detailIcon} />
-            <View style={styles.detailContent}>
-              <AppText style={styles.smallLabel}>DATE & TIME</AppText>
-              <AppText style={styles.valueText}>{formatISTDate(date)} • {time}</AppText>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="map-marker-outline" size={20} color={theme.colors.textSecondary} style={styles.detailIcon} />
-            <View style={styles.detailContent}>
-              <AppText style={styles.smallLabel}>MODE ({visitType})</AppText>
-              <AppText style={[styles.valueText, { lineHeight: 22 }]}>
-                {address}
-              </AppText>
+            <Ionicons name="location-outline" size={24} color={theme.colors.primaryDark} style={styles.detailIcon} />
+            <View style={{ flex: 1 }}>
+              <AppText style={styles.detailSmallLabel}>ADDRESS</AppText>
+              <AppText style={styles.detailValueText} weight="bold">{address}</AppText>
             </View>
           </View>
         </View>
 
-        {/* Invoice Section */}
-        <View style={{ marginBottom: 16 }}>
-          <InvoiceComponent 
-            booking={{
-              ...route.params?.bookingData,
-              totalCost: route.params?.total || total,
-              paymentType: route.params?.paymentType || 'full',
-              amountPaid: route.params?.amountPaid || total,
-              remainingAmount: route.params?.remainingAmount || 0,
-              serviceName: mainPackage.title || 'Service',
-              vendorName: expert.name,
-              serviceDate: date,
-              serviceTimeSlot: time,
-            }} 
-            onPayBalance={handlePayBalance}
-          />
+        {/* Card 3: Amount Paid */}
+        <View style={styles.amountCard}>
+          <View style={styles.amountLeft}>
+            <Ionicons name="receipt-outline" size={24} color={theme.colors.primaryDark} style={{ marginRight: 12 }} />
+            <View>
+              <AppText style={styles.amountTitle} weight="bold">Amount Paid</AppText>
+              <TouchableOpacity onPress={() => setInvoiceVisible(true)}>
+                <AppText style={styles.viewDetailText}>VIEW DETAIL <Ionicons name="chevron-forward" size={12} /></AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <AppText style={styles.amountTotal} weight="bold">₹ {bookingData?.amountPaid ?? route.params.amountPaid ?? 0}</AppText>
         </View>
+        {/* OTP Section (if available) */}
+        {status === 'confirmed' && bookingData?.otp && (
+          <View style={styles.otpContainer}>
+            <View style={styles.otpHeader}>
+              <Ionicons name="shield-checkmark" size={16} color="#4CAF50" />
+              <AppText style={styles.otpLabel} weight="bold">SERVICE PIN</AppText>
+            </View>
+            <AppText style={styles.otpValue} weight="bold">{bookingData.otp}</AppText>
+            <AppText style={styles.otpSubText}>Share this pin with your provider to start the service</AppText>
+          </View>
+        )}
 
-        {/* Support */}
-        <View style={styles.supportContainer}>
-          <AppText style={styles.supportText}>
-            Need help ? <AppText style={styles.supportLink} weight="bold">Contact Support</AppText>
-          </AppText>
-        </View>
+        <TouchableOpacity style={styles.supportLink}>
+          <AppText style={styles.supportText}>Need help ? <AppText weight="bold" style={{ textDecorationLine: 'underline' }}>Contact Support</AppText></AppText>
+        </TouchableOpacity>
+
       </ScrollView>
 
-      {/* Main Footer Actions */}
-      <View style={styles.footerContainer}>
-        <TouchableOpacity 
-          style={styles.messageBtn} 
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('Chat', { 
-            bookingId: bookingId, 
-            partnerName: expert.name || 'Expert' 
-          })}
-        >
-          <MaterialCommunityIcons name="message-text-outline" size={20} color={theme.colors.primaryDark} style={{ marginRight: 8 }} />
-          <AppText style={styles.messageBtnText} weight="bold">Message Vendor</AppText>
+      {/* Bottom Buttons */}
+      {/* 
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.calendarBtn} onPress={addToCalendar}>
+          <AppText style={styles.calendarBtnText} weight="bold">Add to Calendar</AppText>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.bookingsBtn} 
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('MyBookings')}
-        >
-          <AppText style={styles.bookingsBtnText} weight="bold">Go to Bookings</AppText>
+        <TouchableOpacity style={styles.trackBtn} onPress={() => {}}>
+          <AppText style={styles.trackBtnText} weight="bold">Track</AppText>
         </TouchableOpacity>
       </View>
+      */}
+
+      {/* Payment Summary Modal */}
+      <PaymentSummaryModal
+        visible={invoiceVisible}
+        onClose={() => setInvoiceVisible(false)}
+        cart={route.params.cart}
+        total={route.params.total}
+        room={route.params.selectedRoom}
+        meal={route.params.selectedMeal}
+        nights={route.params.nights}
+        frequency={route.params.frequency}
+        timesPerDay={route.params.timesPerDay}
+        isAggressive={route.params.isAggressive}
+        aggressiveFee={route.params.aggressiveFee}
+        amountPaid={bookingData?.amountPaid || route.params.amountPaid}
+        remainingAmount={bookingData?.remainingAmount || (route.params.total - (route.params.amountPaid || 0))}
+      />
+
     </AppScreen>
   );
 };
@@ -205,23 +438,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 24,
-    paddingTop: 40,
-    paddingBottom: 24,
-    backgroundColor: theme.colors.background,
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: '#FAFAF8',
   },
   backButton: {
-    marginRight: 15,
+    marginRight: 12,
+    marginLeft: -6,
   },
   headerTitle: {
     fontSize: 22,
     color: theme.colors.textBlack,
-    fontFamily: theme.fonts.heading,
-    marginLeft: -5
   },
   scrollContainer: {
-    paddingHorizontal: 20,
+    flex: 1,
   },
   statusSection: {
     alignItems: 'center',
@@ -230,9 +461,9 @@ const styles = StyleSheet.create({
   statusPetImage: {
     width: 80,
     height: 80,
-    borderRadius: 24, // Squircle matching the mock
-    backgroundColor: theme.colors.surface,
+    borderRadius: 24,
     marginBottom: 16,
+    ...theme.shadows?.small,
   },
   statusTitle: {
     fontSize: 24,
@@ -242,98 +473,135 @@ const styles = StyleSheet.create({
   statusSubtitle: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-    marginBottom: 16,
     textAlign: 'center',
+    marginBottom: 16,
   },
   bookingIdBadge: {
-    backgroundColor: '#526D82',
+    backgroundColor: theme.colors.primaryDark,
     paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 20,
   },
   bookingIdText: {
     color: theme.colors.white,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 1,
   },
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
   },
-  smallLabel: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  simplePackageSection: {
+    marginBottom: 16,
   },
-  valueText: {
+  simpleMainPackageText: {
     fontSize: 15,
     color: theme.colors.textBlack,
-    marginBottom: 4,
+    marginTop: 6,
+  },
+  walkingDetailsText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+  },
+  simpleAddonsSection: {
+    marginBottom: 0,
+  },
+  simpleAddonText: {
+    fontSize: 15,
+    color: theme.colors.textBlack,
+    marginTop: 6,
+  },
+
+  smallLabel: {
+    fontSize: 11,
+    color: theme.colors.textTertiary,
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  valueText: {
+    fontSize: 16,
+    color: theme.colors.textBlack,
+    marginBottom: 8,
   },
   dottedLine: {
     borderBottomWidth: 1,
-    borderBottomColor: '#EBEAE6',
+    borderColor: 'rgba(0,0,0,0.1)',
     borderStyle: 'dashed',
-    marginVertical: 20,
+    marginVertical: 16,
+    marginHorizontal: -20,
+  },
+  specialRequestRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
   },
   specialBadge: {
-    backgroundColor: '#526D82',
-    alignSelf: 'flex-start',
+    backgroundColor: '#6C7E8D',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 12,
+    alignSelf: 'flex-start',
   },
   specialBadgeText: {
     color: theme.colors.white,
     fontSize: 10,
     letterSpacing: 0.5,
   },
-  specialRow: {
+  notesRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  specialText: {
+  notesText: {
+    flex: 1,
     fontSize: 13,
     color: theme.colors.textSecondary,
-    lineHeight: 20,
-    marginLeft: 8,
-    flex: 1,
+    lineHeight: 18,
   },
-  expertRow: {
+  assignmentBlock: {
+    marginBottom: 24,
+  },
+  assignmentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  assignmentTitle: {
+    fontSize: 16,
+  },
+  assignmentSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+  },
+  assignedBlock: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+    backgroundColor: '#F5F5F3',
+    padding: 12,
+    borderRadius: 12,
   },
-  expertImage: {
+  vendorImage: {
     width: 44,
     height: 44,
-    borderRadius: 12, // squircle 
-    backgroundColor: theme.colors.surface,
+    borderRadius: 22,
     marginRight: 12,
   },
-  expertInfo: {
-    flex: 1,
-  },
-  expertName: {
-    fontSize: 15,
+  vendorName: {
+    fontSize: 16,
     color: theme.colors.textBlack,
+    marginBottom: 2,
   },
-  expertActions: {
+  ratingRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  actionCircleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#526D82',
-    justifyContent: 'center',
     alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 12,
+    color: theme.colors.textBlack,
+    marginLeft: 4,
   },
   detailRow: {
     flexDirection: 'row',
@@ -342,89 +610,203 @@ const styles = StyleSheet.create({
   },
   detailIcon: {
     marginRight: 16,
-    marginTop: 2,
   },
-  detailContent: {
-    flex: 1,
+  detailSmallLabel: {
+    fontSize: 11,
+    color: theme.colors.textTertiary,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  detailValueText: {
+    fontSize: 13,
+    color: theme.colors.textBlack,
+    lineHeight: 18,
   },
   amountCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...theme.shadows?.medium,
+  },
+  amountLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  amountIcon: {
-    marginRight: 16,
-  },
-  amountInfo: {
-    flex: 1,
-  },
-  amountLabel: {
+  amountTitle: {
     fontSize: 15,
     color: theme.colors.textBlack,
-  },
-  viewDetailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+    marginBottom: 4,
   },
   viewDetailText: {
-    fontSize: 10,
+    fontSize: 11,
     color: theme.colors.textSecondary,
     letterSpacing: 0.5,
   },
-  amountValue: {
+  amountTotal: {
     fontSize: 20,
     color: theme.colors.textBlack,
   },
-  supportContainer: {
+  supportLink: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginBottom: 40,
   },
   supportText: {
-    fontSize: 13,
+    fontSize: 14,
     color: theme.colors.textSecondary,
   },
-  supportLink: {
-    color: theme.colors.textBlack,
-    textDecorationLine: 'underline',
-  },
-  footerContainer: {
+  bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    backgroundColor: '#FAFAF8',
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
-    backgroundColor: "#fff", // Match screen background so it floats cleanly
-    gap: 12,
+    paddingTop: 12,
+    paddingBottom: 30, // Safe area assuming standard iPhone
+    borderTopWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
-  messageBtn: {
+  calendarBtn: {
     flex: 1,
-    height: 56,
+    borderWidth: 1.5,
+    borderColor: theme.colors.success,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryDark,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
     backgroundColor: theme.colors.white,
-    flexDirection: 'row',
+  },
+  calendarBtnText: {
+    color: theme.colors.success,
+    fontSize: 17,
+  },
+  trackBtn: {
+    flex: 1,
+    backgroundColor: theme.colors.success,
+    borderRadius: 16,
+    height: 60,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  messageBtnText: {
+  trackBtnText: {
+    color: theme.colors.white,
+    fontSize: 17,
+  },
+  closeText: {
+    color: theme.colors.white,
+    fontSize: 14,
+  },
+  otpContainer: {
+    backgroundColor: '#F1F8E9',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  otpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  otpLabel: {
+    color: '#2E7D32',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  otpValue: {
+    color: '#1B5E20',
+    fontSize: 32,
+    letterSpacing: 10,
+    marginVertical: 4,
+  },
+  otpSubText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingTop: 16,
+    flex: 1,
+    marginTop: 60,
+  },
+  closeBtn: {
+    alignSelf: 'flex-end',
+    marginBottom: 10,
+    padding: 8,
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  serviceInfo: {
+    flex: 1,
+  },
+  serviceName: {
+    fontSize: 16,
+    color: theme.colors.textBlack,
+    marginBottom: 4,
+  },
+  servicePrice: {
     fontSize: 15,
     color: theme.colors.primaryDark,
+    marginTop: 4,
   },
-  bookingsBtn: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primaryDark,
-    justifyContent: 'center',
+  timeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  bookingsBtnText: {
-    fontSize: 15,
-    color: theme.colors.white,
+  timeText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginLeft: 4,
+  },
+  dottedLine: {
+    height: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
+    borderStyle: 'dashed',
+    marginVertical: 12,
+  },
+  specialRequestRow: {
+    marginTop: 8,
+  },
+  specialBadge: {
+    backgroundColor: 'rgba(82, 109, 130, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  specialBadgeText: {
+    fontSize: 10,
+    color: '#526D82',
+    letterSpacing: 0.5,
+  },
+  specialText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
   },
 });
 

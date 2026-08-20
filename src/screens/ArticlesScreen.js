@@ -68,7 +68,7 @@ export default function ArticlesScreen({ navigation }) {
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor="#F9F8F5">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, paddingTop: insets.top || 40 }}>
         
         {/* Featured Carousel */}

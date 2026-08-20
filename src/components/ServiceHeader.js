@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import AppText from './AppText';
 import AddressHeader from './AddressHeader';
 import { theme } from '../styles/theme';
-import { safeGoBack } from '../hooks/useBackHandler';
+import AppHeader from './AppHeader';
 
 export default function ServiceHeader({ 
   title, 
@@ -17,31 +17,20 @@ export default function ServiceHeader({
 
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => safeGoBack(navigation)}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        
-        <AppText style={styles.title} type="heading" weight="bold">
-          {title}
-        </AppText>
-
-        {rightIcon ? (
-          <TouchableOpacity 
-            style={styles.rightButton} 
-            onPress={onRightPress}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons name={rightIcon} size={22} color={theme.colors.textBlack} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.placeholder} />
-        )}
-      </View>
+      <AppHeader 
+        title={title} 
+        rightComponent={
+          rightIcon ? (
+            <TouchableOpacity 
+              style={styles.rightButton} 
+              onPress={onRightPress}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name={rightIcon} size={22} color={theme.colors.textBlack} />
+            </TouchableOpacity>
+          ) : null
+        }
+      />
 
       {showAddress && (
         <View style={styles.addressSection}>
@@ -54,36 +43,28 @@ export default function ServiceHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 18,
-    paddingTop: 40,
-    paddingBottom: 12,
+    paddingBottom: 0,
     backgroundColor: theme.colors.background,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    justifyContent: 'flex-start',
+    marginBottom: 0,
   },
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.white,
     justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    alignItems: 'flex-start',
+    marginLeft: -6, // Compensate for internal icon padding to visually align with subheadings
   },
   title: {
-    fontSize: 20,
+    fontSize: 28,
     color: theme.colors.textBlack,
-    textAlign: 'center',
+    textAlign: 'left',
     flex: 1,
-    marginHorizontal: 10,
+    marginLeft: 0, 
   },
   rightButton: {
     width: 44,
@@ -102,6 +83,7 @@ const styles = StyleSheet.create({
     width: 44,
   },
   addressSection: {
-    marginTop: 4,
-  }
+    marginTop: 16,
+    paddingHorizontal: 0,
+  },
 });

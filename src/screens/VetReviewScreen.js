@@ -27,7 +27,7 @@ export default function VetReviewScreen({ navigation, route }) {
   };
 
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
@@ -130,7 +130,7 @@ export default function VetReviewScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 10,
+    flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 24, paddingTop: 10, paddingBottom: 10,
   },
   backButton: { marginRight: 16 },
   headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, marginLeft: -5 },

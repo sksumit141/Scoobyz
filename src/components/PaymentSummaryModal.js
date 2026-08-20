@@ -7,7 +7,7 @@ import { theme } from '../styles/theme';
 export default function PaymentSummaryModal({
   visible, onClose, cart = [], total = 0, room = null, meal = null,
   frequency = '1x', nights = 1, isAggressive = false, aggressiveFee = 0,
-  timesPerDay = 1
+  timesPerDay = 1, amountPaid = null, remainingAmount = null
 }) {
   const mainPackage = cart[0] || {};
   const addons = (mainPackage.addons || []).map(a => ({
@@ -112,6 +112,24 @@ export default function PaymentSummaryModal({
             </View>
             <AppText style={styles.totalValue} weight="bold">₹ {total}</AppText>
           </View>
+
+          {amountPaid !== null && remainingAmount !== null && (
+            <>
+              <View style={[styles.divider, { marginTop: 16, marginBottom: 16 }]} />
+              <View style={styles.itemRow}>
+                <AppText style={styles.itemLabel}>Amount Paid</AppText>
+                <AppText style={[styles.itemValue, { color: theme.colors.success }]} weight="bold">
+                  ₹ {amountPaid}
+                </AppText>
+              </View>
+              <View style={[styles.itemRow, { marginTop: 8 }]}>
+                <AppText style={styles.itemLabel}>Remaining Balance</AppText>
+                <AppText style={[styles.itemValue, { color: theme.colors.primaryDark }]} weight="bold">
+                  ₹ {remainingAmount}
+                </AppText>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </Modal>

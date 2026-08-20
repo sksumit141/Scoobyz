@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -27,6 +28,7 @@ import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../services/api';
 import { supabase } from '../lib/supabase';
+import PawLoader from '../components/PawLoader';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -53,10 +55,24 @@ const WelcomeScreen = ({ navigation }) => {
     setAlertConfig({ visible: true, title, message, icon });
   };
 
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+
   const transitionTo = (newState, mode = null) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setAuthState(newState);
-    if (mode) setSelectedMode(mode);
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAuthState(newState);
+      if (mode) setSelectedMode(mode);
+
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
   // Web-only Google Sign-In hook
@@ -281,17 +297,19 @@ const WelcomeScreen = ({ navigation }) => {
     switch (authState) {
       case 'initial':
         return (
-          <AppButton
-            style={styles.button}
-            onPress={() => transitionTo('selection')}
-          >
-            <View style={styles.buttonContent}>
-              <AppText style={styles.buttonText} weight="600">
-                Get Started
-              </AppText>
-              <MaterialCommunityIcons name="arrow-right" size={18} color="white" style={{ marginLeft: 8 }} />
-            </View>
-          </AppButton>
+          <View style={{ flex: 1, justifyContent: 'flex-end', width: '100%', paddingBottom: 60 }}>
+            <AppButton
+              style={styles.button}
+              onPress={() => transitionTo('selection')}
+            >
+              <View style={styles.buttonContent}>
+                <AppText style={styles.buttonText} weight="600">
+                  Get Started
+                </AppText>
+                <MaterialCommunityIcons name="arrow-right" size={18} color="white" style={{ marginLeft: 8 }} />
+              </View>
+            </AppButton>
+          </View>
         );
 
       case 'selection':
@@ -332,7 +350,9 @@ const WelcomeScreen = ({ navigation }) => {
                 style={styles.socialButton}
                 onPress={() => navigation.navigate('PhoneLogin', { mode: selectedMode })}
               >
-                <MaterialCommunityIcons name="cellphone" size={22} color={theme.colors.textPrimary} />
+                <View style={styles.socialIconContainer}>
+                  <MaterialCommunityIcons name="cellphone" size={22} color={theme.colors.textPrimary} />
+                </View>
                 <AppText style={styles.socialButtonText}>Continue with Phone</AppText>
               </AppButton>
 
@@ -340,7 +360,9 @@ const WelcomeScreen = ({ navigation }) => {
                 style={styles.socialButton}
                 onPress={handleGoogleSignIn}
               >
-                <MaterialCommunityIcons name="google" size={22} color={theme.colors.accent} />
+                <View style={styles.socialIconContainer}>
+                  <MaterialCommunityIcons name="google" size={22} color={theme.colors.accent} />
+                </View>
                 <AppText style={styles.socialButtonText}>Continue with Google</AppText>
               </AppButton>
 
@@ -348,7 +370,9 @@ const WelcomeScreen = ({ navigation }) => {
                 style={styles.socialButton}
                 onPress={handleAppleLogin}
               >
-                <MaterialCommunityIcons name="apple" size={22} color="black" />
+                <View style={styles.socialIconContainer}>
+                  <MaterialCommunityIcons name="apple" size={22} color="black" />
+                </View>
                 <AppText style={styles.socialButtonText}>Continue with Apple</AppText>
               </AppButton>
             </View>
@@ -369,7 +393,7 @@ const WelcomeScreen = ({ navigation }) => {
 
   return (
     <>
-      <AppScreen padding={false} safeArea={true} scrollable={true} style={styles.container}>
+      <AppScreen padding={false} safeAreaTop={true} scrollable={true} style={styles.container}>
         <StatusBar barStyle="dark-content" />
 
         {/* TOP */}
@@ -396,28 +420,31 @@ const WelcomeScreen = ({ navigation }) => {
         {/* BOTTOM */}
         <View style={styles.bottomHalf}>
           <View style={styles.textContainer}>
-            <AppText type="heading" weight="700" style={styles.welcomeText}>
-              Welcome to
-            </AppText>
-
-            <AppText type="heading" weight="700" style={styles.brandText}>
-              Scoobyz
-            </AppText>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <AppText type="heading" weight="700" style={styles.welcomeText}>
+                Welcome to{' '}
+              </AppText>
+              <AppText type="heading" weight="700" style={styles.brandText}>
+                Scoobyz
+              </AppText>
+            </View>
 
             <AppText style={styles.tagline} weight="600">
               PET CARE PLATFORM
             </AppText>
           </View>
 
-          <View style={styles.actionContainer}>
-            {renderActionSection()}
+          <View style={[styles.actionContainer, authState === 'initial' && { flex: 1 }]}>
+            <Animated.View style={[{ opacity: fadeAnim, width: '100%', alignItems: 'center' }, authState === 'initial' && { flex: 1 }]}>
+              {renderActionSection()}
+            </Animated.View>
           </View>
         </View>
 
         {loading && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <PawLoader fullScreen={false} />
               <AppText style={styles.loadingText}>Connecting...</AppText>
             </View>
           </View>
@@ -446,9 +473,10 @@ const styles = StyleSheet.create({
 
   /* TOP */
   topHalf: {
-    flex: isSmallDevice ? 1 : 1.2,
+    flex: isSmallDevice ? 1 : 1.3,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    paddingTop: 20,
   },
 
   imageWrapper: {
@@ -488,9 +516,10 @@ const styles = StyleSheet.create({
 
   /* BOTTOM */
   bottomHalf: {
-    flex: 1,
+    flex: 1.2,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 10,
     paddingHorizontal: theme.spacing.lg,
   },
 
@@ -507,7 +536,6 @@ const styles = StyleSheet.create({
   brandText: {
     fontSize: Math.min(32, width * 0.082),
     color: theme.colors.primary,
-    marginTop: 4,
   },
 
   tagline: {
@@ -521,7 +549,7 @@ const styles = StyleSheet.create({
   actionContainer: {
     width: '100%',
     alignItems: 'center',
-    minHeight: Math.min(120, height * 0.15),
+    marginTop: Math.max(10, height * 0.02),
   },
 
   button: {
@@ -569,6 +597,7 @@ const styles = StyleSheet.create({
   methodsContainer: {
     alignItems: 'center',
     width: '100%',
+    marginTop: -30,
   },
 
   methodsTitle: {
@@ -587,14 +616,21 @@ const styles = StyleSheet.create({
   socialButton: {
     flexDirection: 'row',
     width: '100%',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingLeft: 45, // Left padding to push everything inward
     borderRadius: 24,
     backgroundColor: 'transparent',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Aligns both icon and text to start from the same vertical line
     borderWidth: 1.5,
     borderColor: '#E0E0E0',
-    gap: 10,
+  },
+
+  socialIconContainer: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15, // Fixed gap before the text starts
   },
 
   socialButtonText: {

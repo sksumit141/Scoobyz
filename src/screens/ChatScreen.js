@@ -4,11 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { chatApi, BASE_URL } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client/dist/socket.io.js';
 import { formatISTTime } from '../utils/date_utils';
+import PawLoader from '../components/PawLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -101,36 +103,34 @@ export default function ChatScreen({ navigation, route }) {
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        {/* Header Section */}
-        <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
-          </TouchableOpacity>
-
-          <View style={styles.agentInfo}>
-            <View style={styles.avatarWrapper}>
-              <View style={styles.avatarPlaceholder}>
-                <AppText style={styles.avatarInitials} weight="bold">{partnerName?.charAt(0) || 'P'}</AppText>
+    <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.primaryDark}>
+      {/* Header Section */}
+      <View style={styles.header}>
+        <AppHeader 
+          headerTheme="dark"
+          style={{ paddingHorizontal: 0, paddingVertical: 10, minHeight: 48 }}
+          title={
+            <View style={styles.agentInfo}>
+              <View style={styles.avatarWrapper}>
+                <View style={styles.avatarPlaceholder}>
+                  <AppText style={styles.avatarInitials} weight="bold">{partnerName?.charAt(0) || 'P'}</AppText>
+                </View>
+                <View style={styles.onlineDot} />
               </View>
-              <View style={styles.onlineDot} />
+              <View style={styles.headerTextContainer}>
+                <AppText style={styles.headerTitle} weight="bold">{partnerName || 'Partner'}</AppText>
+                <AppText style={styles.headerSubtitle}>Order #{bookingId}</AppText>
+              </View>
             </View>
-            <View style={styles.headerTextContainer}>
-              <AppText style={styles.headerTitle} weight="bold">{partnerName || 'Partner'}</AppText>
-              <AppText style={styles.headerSubtitle}>Order #{bookingId}</AppText>
-            </View>
-          </View>
-        </View>
+          }
+        />
+      </View>
 
+      <View style={styles.container}>
         {/* Chat Area */}
         {loading && messages.length === 0 ? (
           <View style={styles.loadingArea}>
-            <ActivityIndicator size="large" color={theme.colors.primaryDark} />
+            <PawLoader fullScreen={false} />
           </View>
         ) : (
           <ScrollView 
@@ -177,7 +177,7 @@ export default function ChatScreen({ navigation, route }) {
             <Ionicons name="send" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </AppScreen>
   );
 }

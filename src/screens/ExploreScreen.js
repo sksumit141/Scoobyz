@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { articlesApi } from '../services/api';
 
@@ -64,39 +65,34 @@ export default function ExploreScreen({ navigation }) {
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor="#F9F8F5">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header Section */}
         <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => navigation.goBack()}
-              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            >
-              <Ionicons name="arrow-back" size={26} color={theme.colors.white} />
-            </TouchableOpacity>
+          <AppHeader
+            title="Explore"
+            headerTheme="dark"
+            style={{ paddingHorizontal: 0 }}
+            rightComponent={
+              <TouchableOpacity
+                style={styles.notificationBtn}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <View style={styles.notificationIconWrapper}>
+                  <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
+                  <View style={styles.notificationBadge} />
+                </View>
+              </TouchableOpacity>
+            }
+          />
 
-            <View style={{ flex: 1 }} />
-
-            <TouchableOpacity
-              style={styles.notificationBtn}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <View style={styles.notificationIconWrapper}>
-                <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
-                <View style={styles.notificationBadge} />
-              </View>
-            </TouchableOpacity>
-          </View>
-          
           <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color="#999" style={styles.searchIcon} />
-            <TextInput 
-              placeholder="Search for grooming, walking or vet" 
-              style={styles.searchInput} 
-              placeholderTextColor="#999" 
+            <TextInput
+              placeholder="Search for grooming, walking or vet"
+              style={styles.searchInput}
+              placeholderTextColor="#999"
             />
           </View>
         </View>
@@ -157,8 +153,8 @@ export default function ExploreScreen({ navigation }) {
           {/* List of Articles */}
           <View style={styles.listContainer}>
             {regularArticles.map(article => (
-              <TouchableOpacity 
-                key={article.id} 
+              <TouchableOpacity
+                key={article.id}
                 style={styles.articleCard}
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('ArticleDetail', { article })}
@@ -184,7 +180,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 30,
   },
   headerTopRow: {

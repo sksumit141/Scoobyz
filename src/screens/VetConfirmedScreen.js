@@ -26,7 +26,7 @@ export default function VetConfirmedScreen({ navigation, route }) {
   });
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={handleBack}
@@ -138,7 +138,7 @@ export default function VetConfirmedScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, paddingRight: 24, paddingTop: 40, paddingBottom: 24, backgroundColor: theme.colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, paddingRight: 24, paddingTop: 10, paddingBottom: 24, backgroundColor: theme.colors.background },
   backButton: { marginRight: 15 },
   headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, marginLeft: -5 },
   scrollContainer: { paddingHorizontal: 20 },

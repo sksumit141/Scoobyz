@@ -2,54 +2,62 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
-import PriceDisplay from './PriceDisplay';
 import { theme } from '../styles/theme';
 
 export default function PackageCard({ pkg, onAdd, isAdded, isSelected }) {
   const showBadge = pkg.badge || pkg.type;
-  const isRoom = pkg.type === 'room';
   
   return (
-    <View style={[styles.card, isSelected && styles.cardActive]}>
+    <View style={styles.card}>
       {showBadge && (
         <View style={styles.badge}>
           <AppText style={styles.badgeText} weight="bold">{pkg.badge || pkg.type}</AppText>
         </View>
       )}
-      <AppText style={styles.title} type="heading" weight="bold">{pkg.title}</AppText>
+
+      {/* Launch Price Strip */}
+      {pkg.originalPrice && (
+        <View style={styles.launchStrip}>
+          <AppText style={styles.launchStripText} weight="bold">LAUNCH PRICE</AppText>
+        </View>
+      )}
+      
+      <AppText style={styles.title} weight="bold">{pkg.title}</AppText>
       
       <Image source={{ uri: pkg.image }} style={styles.image} />
       
+      {/* 
       {pkg.duration ? (
         <View style={styles.detailsRow}>
           <MaterialCommunityIcons name="clock-outline" size={16} color={theme.colors.textSecondary} />
           <AppText style={styles.duration}>{pkg.duration}</AppText>
         </View>
       ) : null}
+      */}
       
-      <PriceDisplay 
-        originalPrice={pkg.price} 
-        serviceName={pkg.serviceName || 'Grooming'} // You can pass serviceName to pkg if needed
-        style={styles.price} 
-        valueStyle={styles.price} 
-      />
+      <View style={styles.priceRow}>
+        {pkg.originalPrice && (
+          <AppText style={styles.originalPrice}>₹ {pkg.originalPrice}</AppText>
+        )}
+        <AppText style={styles.price} weight="bold">₹ {pkg.price}</AppText>
+      </View>
       
       <View style={styles.featuresList}>
         {(pkg.features || []).map((feature, i) => (
           <View key={i} style={styles.featureItem}>
-            <MaterialCommunityIcons name="check-circle" size={16} color="#758A9F" style={styles.checkIcon} />
+            <MaterialCommunityIcons name="check-circle" size={18} color="#758A9F" style={styles.checkIcon} />
             <AppText style={styles.featureText}>{feature}</AppText>
           </View>
         ))}
       </View>
       
       <TouchableOpacity 
-        style={[styles.addBtn, (isAdded || isSelected) && styles.addBtnActive]} 
+        style={[styles.addBtn, isAdded && styles.addBtnActive]} 
         onPress={onAdd}
         activeOpacity={0.8}
       >
         <AppText style={styles.addBtnText} weight="bold">
-          {isSelected ? 'Selected' : (isAdded ? 'Added' : 'Select')}
+          {isAdded ? 'Added' : 'Add'}
         </AppText>
       </TouchableOpacity>
     </View>
@@ -59,27 +67,22 @@ export default function PackageCard({ pkg, onAdd, isAdded, isSelected }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 10,
-    elevation: 3,
-  },
-  cardActive: {
-    borderColor: theme.colors.primaryDark,
-    borderWidth: 2,
-    backgroundColor: '#F8FAF8',
+    elevation: 2,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#758A9F', // greyish blue from original mockup
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
+    backgroundColor: '#758A9F',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginBottom: 10,
   },
   badgeText: {
     color: theme.colors.white,
@@ -87,9 +90,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
+  launchStrip: {
+    position: 'absolute',
+    top: 16,
+    right: 0,
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  launchStripText: {
+    color: '#FFF',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
   title: {
     fontSize: 22,
-    color: theme.colors.textBlack,
+    color: '#333333',
     marginBottom: 16,
     fontFamily: theme.fonts.heading,
   },
@@ -98,46 +122,56 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 12,
     marginBottom: 16,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: '#F5F5F5',
   },
   detailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
     gap: 6,
   },
   duration: {
-    fontSize: 14,
+    fontSize: 15,
     color: theme.colors.textSecondary,
   },
-  price: {
-    fontSize: 20,
-    color: theme.colors.textBlack,
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     marginBottom: 16,
+    gap: 8,
+  },
+  originalPrice: {
+    fontSize: 16,
+    color: '#9E9E9E',
+    textDecorationLine: 'line-through',
+  },
+  price: {
+    fontSize: 24,
+    color: theme.colors.primaryDark,
   },
   featuresList: {
     marginBottom: 20,
-    gap: 8,
+    gap: 10,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   checkIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   featureText: {
-    fontSize: 13,
-    color: theme.colors.textPrimary,
+    fontSize: 14,
+    color: '#444444',
   },
   addBtn: {
     backgroundColor: '#4A6B4B',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
   addBtnActive: {
-    backgroundColor: '#2A402B', // darker active state
+    backgroundColor: '#2A402B',
   },
   addBtnText: {
     color: theme.colors.white,

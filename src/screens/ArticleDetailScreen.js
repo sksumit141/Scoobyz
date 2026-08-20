@@ -14,7 +14,7 @@ export default function ArticleDetailScreen({ route, navigation }) {
 
   if (!article) {
     return (
-      <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
+      <AppScreen safeAreaTop={false} padding={false} backgroundColor="#F9F8F5">
         <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
           <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={28} color={theme.colors.textBlack} />
@@ -28,7 +28,7 @@ export default function ArticleDetailScreen({ route, navigation }) {
   }
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor="#F9F8F5">
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
         <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={() => navigation.goBack()}>

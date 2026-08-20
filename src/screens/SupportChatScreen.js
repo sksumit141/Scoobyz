@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { BASE_URL, customerApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -88,24 +89,21 @@ export default function SupportChatScreen({ navigation }) {
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        {/* Header Section */}
-        <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
-          </TouchableOpacity>
+    <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.primaryDark}>
+      <View style={styles.header}>
+        <AppHeader 
+          headerTheme="dark"
+          style={{ paddingHorizontal: 0, paddingVertical: 10, minHeight: 48 }}
+          title={
+            <View style={styles.headerTextContainer}>
+              <AppText style={styles.headerTitle} weight="bold">Scoobys Support</AppText>
+              <AppText style={styles.headerSubtitle}>We typically reply in minutes</AppText>
+            </View>
+          }
+        />
+      </View>
 
-          <View style={styles.headerTextContainer}>
-            <AppText style={styles.headerTitle} weight="bold">Scoobys Support</AppText>
-            <AppText style={styles.headerSubtitle}>We typically reply in minutes</AppText>
-          </View>
-        </View>
-
+      <View style={styles.container}>
         {/* Chat Area */}
         <ScrollView 
           ref={scrollViewRef}
@@ -156,7 +154,7 @@ export default function SupportChatScreen({ navigation }) {
             <Ionicons name="send" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </AppScreen>
   );
 }

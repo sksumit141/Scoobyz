@@ -5,6 +5,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 
@@ -105,22 +106,24 @@ export default function HelpSupportScreen({ navigation }) {
   });
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor="#F9F8F5">
+    <AppScreen safeAreaTop={false} padding={false} backgroundColor="#F9F8F5">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header Section */}
         <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={28} color={theme.colors.white} />
-            </TouchableOpacity>
-
-
-
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
-            </TouchableOpacity>
-          </View>
+          <AppHeader
+            title=""
+            headerTheme="dark"
+            style={{ paddingHorizontal: 0, paddingVertical: 0, minHeight: 48, justifyContent: 'space-between' }}
+            rightComponent={
+              <TouchableOpacity
+                style={[styles.notificationBtn]}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
+              </TouchableOpacity>
+            }
+          />
 
           {/* Search Bar */}
           <View style={styles.searchContainer}>
@@ -308,9 +311,9 @@ const styles = StyleSheet.create({
     height: 40,
   },
   notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',

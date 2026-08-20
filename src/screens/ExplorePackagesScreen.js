@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
+import AppScreen from '../components/AppScreen';
+import AppHeader from '../components/AppHeader';
 import PackageCard from '../components/PackageCard';
 import AddonsModal from '../components/AddonsModal';
 import { discoverApi } from '../services/api';
 import { theme } from '../styles/theme';
 
 export default function ExplorePackagesScreen({ route, navigation }) {
-  const { expert, serviceName = 'Grooming' } = route.params || {};
+  const { expert, serviceName = 'Grooming', isScoobyzGrooming, pet } = route.params || {};
+  const petSize = pet?.size || 'Medium';
   const [packages, setPackages] = useState([]);
   const [addons, setAddons] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -21,13 +24,22 @@ export default function ExplorePackagesScreen({ route, navigation }) {
   const [activeModalPkg, setActiveModalPkg] = useState(null);
 
   const fetchPackages = useCallback(async () => {
-    if (!expert?.id) {
+    // For Scoobyz grooming, we don't need an expert id - fetch from Scoobyz master list
+    if (!isScoobyzGrooming && !expert?.id) {
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
       setError(null);
+
+      if (isScoobyzGrooming) {
+        const data = await discoverApi.scoobyzPackages();
+        setPackages(data.packages || []);
+        setAddons(data.addons || []);
+        return;
+      }
+
       const data = await discoverApi.groomerPackages(expert.id);
 
       if (serviceName === 'Boarding') {
@@ -86,32 +98,22 @@ export default function ExplorePackagesScreen({ route, navigation }) {
     if (isAdded) {
       setCart(prev => prev.filter(item => item.packageId !== pkg.id));
     } else {
-      setActiveModalPkg({ ...pkg, availableAddons: addons });
+      let finalPrice = pkg.price;
+      if (isScoobyzGrooming && pkg.pricing) {
+        finalPrice = pkg.pricing[petSize]?.launch || pkg.pricing.Medium.launch;
+      }
+      setActiveModalPkg({ ...pkg, price: finalPrice, availableAddons: addons });
     }
   };
 
   const handleModalAdd = (configuredPkg) => {
-    const nextParams = {
-      ...route.params,
-      cart: [configuredPkg],
-      total: configuredPkg.basePrice + configuredPkg.totalAddonPrice,
-      expert,
-    };
-
-    navigation.navigate('BookVendor', { ...nextParams, serviceType: serviceName });
+    setCart([configuredPkg]);
     setActiveModalPkg(null);
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} type="heading" weight="bold">
-          {expert?.name ? `${expert.name}'s Packages` : 'Explore Packages'}
-        </AppText>
-      </View>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+      <AppHeader title={expert?.name ? `${expert.name}'s Packages` : 'Explore Packages'} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
@@ -126,7 +128,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
           </View>
         )}
 
-        {!loading && !error && packages.length === 0 && (
+        {!loading && !error && packages.length === 0 && !isScoobyzGrooming && (
           <AppText style={styles.emptyText}>No packages listed by this expert yet.</AppText>
         )}
 
@@ -148,27 +150,92 @@ export default function ExplorePackagesScreen({ route, navigation }) {
           </View>
         )}
 
-        <View style={styles.sectionHeader}>
-          <AppText style={styles.sectionTitle} weight="bold">
-            {serviceName === 'Boarding' ? 'Select Room Type' : 'Available Packages'}
-          </AppText>
-        </View>
+        {packages.length > 0 && serviceName !== 'Boarding' && (
+          <View style={styles.sizeBanner}>
+            <MaterialCommunityIcons name="dog" size={18} color={theme.colors.primaryDark} />
+            <AppText style={styles.sizeBannerText}>
+              Showing prices for <AppText weight="bold" style={{color: theme.colors.primaryDark}}>{petSize}</AppText> dogs
+            </AppText>
+          </View>
+        )}
 
-        {packages.map(pkg => (
-          <PackageCard
-            key={pkg.id}
-            pkg={pkg}
-            isSelected={serviceName === 'Boarding' && selectedRoom?.id === pkg.id}
-            isAdded={serviceName !== 'Boarding' && cart.some(item => item.packageId === pkg.id)}
-            onAdd={() => {
-              if (serviceName === 'Boarding') {
-                setSelectedRoom(pkg);
-              } else {
-                handleAddClick(pkg);
-              }
-            }}
-          />
-        ))}
+        {/*
+        {packages.length > 0 && (
+          <View style={styles.sectionHeader}>
+            <AppText style={styles.sectionTitle} weight="bold">
+              {serviceName === 'Boarding' ? 'Select Room Type' : 'Available Packages'}
+            </AppText>
+          </View>
+        )}
+        */}
+
+        {packages.map(pkg => {
+          const isAdded = serviceName !== 'Boarding' && cart.some(item => item.packageId === pkg.id);
+          let displayPrice = pkg.price;
+          if (isScoobyzGrooming && pkg.pricing) {
+            displayPrice = pkg.pricing[petSize]?.launch || pkg.pricing.Medium.launch;
+          }
+
+          // Normalize petSize to ensure it matches our keys exactly (e.g. 'Large' instead of 'large')
+          const cleanSize = petSize ? petSize.trim() : 'Medium';
+          const normalizedSize = cleanSize.charAt(0).toUpperCase() + cleanSize.slice(1).toLowerCase();
+
+          let originalPrice = null;
+
+          // ==========================================================
+          // CUSTOM PRICING CONFIGURATION
+          // You can input the regular (original) and discounted (launch) 
+          // prices for all 3 types of services here!
+          // ==========================================================
+          const customPricing = {
+            'fresh': {
+                Small:  { original: 799, launch: 699 },
+                Medium: { original: 899, launch: 799 },
+                Large:  { original: 999, launch: 899 }
+            },
+            'signature': {
+                Small:  { original: 1499, launch: 1299 }, // Replace these numbers!
+                Medium: { original: 1699, launch: 1499 }, // Replace these numbers!
+                Large:  { original: 1899, launch: 1699 } // Replace these numbers!
+            },
+            'royal': {
+                Small:  { original: 1799, launch: 1499 }, // Replace these numbers!
+                Medium: { original: 1999, launch: 1699 }, // Replace these numbers!
+                Large:  { original: 2299, launch: 1899 } // Replace these numbers!
+            }
+          };
+
+          const titleLower = (pkg.title || pkg.name || '').toLowerCase();
+          const customKey = Object.keys(customPricing).find(k => titleLower.includes(k));
+
+          if (customKey) {
+            const sizePricing = customPricing[customKey][normalizedSize];
+            if (sizePricing) {
+              originalPrice = sizePricing.original;
+              displayPrice = sizePricing.launch;
+            }
+          }
+
+          return (
+            <PackageCard
+              key={pkg.id}
+              pkg={{ ...pkg, price: displayPrice, originalPrice: originalPrice }}
+              isSelected={serviceName === 'Boarding' && selectedRoom?.id === pkg.id}
+              isAdded={isAdded}
+              onAdd={() => {
+                if (serviceName === 'Boarding') {
+                  setSelectedRoom(pkg);
+                } else {
+                  if (addons && addons.length > 0) {
+                    handleAddClick(pkg);
+                  } else {
+                    setCart([{ ...pkg, basePrice: displayPrice, totalAddonPrice: 0 }]);
+                  }
+                }
+              }}
+            />
+          );
+        })}
 
         {serviceName === 'Boarding' && (
           <View style={styles.bottomCtaContainer}>
@@ -194,32 +261,43 @@ export default function ExplorePackagesScreen({ route, navigation }) {
         )}
       </ScrollView>
 
+      {cart.length > 0 && serviceName !== 'Boarding' && (
+        <View style={styles.stickyFooter}>
+          <View>
+            <AppText style={styles.footerTotalLabel}>Total</AppText>
+            <AppText style={styles.footerTotalPrice} weight="bold">
+              ₹ {cart.reduce((sum, item) => sum + (item.basePrice || 0) + (item.totalAddonPrice || 0), 0)}
+            </AppText>
+          </View>
+          <TouchableOpacity
+            style={styles.footerConfirmBtn}
+            onPress={() => {
+              const total = cart.reduce((sum, item) => sum + (item.basePrice || 0) + (item.totalAddonPrice || 0), 0);
+              navigation.navigate('ReviewDetails', {
+                ...route.params,
+                cart,
+                total,
+                expert: isScoobyzGrooming ? { id: 'scoobyz_match', name: 'Scoobyz Team Match' } : expert,
+                serviceType: serviceName
+              });
+            }}
+          >
+            <AppText style={styles.footerConfirmText} weight="bold">Confirm</AppText>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <AddonsModal
         visible={!!activeModalPkg}
         packageData={activeModalPkg}
         onClose={() => setActiveModalPkg(null)}
         onAdd={handleModalAdd}
       />
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingLeft: 18, paddingRight: 24, paddingTop: 40, paddingBottom: 24,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    ...theme.shadows.small,
-  },
-  headerTitle: { fontSize: 22, color: theme.colors.textBlack, fontFamily: theme.fonts.heading, marginLeft: -5, marginTop: 5 },
   scrollContent: { paddingHorizontal: 24 },
   errorBox: { alignItems: 'center', marginTop: 40 },
   errorText: { color: theme.colors.error || 'red', fontSize: 14, marginBottom: 12, textAlign: 'center' },
@@ -265,6 +343,60 @@ const styles = StyleSheet.create({
   },
   mealPrice: {
     fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  addonPrice: {
+    fontSize: 15,
+    color: theme.colors.textSecondary,
+  },
+  addonPriceActive: {
+    color: theme.colors.primaryDark,
+  },
+  stickyFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#F5F5F5',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  footerTotalLabel: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  footerTotalPrice: {
+    fontSize: 20,
+    color: '#111111',
+  },
+  footerConfirmBtn: {
+    backgroundColor: '#4A6B4B',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  footerConfirmText: {
+    color: theme.colors.white,
+    fontSize: 16,
+  },
+  sizeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(73, 94, 113, 0.08)',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  sizeBannerText: {
+    fontSize: 13,
     color: theme.colors.textSecondary,
   },
   sectionHeader: {

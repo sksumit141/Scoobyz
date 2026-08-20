@@ -20,6 +20,7 @@ import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import CustomAlert from '../components/CustomAlert';
 import PriceDisplay from '../components/PriceDisplay';
 import { useDiscount } from '../contexts/DiscountContext';
+import { useCart } from '../contexts/CartContext';
 import { formatISTDate, getISTDateString } from '../utils/date_utils';
 import RazorpayCheckout from 'react-native-razorpay';
 
@@ -61,6 +62,7 @@ function buildPayload(params, paymentDetails) {
         serviceTimeSlot: safeTime,
         petName: pet?.name || 'Pet',
         petBreed: pet?.breed || 'Dog',
+        petSize: pet?.size || null,
         notes: notes || cart?.[0]?.notes || '',
         paymentType: paymentDetails.paymentType,
         amountPaid: paymentDetails.amountPaid,
@@ -96,7 +98,9 @@ function buildPayload(params, paymentDetails) {
         return {
             ...base,
             serviceId: mainPackage?.id,
-            visitType: visitType === 'Home Service' ? 'home_visit' : 'studio',
+            packageName: mainPackage?.title,
+            selectedSubServices: mainPackage?.addons || [],
+            visitType: visitType === 'Home Visit' || visitType === 'Home Service' ? 'home_visit' : 'studio',
         };
     }
 }
@@ -121,6 +125,12 @@ export default function BookVendorScreen({ navigation, route }) {
     } = params;
 
     const total = Number(rawTotal);
+
+    const { saveToCart, clearCart } = useCart();
+    
+    React.useEffect(() => {
+        saveToCart(params, 'BookVendor', serviceType, total);
+    }, []);
 
     const [loading, setLoading] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState(null);
@@ -166,6 +176,22 @@ export default function BookVendorScreen({ navigation, route }) {
     const displayDate = formatISTDate(date);
 
     const handleBook = async () => {
+        if (!selectedAddress && !address) {
+            setAlertConfig({ 
+                visible: true, 
+                title: 'Address Required', 
+                message: 'Please add a service address before booking.', 
+                type: 'success',
+                onConfirm: () => {
+                    setAlertConfig(prev => ({ ...prev, visible: false }));
+                    navigation.navigate('AddressBook');
+                },
+                buttonText: 'Cancel',
+                confirmText: 'Add Address'
+            }); 
+            return;
+        }
+
         const vendorUserId = expert?.userId || expert?.id;
         if (!vendorUserId) {
             setAlertConfig({
@@ -278,19 +304,31 @@ export default function BookVendorScreen({ navigation, route }) {
 
             if (!bookingId) throw new Error('Booking created but no ID returned.');
 
-            navigation.replace('BookingPending', {
-                bookingId,
-                expert,
-                pet,
-                total: discountedTotal,
-                serviceType,
-                date,
-                time,
-                visitType,
-                paymentType,
-                amountPaid: discountedAmountPaid,
-                remainingAmount: discountedRemainingAmount
-            });
+            clearCart();
+
+            if (isScoobyzMatch) {
+                navigation.replace('BookingConfirmed', { 
+                    bookingId, cart: params.cart, total: discountedTotal, expert, pet, date, time, visitType, 
+                    address: selectedAddress ? [selectedAddress.fullAddress, selectedAddress.areaLocality, selectedAddress.city].filter(Boolean).join(', ') : address, notes: originalNotes, serviceType, isScoobyzMatch,
+                    amountPaid, remainingAmount, duration, frequency
+                });
+            } else {
+                navigation.replace('BookingPending', {
+                    bookingId,
+                    expert,
+                    pet,
+                    total: discountedTotal,
+                    serviceType,
+                    date,
+                    time,
+                    visitType,
+                    paymentType,
+                    amountPaid: discountedAmountPaid,
+                    remainingAmount: discountedRemainingAmount,
+                    duration,
+                    frequency
+                });
+            }
         } catch (error) {
             console.error('[BookVendor] Error:', error);
             setAlertConfig({
@@ -304,7 +342,7 @@ export default function BookVendorScreen({ navigation, route }) {
     };
 
     return (
-        <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+        <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -355,7 +393,7 @@ export default function BookVendorScreen({ navigation, route }) {
                         />
                         <View>
                             <AppText style={styles.petName} weight="bold">{pet?.name || 'Your Pet'}</AppText>
-                            <AppText style={styles.petBreed}>{pet?.breed || ''} {pet?.age ? `· ${pet.age} yrs` : ''}</AppText>
+                            <AppText style={styles.petBreed}>{pet?.breed || ''} {pet?.size ? `· ${pet.size}` : ''} {pet?.age ? `· ${pet.age} yrs` : ''}</AppText>
                         </View>
                     </View>
                 </View>
@@ -550,7 +588,11 @@ export default function BookVendorScreen({ navigation, route }) {
                 visible={alertConfig.visible}
                 title={alertConfig.title}
                 message={alertConfig.message}
-                onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+                onConfirm={alertConfig.onConfirm}
+                buttonText={alertConfig.buttonText || 'Okay'}
+                confirmText={alertConfig.confirmText || 'Confirm'}
             />
         </AppScreen>
     );

@@ -16,9 +16,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
+import AppHeader from '../components/AppHeader';
+import AppScreen from '../components/AppScreen';
 import { getNotifications, markAsRead, markAllAsRead } from '../services/api';
 import { getSocket } from '../lib/socket';
 import { formatISTDate } from '../utils/date_utils';
+import PawLoader from '../components/PawLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -189,65 +192,59 @@ const NotificationsScreen = () => {
     if (loading) {
         return (
             <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <PawLoader fullScreen={false} />
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <AppScreen padding={false} backgroundColor="#FFFFFF">
             <StatusBar barStyle="dark-content" />
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
-                    <View style={styles.headerLeft}>
-                        <TouchableOpacity 
-                            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.replace('LandingScreen')} 
-                            style={styles.backButton}
-                            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                        >
-                            <Ionicons name="chevron-back" size={28} color={theme.colors.textPrimary} />
-                        </TouchableOpacity>
-                        <Text style={styles.headerTitle}>Notifications</Text>
-                    </View>
-                    {notifications.length > 0 && (
+            <AppHeader
+                title="Notifications"
+                onBackPress={() => navigation.navigate('LandingScreen')}
+                rightComponent={
+                    notifications.length > 0 ? (
                         <TouchableOpacity onPress={handleMarkAllRead}>
                             <Text style={styles.markReadText}>Mark all read</Text>
                         </TouchableOpacity>
-                    )}
-                </View>
+                    ) : null
+                }
+                style={{ paddingHorizontal: 16 }}
+            />
 
-                {notifications.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <View style={styles.emptyIconCircle}>
-                            <Ionicons name="notifications-off-outline" size={60} color="#E2E8F0" />
-                        </View>
-                        <Text style={styles.emptyTitle}>Stay Tuned!</Text>
-                        <Text style={styles.emptySubtitle}>You're all caught up. New notifications will appear here.</Text>
-                        <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
-                            <Text style={styles.refreshBtnText}>Check Again</Text>
-                        </TouchableOpacity>
+            {notifications.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconCircle}>
+                        <Ionicons name="notifications-off-outline" size={60} color="#E2E8F0" />
                     </View>
-                ) : (
-                    <FlatList
-                        data={notifications}
-                        keyExtractor={(item) => item.id.toString()}
-                        renderItem={({ item }) => (
-                            <PureNotificationItem item={item} onPress={handleNotificationPress} />
-                        )}
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={
-                            <RefreshControl 
-                                refreshing={refreshing} 
-                                onRefresh={handleRefresh} 
-                                tintColor={theme.colors.primary} 
-                                colors={[theme.colors.primary]}
-                            />
-                        }
-                    />
-                )}
-            </SafeAreaView>
-        </View>
+                    <Text style={styles.emptyTitle}>Stay Tuned!</Text>
+                    <Text style={styles.emptySubtitle}>You're all caught up. New notifications will appear here.</Text>
+                    <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
+                        <Text style={styles.refreshBtnText}>Check Again</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <FlatList
+                    data={notifications}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <PureNotificationItem item={item} onPress={handleNotificationPress} />
+                    )}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={theme.colors.primary}
+                            colors={[theme.colors.primary]}
+                        />
+                    }
+                />
+            )}
+
+        </AppScreen>
     );
 };
 
@@ -264,7 +261,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 40, // As requested
+        paddingTop: 10, // As requested
         paddingBottom: 20,
         backgroundColor: '#FFFFFF',
     },

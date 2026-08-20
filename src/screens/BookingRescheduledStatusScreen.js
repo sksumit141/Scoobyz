@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicato
 import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { BASE_URL, bookingsApi } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -216,12 +217,7 @@ export default function BookingRescheduledStatusScreen({ route, navigation }) {
     return (
         <AppScreen padding={false} style={styles.screen}>
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton} activeOpacity={0.7}>
-                    <Ionicons name="arrow-back-outline" size={26} color={theme.colors.textBlack} />
-                </TouchableOpacity>
-                <AppText style={styles.headerTitle} type="heading" weight="bold">Booking Status</AppText>
-            </View>
+            <AppHeader title="Booking Status" onBack={handleBack} />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 

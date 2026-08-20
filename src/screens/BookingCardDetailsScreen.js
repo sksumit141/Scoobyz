@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, Alert, Modal, Dimensions } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, Alert, Modal, Dimensions, Linking, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import CustomCalendar from '../components/CustomCalendar';
 import { theme } from '../styles/theme';
 import { bookingsApi, BASE_URL } from '../services/api';
@@ -130,6 +131,15 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
         }
     };
 
+    const handleCall = () => {
+        const phoneNumber = booking?.vendorPhone || '9876543210';
+        const url = Platform.OS === 'android' ? `tel:${phoneNumber}` : `telprompt:${phoneNumber}`;
+        Linking.openURL(url).catch(err => {
+            console.error('Error opening dialer:', err);
+            Alert.alert('Error', 'Unable to open dialer.');
+        });
+    };
+
     const handleRescheduleConfirm = async () => {
         if (!selectedSlot) {
             Alert.alert('Select a slot', 'Please select a time slot to reschedule.');
@@ -163,6 +173,32 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
         }
     };
 
+    const addToCalendar = () => {
+        if (!booking) return;
+        const title = `${booking.serviceName || 'Scoobyz Service'} for ${booking.petName || 'Pet'}`;
+        const location = booking.fullAddress || '';
+        const notes = booking.notes || `Order ID: #${booking.id}`;
+        
+        let startDate = booking.serviceDate;
+        if (booking.timeSlot) {
+            // Very basic parse assuming format like "10:00 AM" and serviceDate is an ISO string or similar
+            // In a real robust implementation, properly combine date + timeSlot
+            startDate = new Date(booking.serviceDate);
+        }
+
+        const start = new Date(startDate).toISOString().replace(/-|:|\.\d\d\d/g, '');
+        const end = start; // Basic implementation, same as start
+        const url = Platform.select({
+            ios: `calshow:${Math.floor(new Date(startDate).getTime() / 1000)}`,
+            android: `content://com.android.calendar/time/${new Date(startDate).getTime()}`,
+            default: `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(title)}&dates=${start}/${end}&details=${encodeURIComponent(notes)}&location=${encodeURIComponent(location)}`
+        });
+        
+        Linking.openURL(url).catch(() => {
+            Linking.openURL(`https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(title)}&dates=${start}/${end}&details=${encodeURIComponent(notes)}&location=${encodeURIComponent(location)}`);
+        });
+    };
+
     if (loading) {
         return (
             <AppScreen padding={false} style={styles.loadingScreen}>
@@ -174,12 +210,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
     if (!booking) {
         return (
             <AppScreen padding={false} style={styles.screen}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                        <Ionicons name="arrow-back-outline" size={24} color={theme.colors.textBlack} />
-                    </TouchableOpacity>
-                    <AppText style={styles.headerTitle} type="heading" weight="bold">Booking Details</AppText>
-                </View>
+                <AppHeader title="Booking Details" onBackPress={handleBack} />
                 <View style={styles.emptyContainer}>
                     <AppText>Booking not found.</AppText>
                 </View>
@@ -194,6 +225,9 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
 
     // Resolve service tasks / details
     let serviceTasks = booking.notes || '';
+    if (serviceTasks && serviceTasks.includes('_OP:')) {
+        serviceTasks = serviceTasks.replace(/_OP:\d+(\.\d+)?_?\s*/g, '').trim();
+    }
     if (!serviceTasks) {
         if (booking.bookingType === 'grooming') {
             serviceTasks = 'Full groom, Nail trim, Ear cleaning';
@@ -225,12 +259,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
     return (
         <AppScreen padding={false} style={styles.screen}>
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton} activeOpacity={0.7}>
-                    <Ionicons name="arrow-back-outline" size={26} color={theme.colors.textBlack} />
-                </TouchableOpacity>
-                <AppText style={styles.headerTitle} type="heading" weight="bold">Booking Details</AppText>
-            </View>
+            <AppHeader title="Booking Details" onBackPress={handleBack} />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* Top Section */}
@@ -267,12 +296,22 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
 
                 {/* Main Info Card */}
                 <View style={styles.card}>
-                    {/* Date & Time */}
-                    <View style={styles.infoBlock}>
-                        <AppText style={styles.infoLabel}>DATE & TIME</AppText>
-                        <AppText style={styles.infoValue}>
-                            {formatBookingDate(booking.serviceDate)}{booking.timeSlot ? ` • ${booking.timeSlot}` : ' • 10:30 AM'}
-                        </AppText>
+                    {/* Date & Time & PIN */}
+                    <View style={[styles.infoBlock, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }]}>
+                        <View>
+                            <AppText style={styles.infoLabel}>DATE & TIME</AppText>
+                            <AppText style={styles.infoValue}>
+                                {formatBookingDate(booking.serviceDate)}{booking.timeSlot ? ` • ${booking.timeSlot}` : ' • 10:30 AM'}
+                            </AppText>
+                        </View>
+                        {(booking.status === 'confirmed' || booking.status === 'in_progress') && booking.otp && (
+                            <View style={[styles.otpMinimalContainer, { marginTop: 0 }]}>
+                                <AppText style={styles.otpMinimalLabel}>PIN</AppText>
+                                <View style={styles.otpHighlight}>
+                                    <AppText style={styles.otpMinimalValue} weight="bold">{booking.otp}</AppText>
+                                </View>
+                            </View>
+                        )}
                     </View>
 
                     {/* Expert */}
@@ -280,7 +319,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                         <AppText style={styles.infoLabel}>EXPERT</AppText>
                         <View style={styles.expertRow}>
                             <AppText style={[styles.infoValue, { flex: 1 }]}>{booking.vendorName || 'Sarah Jenkens'}</AppText>
-                            <TouchableOpacity style={styles.actionIconBtn} activeOpacity={0.8}>
+                            <TouchableOpacity style={styles.actionIconBtn} activeOpacity={0.8} onPress={handleCall}>
                                 <Ionicons name="call-outline" size={16} color="#FFF" />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.actionIconBtn} activeOpacity={0.8}>
@@ -296,6 +335,8 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                             {addressString}
                         </AppText>
                     </View>
+
+
 
                     {/* Action Buttons */}
                     {!['cancelled', 'completed'].includes(booking.status) && (
@@ -321,6 +362,16 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                                     </TouchableOpacity>
                                 )}
                             </View>
+                            
+                            {/* Add to Calendar */}
+                            <TouchableOpacity 
+                                style={styles.calendarBtn} 
+                                activeOpacity={0.8}
+                                onPress={addToCalendar}
+                            >
+                                <Ionicons name="calendar-outline" size={18} color={theme.colors.primaryDark} style={{ marginRight: 8 }} />
+                                <AppText style={styles.calendarBtnText} weight="bold">Add to Calendar</AppText>
+                            </TouchableOpacity>
                         </>
                     )}
                 </View>
@@ -332,12 +383,21 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                     </View>
                     <View style={styles.amountTextContainer}>
                         <AppText style={styles.amountLabel} weight="bold">Amount Paid</AppText>
-                        <TouchableOpacity style={styles.viewDetailRow} activeOpacity={0.8}>
+                        <TouchableOpacity 
+                            style={styles.viewDetailRow} 
+                            activeOpacity={0.8}
+                            onPress={() => {
+                                Alert.alert(
+                                    'Bill Details',
+                                    `Service Amount: ₹${booking.totalCost ?? booking.amountPaid ?? 0}\nAmount Paid: ₹${booking.amountPaid ?? 0}\nStatus: ${booking.paymentStatus === 'paid' || booking.amountPaid > 0 ? 'Paid' : 'Pending'}`
+                                );
+                            }}
+                        >
                             <AppText style={styles.viewDetailText}>VIEW DETAIL</AppText>
                             <Ionicons name="chevron-forward" size={12} color={theme.colors.textTertiary} />
                         </TouchableOpacity>
                     </View>
-                    <AppText style={styles.amountValue} weight="bold">₹ {booking.totalCost || '2200'}</AppText>
+                    <AppText style={styles.amountValue} weight="bold">₹ {booking.amountPaid ?? booking.totalCost ?? 0}</AppText>
                 </View>
 
                 {/* Info Banner */}
@@ -790,9 +850,49 @@ const styles = StyleSheet.create({
     dateMonth: {
         fontSize: 12,
         color: theme.colors.textSecondary,
-    },
+},
     dateTextSelected: {
         color: '#FFF',
+    },
+    slotTextActive: {
+        color: '#FFF',
+    },
+    otpMinimalContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    otpMinimalLabel: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginRight: 8,
+        fontWeight: 'bold',
+    },
+    otpHighlight: {
+        backgroundColor: '#E8F5E9',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#C8E6C9',
+    },
+    otpMinimalValue: {
+        fontSize: 14,
+        color: '#2E7D32',
+        letterSpacing: 2,
+    },
+    calendarBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F0F0F0',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginTop: 12,
+    },
+    calendarBtnText: {
+        color: theme.colors.primaryDark,
+        fontSize: 14,
     },
     slotSection: {
         marginBottom: 20,

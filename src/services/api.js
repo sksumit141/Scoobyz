@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const BASE_URL = 'https://scoobyz-backend.onrender.com';
 // export const BASE_URL = 'http://192.168.1.33:8000';
-
+//https://scoobyz-backend.onrender.com
 const getHeaders = async () => {
     let token = await AsyncStorage.getItem('authToken');
     return {
@@ -158,6 +158,7 @@ export const discoverApi = {
     walkerDetail: (id) => api.get(`/discover/walkers/${id}`),
     companies: () => api.get('/discover/companies'),
     byService: (serviceName, params) => api.get(`/discover/by-service/${encodeURIComponent(serviceName)}${buildQuery(params)}`),
+    scoobyzPackages: () => api.get('/discover/scoobyz/packages'),
 };
 
 // ── Bookings ──

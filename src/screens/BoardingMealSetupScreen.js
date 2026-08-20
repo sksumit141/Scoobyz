@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
@@ -6,6 +6,7 @@ import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { discoverApi } from '../services/api';
+import PawLoader from '../components/PawLoader';
 
 const SIZES = ['Small', 'Medium', 'Large'];
 const FREQUENCIES = ['1x', '2x', '3x'];
@@ -99,14 +100,14 @@ export default function BoardingMealSetupScreen({ navigation }) {
 
   if (loading) {
     return (
-      <AppScreen safeArea={true} backgroundColor={theme.colors.background}>
-        <ActivityIndicator size="large" color={theme.colors.primaryDark} style={{ marginTop: 100 }} />
+      <AppScreen safeAreaTop={true} backgroundColor={theme.colors.background}>
+        <PawLoader fullScreen={false} />
       </AppScreen>
     );
   }
 
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textBlack} />
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 20,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 15,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,

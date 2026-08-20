@@ -21,11 +21,8 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
   // Reset state when modal opens with a new package
   useEffect(() => {
     if (visible && packageData) {
-      // Auto-select all addons that belong to this package by default
-      const filtered = (packageData.availableAddons || []).filter(a => 
-        !a.customServiceName || a.customServiceName === packageData.title
-      );
-      setSelectedAddons(filtered.map(a => String(a.id)));
+      // Do not auto-select addons by default
+      setSelectedAddons([]);
       setMedicalInfo('');
     }
   }, [visible, packageData]);
@@ -60,7 +57,7 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
 
   return (
     <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.overlay}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} enabled={Platform.OS === 'ios'} style={styles.overlay}>
         <View style={styles.dismissArea}>
           <TouchableOpacity style={styles.floatingCloseBtn} onPress={onClose} activeOpacity={0.8}>
             <MaterialCommunityIcons name="close" size={24} color={theme.colors.textBlack} />
@@ -112,7 +109,7 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
                     activeOpacity={0.8}
                   >
                     <View style={styles.addonIconBg}>
-                      <MaterialCommunityIcons name="plus" size={18} color={theme.colors.white} />
+                      <MaterialCommunityIcons name={addon.icon || "plus"} size={18} color={theme.colors.white} />
                     </View>
                     <AppText style={styles.addonTitle} weight={isSelected ? "bold" : "regular"}>{addon.addonName || addon.name}</AppText>
                     <AppText style={styles.addonPrice} weight="bold">₹{price}</AppText>

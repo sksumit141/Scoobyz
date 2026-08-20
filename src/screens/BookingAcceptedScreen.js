@@ -10,6 +10,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
 import { formatISTDate } from '../utils/date_utils';
@@ -70,13 +71,9 @@ export default function BookingAcceptedScreen({ navigation, route }) {
     };
 
     return (
-        <AppScreen safeArea={false} padding={false} backgroundColor="#FBFBFB">
+        <AppScreen safeAreaTop={false} padding={false} backgroundColor="#FBFBFB">
             {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
-                </TouchableOpacity>
-                <AppText style={styles.headerTitle} weight="bold">Complete Payment</AppText>
+            <AppHeader title="Complete Payment</AppText>
                 <View style={{ width: 24 }} />
             </View>
 
@@ -88,8 +85,7 @@ export default function BookingAcceptedScreen({ navigation, route }) {
                     </View>
                     <View style={styles.successTextWrapper}>
                         <AppText style={styles.successTitle} weight="bold">Request Accepted!</AppText>
-                        <AppText style={styles.successSub}>{expert.name || 'The expert'} is ready for your pet.</AppText>
-                    </View>
+                        <AppText style={styles.successSub}>{expert.name || 'The expert'} is ready for your pet." />
                 </View>
 
                 {/* Service Details Card */}
@@ -186,7 +182,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 50,
+        paddingTop: 10,
         paddingBottom: 20,
         backgroundColor: '#FFF',
     },

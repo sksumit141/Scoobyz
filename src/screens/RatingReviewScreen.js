@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
     View,
     StyleSheet,
@@ -20,6 +20,7 @@ import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { reviewsApi } from '../services/api';
 import { useBackHandler, safeGoBack } from '../hooks/useBackHandler';
+import PawLoader from '../components/PawLoader';
 
 // ─── Star rating labels ───
 const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
@@ -192,7 +193,7 @@ export default function RatingReviewScreen({ navigation, route }) {
 
     if (initialLoading) {
         return (
-            <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+            <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
                 <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
                     <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                         <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
@@ -200,14 +201,14 @@ export default function RatingReviewScreen({ navigation, route }) {
                     <AppText style={styles.headerTitle} type="heading" weight="bold">Rate Your Experience</AppText>
                 </View>
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color="#4E6C48" />
+                    <PawLoader fullScreen={false} />
                 </View>
             </AppScreen>
         );
     }
 
     return (
-        <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
+        <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
                 <TouchableOpacity

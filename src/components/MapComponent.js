@@ -25,25 +25,31 @@ const MapComponent = ({ latitude, longitude, style, title }) => {
     );
   }
 
+  const safeLat = parseFloat(latitude);
+  const safeLng = parseFloat(longitude);
+  const isValidCoords = !isNaN(safeLat) && !isNaN(safeLng);
+
   return (
     <MapView
       style={style}
       initialRegion={{
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
+        latitude: isValidCoords ? safeLat : 28.6139,
+        longitude: isValidCoords ? safeLng : 77.2090,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       }}
       scrollEnabled={false}
       zoomEnabled={false}
     >
-      <Marker
-        coordinate={{
-          latitude: parseFloat(latitude),
-          longitude: parseFloat(longitude),
-        }}
-        title={title || "Location"}
-      />
+      {isValidCoords && (
+        <Marker
+          coordinate={{
+            latitude: safeLat,
+            longitude: safeLng,
+          }}
+          title={title || "Location"}
+        />
+      )}
     </MapView>
   );
 };

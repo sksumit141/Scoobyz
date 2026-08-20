@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Dimension
 import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import LiveTrackingMap from '../components/LiveTrackingMap';
 
@@ -13,13 +14,8 @@ export default function TrackingScreen({ navigation, route }) {
     
     if (!booking) {
         return (
-            <AppScreen safeArea={true}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
-                    </TouchableOpacity>
-                    <AppText style={styles.headerTitle} type="heading" weight="bold">Track Order</AppText>
-                </View>
+            <AppScreen safeAreaTop={true}>
+                <AppHeader title="Track Order" />
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <AppText>Booking details not found.</AppText>
                 </View>
@@ -44,13 +40,8 @@ export default function TrackingScreen({ navigation, route }) {
     const currentIndex = getStatusIndex(booking.status);
 
     return (
-        <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor="#F8F9FA">
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
-                </TouchableOpacity>
-                <AppText style={styles.headerTitle} type="heading" weight="bold">Track Order</AppText>
-            </View>
+        <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor="#F8F9FA">
+            <AppHeader title="Track Order" />
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.summaryCard}>
@@ -76,6 +67,19 @@ export default function TrackingScreen({ navigation, route }) {
                         )}
                     </View>
                 </View>
+
+                {/* OTP Display for Confirmed Bookings */}
+                {booking.status === 'confirmed' && booking.otp && (
+                    <View style={styles.otpContainer}>
+                        <AppText style={styles.otpTitle} weight="bold">Verification Code</AppText>
+                        <AppText style={styles.otpDescription}>
+                            Please share this 4-digit code with the vendor when they arrive to start the service.
+                        </AppText>
+                        <View style={styles.otpBox}>
+                            <AppText style={styles.otpText} weight="bold">{booking.otp}</AppText>
+                        </View>
+                    </View>
+                )}
 
                 {/* Live Walking Tracker - Only for Walking Services in progress */}
                 {booking.serviceName?.toLowerCase().includes('walking') && booking.status === 'in_progress' && (
@@ -272,7 +276,46 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     mapWrapper: {
-        height: 350,
+        height: 220,
         width: '100%',
+    },
+    otpContainer: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 24,
+        marginBottom: 24,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 140, 0, 0.2)',
+    },
+    otpTitle: {
+        fontSize: 18,
+        color: theme.colors.textBlack,
+        marginBottom: 8,
+    },
+    otpDescription: {
+        fontSize: 13,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 10,
+    },
+    otpBox: {
+        backgroundColor: '#F8F9FA',
+        paddingVertical: 15,
+        paddingHorizontal: 30,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    otpText: {
+        fontSize: 32,
+        letterSpacing: 8,
+        color: theme.colors.primary,
     }
 });

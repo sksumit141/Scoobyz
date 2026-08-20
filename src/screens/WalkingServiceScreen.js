@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
@@ -14,7 +14,7 @@ import { formatISTDate } from '../utils/date_utils';
 const { width } = Dimensions.get('window');
 
 const DURATIONS = ['30 min', '45 min', '1 hr'];
-const FREQUENCIES = ['One-time', 'Weekly', 'Monthly'];
+const FREQUENCIES = ['One-time', 'Monthly'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MORNING_SLOTS = ['06:00 AM', '06:30 AM', '07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM'];
 const NOON_SLOTS = ['12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'];
@@ -23,20 +23,26 @@ const ALL_SLOTS = [...MORNING_SLOTS, ...NOON_SLOTS, ...NIGHT_SLOTS];
 
 const generateDates = (monthDate) => {
   const datesArr = [];
-  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
   const now = new Date();
-  const isCurrentMonth = now.getMonth() === monthDate.getMonth() && now.getFullYear() === monthDate.getFullYear();
-  let currentD = isCurrentMonth ? now.getDate() : 1;
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
 
-  for (let i = 0; i < 14; i++) { // Show next 14 days
-    if (currentD + i > daysInMonth) break;
-    const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), currentD + i);
-    const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonths = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const daysInMonth = daysInMonths[month];
+
+  const isCurrentMonth = now.getMonth() === month && now.getFullYear() === year;
+  const startDay = isCurrentMonth ? now.getDate() : 1;
+
+  for (let day = startDay; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
     datesArr.push({
       day: isToday ? 'Today' : formatISTDate(d, { weekday: 'short' }),
-      date: d.getDate().toString().padStart(2, '0'),
+      date: day.toString().padStart(2, '0'),
       month: formatISTDate(d, { month: 'short' }),
-      fullDate: d.toDateString()
+      year: year,
+      fullDate: d.toDateString() // Full parsable string
     });
   }
   return datesArr;
@@ -82,6 +88,21 @@ export default function WalkingServiceScreen({ navigation }) {
   const [customSlot, setCustomSlot] = useState(null);
 
   const [endDate, setEndDate] = useState(null);
+  const [validationMsg, setValidationMsg] = useState('');
+
+  const handlePrevMonth = () => {
+    const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
+    const newDates = generateDates(prev);
+    setMonthDate(prev);
+    setSelectedDate(newDates[0]?.fullDate);
+  };
+
+  const handleNextMonth = () => {
+    const next = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
+    const newDates = generateDates(next);
+    setMonthDate(next);
+    setSelectedDate(newDates[0]?.fullDate);
+  };
 
   useEffect(() => {
     if (selectedDate && (frequency === 'Weekly' || frequency === 'Monthly')) {
@@ -96,19 +117,15 @@ export default function WalkingServiceScreen({ navigation }) {
   }, [selectedDate, frequency]);
 
   const toggleSlot = (slot) => {
-    if (frequency === 'One-time') {
-      setSelectedSlots([slot]);
+    if (selectedSlots.includes(slot)) {
+      setSelectedSlots(selectedSlots.filter(s => s !== slot));
+    } else if (selectedSlots.length < timesPerDay) {
+      setSelectedSlots([...selectedSlots, slot].sort((a, b) => {
+        return ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b);
+      }));
     } else {
-      if (selectedSlots.includes(slot)) {
-        setSelectedSlots(selectedSlots.filter(s => s !== slot));
-      } else if (selectedSlots.length < timesPerDay) {
-        setSelectedSlots([...selectedSlots, slot].sort((a, b) => {
-          return ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b);
-        }));
-      } else {
-        const newSlots = [...selectedSlots.slice(1), slot].sort((a, b) => ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b));
-        setSelectedSlots(newSlots);
-      }
+      const newSlots = [...selectedSlots.slice(1), slot].sort((a, b) => ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b));
+      setSelectedSlots(newSlots);
     }
   };
 
@@ -130,10 +147,13 @@ export default function WalkingServiceScreen({ navigation }) {
       );
 
       const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
+      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
 
-      if (!isToday) return ALL_SLOTS.slice(0, 9);
+      if (!isToday) return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
 
       const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+      const nineAmIST = new Date(nowIST);
+      nineAmIST.setHours(9, 0, 0, 0);
 
       return ALL_SLOTS.filter(slot => {
         const [time, period] = slot.split(' ');
@@ -145,23 +165,48 @@ export default function WalkingServiceScreen({ navigation }) {
         const slotTimeIST = new Date(nowIST);
         slotTimeIST.setHours(hours, minutes, 0, 0);
 
-        return slotTimeIST > oneHourFromNowIST;
+        return slotTimeIST > oneHourFromNowIST && slotTimeIST >= nineAmIST;
       }).slice(0, 9);
     } catch (e) {
       console.warn('getFilteredSlots fallback:', e);
-      return ALL_SLOTS.slice(0, 9);
+      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
+      return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
     }
   };
 
   const availableSlots = getFilteredSlots();
 
-  const basePrice = isDemo ? 0 : 300;
-  let multiplier = 1;
-  if (duration === '45 min') multiplier = 1.5;
-  if (duration === '1 hr') multiplier = 2;
-  if (frequency === 'Weekly') multiplier *= 7 * timesPerDay;
-  if (frequency === 'Monthly') multiplier *= 30 * timesPerDay;
-  const totalPrice = isDemo ? 0 : basePrice * multiplier;
+  let calculatedPrice = 0;
+  // if (!isDemo) {
+  if (frequency === 'One-time') {
+    if (timesPerDay === 1) {
+      if (duration === '30 min') calculatedPrice = 149;
+      if (duration === '45 min') calculatedPrice = 179;
+      if (duration === '1 hr') calculatedPrice = 199;
+    } else if (timesPerDay === 2) {
+      if (duration === '30 min') calculatedPrice = 275;
+      if (duration === '45 min') calculatedPrice = 320;
+      if (duration === '1 hr') calculatedPrice = 349;
+    } else if (timesPerDay === 3) {
+      if (duration === '30 min') calculatedPrice = 425;
+      if (duration === '45 min') calculatedPrice = 500;
+      if (duration === '1 hr') calculatedPrice = 600;
+    }
+  } else if (frequency === 'Monthly') {
+    let base = 0;
+    if (timesPerDay === 1) base = 3499;
+    else if (timesPerDay === 2) base = 4999;
+    else if (timesPerDay === 3) base = 5999;
+
+    let extra = 0;
+    if (duration === '45 min') extra = 200;
+    if (duration === '1 hr') extra = 350;
+
+    calculatedPrice = base + extra;
+  }
+  // }
+
+  const totalPrice = calculatedPrice; // isDemo ? 0 : calculatedPrice;
 
   const handleContinue = () => {
     if (!selectedSlots || selectedSlots.length !== timesPerDay) {
@@ -188,107 +233,143 @@ export default function WalkingServiceScreen({ navigation }) {
   };
 
   const isFormValid = () => {
-    if (frequency === 'One-time') {
-      return selectedDate && selectedSlots.length === 1;
-    } else {
-      return selectedDate && selectedSlots.length === timesPerDay;
-    }
+    return selectedDate && selectedSlots.length === timesPerDay;
   };
 
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <ServiceHeader title="Dog Walking" showAddress={false} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
+        {validationMsg ? (
+          <View style={styles.validationBanner}>
+            <Ionicons name="alert-circle-outline" size={24} color="#D32F2F" />
+            <AppText style={styles.validationText}>{validationMsg}</AppText>
+          </View>
+        ) : null}
+
         {/* Settings Card */}
         <View style={styles.card}>
           <AppText style={styles.label} weight="bold">Duration</AppText>
-          {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to 30 mins</AppText>}
+          {/* {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to 30 mins</AppText>} */}
           <View style={styles.chipRow}>
             {DURATIONS.map((d) => (
               <TouchableOpacity
                 key={d}
-                style={[styles.chip, duration === d && styles.chipActive, isDemo && duration !== d && { opacity: 0.5 }]}
+                style={[styles.chip, duration === d && styles.chipActive]}
                 onPress={() => {
-                  if (!isDemo) setDuration(d);
+                  setDuration(d);
                 }}
-                activeOpacity={isDemo ? 1 : 0.7}
+                activeOpacity={0.7}
               >
                 <AppText style={[styles.chipText, duration === d && styles.chipTextActive]}>{d}</AppText>
               </TouchableOpacity>
             ))}
           </View>
 
-          <AppText style={[styles.label, { marginTop: 20 }]} weight="bold">Frequency</AppText>
-          {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to One-time</AppText>}
+          <AppText style={[styles.label, { marginTop: 20 }]} weight="bold">Subscription</AppText>
+          {/* {isDemo && <AppText style={{ color: theme.colors.primaryDark, fontSize: 13, marginBottom: 12 }}>Free demo walk is locked to 1 Day</AppText>} */}
           <View style={styles.chipRow}>
             {FREQUENCIES.map((f) => (
               <TouchableOpacity
                 key={f}
-                style={[styles.chip, frequency === f && styles.chipActive, isDemo && frequency !== f && { opacity: 0.5 }]}
+                style={[styles.chip, frequency === f && styles.chipActive]}
                 onPress={() => {
-                  if (!isDemo) {
-                    setFrequency(f);
-                    if (f === 'One-time') setTimesPerDay(1);
-                  }
+                  setFrequency(f);
                 }}
-                activeOpacity={isDemo ? 1 : 0.7}
+                activeOpacity={0.7}
               >
-                <AppText style={[styles.chipText, frequency === f && styles.chipTextActive]}>{f}</AppText>
+                <AppText style={[styles.chipText, frequency === f && styles.chipTextActive]}>{f === 'One-time' ? '1 Day' : f}</AppText>
               </TouchableOpacity>
             ))}
           </View>
 
-          {frequency !== 'One-time' && (
-            <>
-              <AppText style={[styles.label, { marginTop: 20 }]} weight="bold">Times per day</AppText>
-              <View style={styles.chipRow}>
-                {[1, 2, 3].map(times => (
-                  <TouchableOpacity
-                    key={times}
-                    style={[styles.chip, timesPerDay === times && styles.chipActive]}
-                    onPress={() => {
-                      setTimesPerDay(times);
-                      if (selectedSlots.length > times) {
-                        setSelectedSlots(selectedSlots.slice(0, times));
-                      }
-                    }}
-                  >
-                    <AppText style={[styles.chipText, timesPerDay === times && styles.chipTextActive]}>
-                      {times} {times === 1 ? 'time' : 'times'}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
+          <AppText style={[styles.label, { marginTop: 20 }]} weight="bold">Frequency</AppText>
+          <View style={styles.chipRow}>
+            {[1, 2, 3].map(times => (
+              <TouchableOpacity
+                key={times}
+                style={[styles.chip, timesPerDay === times && styles.chipActive]}
+                onPress={() => {
+                  setTimesPerDay(times);
+                  if (selectedSlots.length > times) {
+                    setSelectedSlots(selectedSlots.slice(0, times));
+                  }
+                }}
+              >
+                <AppText style={[styles.chipText, timesPerDay === times && styles.chipTextActive]}>
+                  {times} {times === 1 ? 'time' : 'times'}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Schedule & Time */}
-        <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">
-          {frequency === 'One-time' ? 'Select Date' : 'Start Date'}
-        </AppText>
-        <View style={styles.card}>
+        {/* Date Selection */}
+        <View style={[styles.sectionHeader, { marginBottom: 5 }]}>
+          <AppText style={styles.sectionTitle} weight="bold">
+            {frequency === 'One-time' ? 'Select Date' : 'Start Date'}
+          </AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TouchableOpacity onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+            <AppText style={styles.monthText}>{formatISTDate(monthDate, { month: 'long', year: 'numeric' })}</AppText>
+            <TouchableOpacity onPress={handleNextMonth} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
+        {/* <View style={styles.card}>
           <CustomCalendar
             selectedDate={selectedDate}
             onDateSelect={(date) => setSelectedDate(date)}
           />
+        </View> */}
 
-          {endDate && (
-            <View style={styles.endDateContainer}>
-              <MaterialCommunityIcons name="calendar-clock" size={20} color={theme.colors.primaryDark} />
-              <AppText style={styles.endDateText}>
-                Plan Ends on: <AppText weight="bold" style={{ color: theme.colors.primaryDark }}>{formatISTDate(endDate)}</AppText>
-              </AppText>
-            </View>
-          )}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateScrollContent}
+          style={styles.dateScroll}
+        >
+          {generatedDates.map((d, index) => {
+            const isActive = selectedDate === d.fullDate;
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.dateCard,
+                  isActive && styles.dateCardActive,
+                  index === generatedDates.length - 1 && { marginRight: 0 } // Remove margin from last item
+                ]}
+                onPress={() => setSelectedDate(d.fullDate)}
+                activeOpacity={0.8}
+              >
+                <AppText style={[styles.dateDay, isActive && styles.chipTextActive]}>{d.day}</AppText>
+                <AppText style={[styles.dateNum, isActive && styles.chipTextActive]} weight="bold">{d.date}</AppText>
+                <AppText style={[styles.dateMonth, isActive && styles.chipTextActive]}>{d.month}</AppText>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+
+        {endDate && (
+          <View style={styles.endDateContainer}>
+            <MaterialCommunityIcons name="calendar-clock" size={20} color={theme.colors.primaryDark} />
+            <AppText style={styles.endDateText}>
+              Plan Ends on: <AppText weight="bold" style={{ color: theme.colors.primaryDark }}>{formatISTDate(endDate)}</AppText>
+            </AppText>
+          </View>
+        )}
+
+        <View style={[styles.sectionHeader, { marginTop: -30 }]}>
+          <AppText style={styles.sectionTitle} weight="bold">
+            {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
+          </AppText>
         </View>
-
-        <AppText style={[styles.label, { marginBottom: 16, marginTop: 8 }]} weight="bold">
-          {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
-        </AppText>
 
         <View style={styles.slotsGrid}>
           {availableSlots.length > 0 ? (
@@ -318,7 +399,7 @@ export default function WalkingServiceScreen({ navigation }) {
             styles.slotItem,
             styles.customSlotBtn,
             customSlot && !ALL_SLOTS.includes(customSlot) && styles.slotItemActive,
-            { width: '100%', marginTop: 10 }
+            { width: '100%', marginTop: 10, marginBottom: 24 }
           ]}
           onPress={() => setTimePickerVisible(true)}
           activeOpacity={0.8}
@@ -362,52 +443,39 @@ export default function WalkingServiceScreen({ navigation }) {
           </AppText>
         </View>
         <TouchableOpacity
-          style={[styles.confirmBtn, !isFormValid() && { backgroundColor: theme.colors.textSecondary }]}
+          style={styles.confirmBtn}
           activeOpacity={0.8}
-          disabled={!isFormValid()}
           onPress={() => {
-            setChoiceModalVisible(true);
+            if (!isFormValid()) {
+              setValidationMsg(`Please select exactly ${timesPerDay} time slot(s) for your walks.`);
+              setTimeout(() => setValidationMsg(''), 3000);
+              return;
+            }
+            const currentParams = route?.params || {};
+            navigation.navigate('ReviewDetails', {
+              ...currentParams,
+              duration,
+              frequency,
+              timesPerDay,
+              date: selectedDate,
+              time: selectedSlots.join(', '),
+              total: totalPrice,
+              serviceName: 'Walking',
+              serviceType: 'Walking',
+              expert: { id: 'scoobyz_match', name: 'Scoobyz Team Match' }
+            });
           }}
         >
           <AppText style={styles.confirmBtnText} weight="bold">Find Walkers</AppText>
         </TouchableOpacity>
       </View>
 
+      {/* SelectionChoiceModal bypassed for Walking per requirement */}
+      {/* 
       <SelectionChoiceModal
-        visible={choiceModalVisible}
-        onClose={() => setChoiceModalVisible(false)}
-        serviceType="Walking"
-        onSelectYourself={() => {
-          setChoiceModalVisible(false);
-          const currentParams = route?.params || {};
-          navigation.navigate('WalkingWalkerList', {
-            ...currentParams,
-            duration,
-            frequency,
-            timesPerDay,
-            date: selectedDate,
-            time: selectedSlots.join(', '),
-            total: totalPrice,
-            serviceName: 'Walking'
-          });
-        }}
-        onScoobyzMatch={() => {
-          setChoiceModalVisible(false);
-          const currentParams = route?.params || {};
-          navigation.navigate('BookVendor', {
-            ...currentParams,
-            duration,
-            frequency,
-            timesPerDay,
-            date: selectedDate,
-            time: selectedSlots.join(', '),
-            total: 0, // Admin decides
-            serviceName: 'Walking',
-            serviceType: 'Walking',
-            expert: { id: 'scoobyz_match', name: 'Scoobyz Team Match' }
-          });
-        }}
-      />
+        ...
+      /> 
+      */}
     </AppScreen>
   );
 }
@@ -418,8 +486,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 18,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 10,
+  },
+  validationBanner: {
+    backgroundColor: '#FFEBEE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  validationText: {
+    marginLeft: 10,
+    color: '#D32F2F',
+    fontSize: 14,
+    flex: 1,
   },
   backButton: {
     marginRight: 16,
@@ -450,6 +534,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.textBlack,
     marginBottom: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    color: theme.colors.textBlack,
+    fontFamily: theme.fonts.heading,
+  },
+  monthText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
   },
   chipRow: {
     flexDirection: 'row',
@@ -483,33 +583,44 @@ const styles = StyleSheet.create({
   },
   dateScroll: {
     marginHorizontal: -24,
+    marginBottom: 32,
   },
   dateScrollContent: {
     paddingHorizontal: 24,
-    gap: 12,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   dateCard: {
-    width: 72,
-    backgroundColor: theme.colors.surface,
+    width: 60,
+    height: 90,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginRight: 12,
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
-    paddingVertical: 14,
+    justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
   },
   dateCardActive: {
     backgroundColor: theme.colors.primaryDark,
   },
   dateDay: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dateNum: {
-    fontSize: 24,
+    fontSize: 20,
     color: theme.colors.primaryDark,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dateMonth: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
   },
   slotSection: {
@@ -535,6 +646,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     justifyContent: 'flex-start',
+    marginBottom: 24,
   },
   slotsScrollWrapper: {
     marginHorizontal: -24,
@@ -547,10 +659,15 @@ const styles = StyleSheet.create({
   },
   slotItem: {
     width: '31%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.white,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   slotItemHorizontal: {
     width: 110,
@@ -587,9 +704,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: theme.colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -612,13 +727,13 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     backgroundColor: theme.colors.success,
-    paddingVertical: 16,
-    paddingHorizontal: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 56,
     borderRadius: 16,
   },
   confirmBtnText: {
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: 18,
   },
   endDateContainer: {
     flexDirection: 'row',
@@ -626,7 +741,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(73, 94, 113, 0.05)',
     padding: 12,
     borderRadius: 12,
-    marginTop: 15,
+    marginTop: -30, // Pulled up closer to dates
+    marginBottom: 50, // Maintains gap below
     gap: 10,
   },
   endDateText: {

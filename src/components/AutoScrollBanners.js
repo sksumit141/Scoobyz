@@ -4,23 +4,25 @@ import { View, FlatList, Dimensions, StyleSheet } from 'react-native';
 const { width } = Dimensions.get('window');
 // The container has 24 padding on both sides
 const ITEM_WIDTH = width - 48;
+const SPACING = 16;
 
 export default function AutoScrollBanners({ children, autoScrollTime = 3000 }) {
     const listRef = useRef(null);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width - 48);
 
-    // Filter out null/undefined children (like if activeBooking is null)
+    // Filter out null/undefined children
     const validChildren = React.Children.toArray(children).filter(Boolean);
 
     useEffect(() => {
-        if (validChildren.length <= 1) return;
+        if (validChildren.length <= 1 || containerWidth <= 0) return;
 
         const intervalId = setInterval(() => {
             let nextIndex = currentIndex + 1;
             if (nextIndex >= validChildren.length) {
                 nextIndex = 0;
             }
-            
+
             listRef.current?.scrollToIndex({
                 index: nextIndex,
                 animated: true,
@@ -29,42 +31,50 @@ export default function AutoScrollBanners({ children, autoScrollTime = 3000 }) {
         }, autoScrollTime);
 
         return () => clearInterval(intervalId);
-    }, [currentIndex, validChildren.length, autoScrollTime]);
+    }, [currentIndex, validChildren.length, autoScrollTime, containerWidth]);
 
     const handleMomentumScrollEnd = (event) => {
-        const index = Math.round(event.nativeEvent.contentOffset.x / ITEM_WIDTH);
+        const index = Math.round(event.nativeEvent.contentOffset.x / containerWidth);
         setCurrentIndex(index);
     };
 
     if (validChildren.length === 0) return null;
 
     const getItemLayout = (data, index) => ({
-        length: ITEM_WIDTH,
-        offset: ITEM_WIDTH * index,
+        length: containerWidth,
+        offset: containerWidth * index,
         index,
     });
 
     return (
-        <View style={styles.container}>
+        <View 
+            style={styles.container}
+            onLayout={(e) => {
+                const { width } = e.nativeEvent.layout;
+                if (width > 0) setContainerWidth(width);
+            }}
+        >
             <FlatList
                 ref={listRef}
                 data={validChildren}
                 horizontal
-                pagingEnabled
+                pagingEnabled={true}
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(_, index) => `banner-${index}`}
-                renderItem={({ item }) => (
-                    <View style={{ width: ITEM_WIDTH }}>
-                        {item}
-                    </View>
-                )}
+                renderItem={({ item }) => {
+                    return (
+                        <View style={{
+                            width: containerWidth,
+                            paddingHorizontal: 4
+                        }}>
+                            {item}
+                        </View>
+                    );
+                }}
                 onMomentumScrollEnd={handleMomentumScrollEnd}
-                // Small trick to ensure FlatList snaps perfectly without getting stuck on margins
-                snapToInterval={ITEM_WIDTH}
-                decelerationRate="fast"
                 getItemLayout={getItemLayout}
             />
-            
+
             {validChildren.length > 1 && (
                 <View style={styles.pagination}>
                     {validChildren.map((_, index) => (

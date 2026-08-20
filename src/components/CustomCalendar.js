@@ -14,7 +14,9 @@ const CustomCalendar = ({
   isRange = false,
   startDate,
   endDate,
-  onRangeSelect
+  onRangeSelect,
+  disablePastDates = true,
+  disableFutureDates = false
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(startDate || selectedDate || new Date()));
   const [days, setDays] = useState([]);
@@ -54,6 +56,10 @@ const CustomCalendar = ({
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
   };
 
+  const changeYear = (offset) => {
+    setCurrentMonth(new Date(currentMonth.getFullYear() + offset, currentMonth.getMonth(), 1));
+  };
+
   const isSameDay = (d1, d2) => {
     if (!d1 || !d2) return false;
     const date1 = new Date(d1);
@@ -82,6 +88,13 @@ const CustomCalendar = ({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date < today;
+  };
+
+  const isFuture = (date) => {
+    if (!date) return false;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return date > today;
   };
 
   const isToday = (date) => {
@@ -120,11 +133,17 @@ const CustomCalendar = ({
           {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </AppText>
         <View style={styles.headerBtns}>
+          <TouchableOpacity onPress={() => changeYear(-1)} style={styles.navBtn}>
+            <MaterialCommunityIcons name="chevron-double-left" size={20} color={theme.colors.primaryDark} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.navBtn}>
             <MaterialCommunityIcons name="chevron-left" size={20} color={theme.colors.primaryDark} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => changeMonth(1)} style={styles.navBtn}>
             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primaryDark} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => changeYear(1)} style={styles.navBtn}>
+            <MaterialCommunityIcons name="chevron-double-right" size={20} color={theme.colors.primaryDark} />
           </TouchableOpacity>
         </View>
       </View>
@@ -155,7 +174,7 @@ const CustomCalendar = ({
                 isEnd && styles.endDayBox,
                 !date && { opacity: 0 }
               ]}
-              disabled={!date || isPast(date)}
+              disabled={!date || (disablePastDates && isPast(date)) || (disableFutureDates && isFuture(date))}
               onPress={() => handlePress(date)}
             >
               {date && (
@@ -164,7 +183,7 @@ const CustomCalendar = ({
                     styles.dayText,
                     selected && styles.selectedDayText,
                     range && styles.rangeDayText,
-                    isPast(date) && styles.pastDayText,
+                    ((disablePastDates && isPast(date)) || (disableFutureDates && isFuture(date))) && styles.pastDayText,
                     isToday(date) && !selected && !range && styles.todayText
                   ]}>
                     {date.getDate()}

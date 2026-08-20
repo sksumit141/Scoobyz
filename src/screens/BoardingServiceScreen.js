@@ -15,19 +15,25 @@ const { width } = Dimensions.get('window');
 
 const generateDates = (monthDate) => {
   const datesArr = [];
-  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
   const now = new Date();
-  const isCurrentMonth = now.getMonth() === monthDate.getMonth() && now.getFullYear() === monthDate.getFullYear();
-  let currentD = isCurrentMonth ? now.getDate() : 1;
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  
+  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonths = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const daysInMonth = daysInMonths[month];
+  
+  const isCurrentMonth = now.getMonth() === month && now.getFullYear() === year;
+  const startDay = isCurrentMonth ? now.getDate() : 1;
 
-  for (let i = 0; i < daysInMonth; i++) {
-    if (currentD + i > daysInMonth) break;
-    const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), currentD + i);
-    const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  for (let day = startDay; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
     datesArr.push({
       day: isToday ? 'Today' : formatISTDate(d, { weekday: 'short' }),
-      date: d.getDate().toString().padStart(2, '0'),
+      date: day.toString().padStart(2, '0'),
       month: formatISTDate(d, { month: 'short' }),
+      year: year,
       fullDate: d.toDateString()
     });
   }
@@ -94,10 +100,13 @@ export default function BoardingServiceScreen({ navigation }) {
       );
 
       const isToday = checkInDate && new Date(checkInDate).toDateString() === nowIST.toDateString();
+      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
 
-      if (!isToday) return ALL_SLOTS.slice(0, 9);
+      if (!isToday) return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
 
       const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
+      const nineAmIST = new Date(nowIST);
+      nineAmIST.setHours(9, 0, 0, 0);
 
       return ALL_SLOTS.filter(slot => {
         const [time, period] = slot.split(' ');
@@ -109,27 +118,37 @@ export default function BoardingServiceScreen({ navigation }) {
         const slotTimeIST = new Date(nowIST);
         slotTimeIST.setHours(hours, minutes, 0, 0);
 
-        return slotTimeIST > oneHourFromNowIST;
+        return slotTimeIST > oneHourFromNowIST && slotTimeIST >= nineAmIST;
       }).slice(0, 9);
     } catch (e) {
       console.warn('getFilteredSlots fallback:', e);
-      return ALL_SLOTS.slice(0, 9);
+      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
+      return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
     }
   };
 
   const availableSlots = getFilteredSlots();
 
   return (
-    <AppScreen safeArea={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
+    <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <ServiceHeader title="Dog Boarding" showAddress={false} />
 
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeader}>
-          <AppText style={[styles.sectionTitle, { marginTop: 24, fontFamily: theme.fonts.body, fontStyle: 'normal' }]} weight="bold">Select Date</AppText>
+          <AppText style={styles.sectionTitle} weight="bold">Check-in Date</AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TouchableOpacity onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+            <AppText style={styles.monthText}>{formatISTDate(monthDate, { month: 'long', year: 'numeric' })}</AppText>
+            <TouchableOpacity onPress={handleNextMonth} activeOpacity={0.7} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.calendarCard}>
+        {/* <View style={styles.calendarCard}>
           <CustomCalendar
             isRange={true}
             startDate={checkInDate}
@@ -139,10 +158,70 @@ export default function BoardingServiceScreen({ navigation }) {
               setCheckOutDate(end);
             }}
           />
+        </View> */}
+
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateScrollContent}
+          style={styles.dateScroll}
+        >
+          {generatedDates.map((d, index) => {
+            const isActive = checkInDate === d.fullDate;
+            return (
+              <TouchableOpacity
+                key={`in-${index}`}
+                style={[
+                  styles.dateCard, 
+                  isActive && styles.dateCardActive,
+                  index === generatedDates.length - 1 && { marginRight: 0 }
+                ]}
+                onPress={() => setCheckInDate(d.fullDate)}
+                activeOpacity={0.8}
+              >
+                <AppText style={[styles.dateDay, isActive && styles.chipTextActive]}>{d.day}</AppText>
+                <AppText style={[styles.dateNum, isActive && styles.chipTextActive]} weight="bold">{d.date}</AppText>
+                <AppText style={[styles.dateMonth, isActive && styles.chipTextActive]}>{d.month}</AppText>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+
+        <View style={styles.sectionHeader}>
+          <AppText style={styles.sectionTitle} weight="bold">Check-out Date</AppText>
         </View>
 
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateScrollContent}
+          style={styles.dateScroll}
+        >
+          {generatedDates.map((d, index) => {
+            const isActive = checkOutDate === d.fullDate;
+            return (
+              <TouchableOpacity
+                key={`out-${index}`}
+                style={[
+                  styles.dateCard, 
+                  isActive && styles.dateCardActive,
+                  index === generatedDates.length - 1 && { marginRight: 0 }
+                ]}
+                onPress={() => setCheckOutDate(d.fullDate)}
+                activeOpacity={0.8}
+              >
+                <AppText style={[styles.dateDay, isActive && styles.chipTextActive]}>{d.day}</AppText>
+                <AppText style={[styles.dateNum, isActive && styles.chipTextActive]} weight="bold">{d.date}</AppText>
+                <AppText style={[styles.dateMonth, isActive && styles.chipTextActive]}>{d.month}</AppText>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+
         {/* Check-in Time */}
-        <AppText style={[styles.sectionTitle, { marginTop: 24, marginBottom: 16, fontFamily: theme.fonts.body, fontStyle: 'normal' }]} weight="bold">Check-in Time</AppText>
+        <View style={styles.sectionHeader}>
+          <AppText style={styles.sectionTitle} weight="bold">Check-in Time</AppText>
+        </View>
 
         <View style={styles.slotsGrid}>
           {availableSlots.length > 0 ? (
@@ -172,7 +251,7 @@ export default function BoardingServiceScreen({ navigation }) {
             styles.slotItem,
             styles.customSlotBtn,
             checkInTime && !ALL_SLOTS.includes(checkInTime) && styles.slotItemActive,
-            { width: '100%', marginTop: 10 }
+            { width: '100%', marginTop: 10, marginBottom: 24 }
           ]}
           onPress={() => setTimePickerVisible(true)}
           activeOpacity={0.8}
@@ -240,7 +319,7 @@ const styles = StyleSheet.create({
   header: {
     paddingLeft: 18,
     paddingRight: 24,
-    paddingTop: 40,
+    paddingTop: 10,
     paddingBottom: 10,
   },
   headerTop: {
@@ -321,9 +400,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timePickerLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginBottom: 2,
+    fontSize: 16,
+    color: theme.colors.textBlack,
+    marginBottom: 12,
   },
   timePickerValue: {
     fontSize: 18,
@@ -339,12 +418,51 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: '600',
   },
+  chipTextActive: {
+    color: theme.colors.white,
+    fontWeight: 'bold',
+  },
   dateScroll: {
     marginHorizontal: -24,
+    marginBottom: 32,
+  },
+  dateCard: {
+    width: 60,
+    height: 90,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginRight: 12,
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  dateDay: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  dateNum: {
+    fontSize: 20,
+    color: theme.colors.primaryDark,
+    marginBottom: 2,
+  },
+  dateMonth: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  dateCardActive: {
+    backgroundColor: theme.colors.primaryDark,
   },
   dateScrollContent: {
     paddingHorizontal: 24,
-    gap: 12,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   slotSection: {
     marginBottom: 20,
@@ -369,6 +487,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     justifyContent: 'flex-start',
+    marginBottom: 24,
   },
   slotsScrollWrapper: {
     marginHorizontal: -24,
@@ -381,10 +500,15 @@ const styles = StyleSheet.create({
   },
   slotItem: {
     width: '31%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.white,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   slotItemHorizontal: {
     width: 110,
@@ -421,15 +545,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: theme.colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 30, // Safe area padding
+    paddingBottom: 30,
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
   },
   bottomInfo: {
     flex: 1,
@@ -446,12 +570,12 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     backgroundColor: theme.colors.success,
-    paddingVertical: 16,
-    paddingHorizontal: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     borderRadius: 16,
   },
   confirmBtnText: {
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: 18,
   },
 });

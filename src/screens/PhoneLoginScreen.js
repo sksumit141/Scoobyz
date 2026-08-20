@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions, ActivityIndicator, Modal, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, Dimensions, ActivityIndicator, Modal, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { theme } from '../styles/theme';
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -7,6 +7,7 @@ import AppButton from '../components/AppButton';
 import AppScreen from '../components/AppScreen';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { authApi } from '../services/api';
+import AppHeader from '../components/AppHeader';
 import CustomAlert from '../components/CustomAlert';
 
 const { width } = Dimensions.get('window');
@@ -65,6 +66,7 @@ const PhoneLoginScreen = ({ navigation, route }) => {
   return (
     <>
       <AppScreen scrollable={true} padding={false}>
+        <AppHeader title="" />
         {/* Full-screen loading overlay */}
         {loading && (
           <View style={styles.loadingOverlay}>
@@ -75,20 +77,11 @@ const PhoneLoginScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Back Button */}
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <MaterialCommunityIcons name="arrow-left" size={20} color={theme.colors.primary} />
-          <AppText style={styles.backText} weight="600">Back</AppText>
-        </TouchableOpacity>
-
+        <KeyboardAvoidingView 
+          style={{ flex: 1, width: '100%' }} 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <View style={styles.content}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../../assets/scoobyz_logo-removebg-preview.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
 
           <View style={styles.formContainer}>
             <AppText type="heading" weight="700" style={styles.title}>
@@ -127,6 +120,7 @@ const PhoneLoginScreen = ({ navigation, route }) => {
             </AppButton>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </AppScreen>
 
       <CustomAlert
@@ -147,31 +141,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     alignItems: 'center',
-    paddingBottom: 40,
+    justifyContent: 'flex-end',
+    paddingBottom: Platform.OS === 'ios' ? 40 : 60,
   },
-  logoContainer: {
-    marginTop: Math.min(30, width * 0.08),
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logo: {
-    width: width * 0.5,
-    aspectRatio: 2.2,
-    marginLeft: 25,
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    alignSelf: 'flex-start',
-    gap: 4,
-  },
-  backText: {
-    fontSize: 14,
-    color: theme.colors.primary,
-  },
+
   formContainer: {
     width: '100%',
     alignItems: 'center',

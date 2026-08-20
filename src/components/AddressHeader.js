@@ -5,19 +5,29 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 import { addressApi } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AddressHeader({
   onPress,
-  lightTheme = false
+  lightTheme = false,
+  rightAlign = false
 }) {
   const navigation = useNavigation();
   const [defaultAddress, setDefaultAddress] = useState(null);
 
   const fetchDefaultAddress = async () => {
     try {
+      const cached = await AsyncStorage.getItem('cached_default_address');
+      if (cached) {
+        setDefaultAddress(JSON.parse(cached));
+      }
+
       const addresses = await addressApi.list();
       const def = addresses.find(a => a.isDefault) || addresses[0];
       setDefaultAddress(def);
+      if (def) {
+        await AsyncStorage.setItem('cached_default_address', JSON.stringify(def));
+      }
     } catch (error) {
       console.error('Fetch default address error:', error);
     }
@@ -46,9 +56,9 @@ export default function AddressHeader({
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <View style={styles.textContainer}>
-        <View style={styles.titleRow}>
-          <AppText style={[styles.title, lightTheme && { color: theme.colors.white }]} weight="bold">
+      <View style={[styles.textContainer, rightAlign && { alignItems: 'flex-end' }]}>
+        <View style={[styles.titleRow, rightAlign && { justifyContent: 'flex-end' }]}>
+          <AppText style={[styles.title, lightTheme && { color: theme.colors.white }, rightAlign && { textAlign: 'right' }]} weight="bold">
             {defaultAddress?.label || "Select Location"}
           </AppText>
           <MaterialCommunityIcons
@@ -58,8 +68,8 @@ export default function AddressHeader({
             style={{ marginLeft: 4 }}
           />
         </View>
-        <AppText style={[styles.address, lightTheme && { color: 'rgba(255,255,255,0.6)' }]} numberOfLines={1}>
-          {defaultAddress?.fullAddress || "Tap to set your delivery address"}
+        <AppText style={[styles.address, lightTheme && { color: 'rgba(255,255,255,0.6)' }, rightAlign && { textAlign: 'right' }]} numberOfLines={1}>
+          {defaultAddress ? [defaultAddress.fullAddress, defaultAddress.areaLocality, defaultAddress.city].filter(Boolean).join(', ') : "Tap to set your delivery address"}
         </AppText>
       </View>
     </TouchableOpacity>

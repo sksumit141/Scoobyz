@@ -1,87 +1,119 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, TouchableOpacity, Dimensions, Image, Linking } from 'react-native';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
+import { BASE_URL } from '../services/api';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
 const BookingStatusBanner = ({ booking, onPress }) => {
-  if (!booking) {
-    return (
-      <TouchableOpacity
-        style={[styles.statusBanner, styles.emptyBanner]}
-        onPress={onPress}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={['#FFFFFF', '#F1F8E9']}
-          style={styles.emptyGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          <View style={{ flex: 1 }}>
-            <AppText style={styles.emptyTitle} weight="bold">Get your new service now</AppText>
-            <AppText style={styles.emptySubtitle}>Book top-rated professionals for your pet</AppText>
-          </View>
-          <View style={styles.arrowCircle}>
-            <MaterialCommunityIcons name="arrow-right" size={18} color="#2E7D32" />
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
-    );
+  const navigation = useNavigation();
+
+  if (!booking) return null;
+
+  const isPending = booking.status === 'pending';
+  
+  // Resolve vendor image
+  let vendorImageUri = null;
+  if (booking.vendorImage) {
+      vendorImageUri = booking.vendorImage.startsWith('http') 
+        ? booking.vendorImage 
+        : `${BASE_URL}${booking.vendorImage}`;
   }
+
+  const getInitials = (name) => {
+    if (!name || name === 'Vendor Assigned') return 'V';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
 
   return (
     <TouchableOpacity
-      style={styles.statusBanner}
+      style={styles.cardContainer}
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <View
-        style={[styles.statusBannerGradient, { backgroundColor: theme.colors.success }]}
-      >
-        {/* Abstract Background Element */}
-
-
-        <View style={styles.statusBannerLeft}>
-          <View style={styles.statusIconCircle}>
-            <MaterialCommunityIcons
-              name={booking.bookingType === 'boarding' ? 'home-heart' : 'dog-service'}
-              size={24}
-              color="#FFF"
-            />
-          </View>
-          <View>
-            <View style={styles.badge}>
-              <AppText style={styles.badgeText} weight="bold">
-                {booking.status === 'in_progress' ? 'LIVE NOW' : 'CONFIRMED'}
+      <View style={styles.topSection}>
+        <View style={styles.vendorInfoRow}>
+          {/* Avatar Area */}
+          {isPending ? (
+            <View style={styles.avatarPlaceholder}>
+              <MaterialCommunityIcons name="magnify" size={28} color={theme.colors.textSecondary} />
+            </View>
+          ) : vendorImageUri ? (
+            <Image source={{ uri: vendorImageUri }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.primary, borderWidth: 0 }]}>
+              <AppText style={{ color: '#FFF', fontSize: 20 }} weight="bold">
+                {getInitials(booking.vendorName)}
               </AppText>
             </View>
-            <AppText style={styles.statusTitle} weight="bold">
-              {booking.serviceName || booking.bookingType.toUpperCase()}
+          )}
+
+          {/* Details Area */}
+          <View style={styles.detailsCol}>
+            <AppText style={styles.vendorName} weight="bold" numberOfLines={1}>
+              {isPending ? 'Searching the vendor...' : booking.vendorName || 'Vendor Assigned'}
             </AppText>
-            <AppText style={styles.statusSubtitle}>
-              Scheduled for {booking.petName}
+            
+            {!isPending && (
+              <AppText style={styles.vendorRole} numberOfLines={1}>
+                {booking.serviceName === 'Grooming' ? 'Senior Groomer' : 
+                 booking.serviceName === 'Walking' ? 'Professional Walker' : 
+                 booking.serviceName === 'Veterinary' ? 'Certified Vet' : 'Pet Care Expert'}
+              </AppText>
+            )}
+          </View>
+
+          {/* Action Icons */}
+          {!isPending && (
+            <View style={styles.actionsRow}>
+              {booking.vendorPhone && (
+                <TouchableOpacity 
+                  style={styles.actionBtn}
+                  onPress={() => Linking.openURL(`tel:${booking.vendorPhone}`)}
+                >
+                  <Ionicons name="call-outline" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                style={styles.actionBtn}
+                onPress={() => navigation.navigate('Chat', { bookingId: booking.id, partnerName: booking.vendorName || 'Vendor' })}
+              >
+                <Ionicons name="chatbubble-outline" size={16} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.bottomSection}>
+        <View style={styles.dateRow}>
+          <View style={styles.dateItem}>
+            <MaterialCommunityIcons name="calendar-blank-outline" size={18} color={theme.colors.textSecondary} />
+            <AppText style={styles.dateText}>
+              {formatISTDate(booking.serviceDate, { day: 'numeric', month: 'short', year: 'numeric' })}
             </AppText>
           </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.statusBannerRight}>
-          <View style={styles.timeInfo}>
-            <MaterialCommunityIcons name="clock-outline" size={12} color="rgba(255,255,255,0.6)" />
-            <AppText style={styles.statusTime} weight="bold">
-              {formatISTDate(booking.serviceDate, { day: 'numeric', month: 'short' })}
+          
+          <View style={styles.dateItem}>
+            <MaterialCommunityIcons name="clock-outline" size={18} color={theme.colors.textSecondary} />
+            <AppText style={styles.dateText}>
+              {booking.timeSlot || 'Anytime'}
             </AppText>
           </View>
-          <AppText style={styles.statusTimeSub}>{booking.timeSlot || 'Anytime'}</AppText>
-        </View>
-        <View style={styles.arrowCircleLight}>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#FFF" />
+
+          {/* OTP Section (Inline) */}
+          {(booking.status === 'confirmed' || booking.status === 'in_progress') && booking.otp && (
+            <View style={styles.otpMinimalContainer}>
+                <AppText style={styles.otpMinimalLabel}>PIN</AppText>
+                <View style={styles.otpHighlight}>
+                    <AppText style={styles.otpMinimalValue} weight="bold">{booking.otp}</AppText>
+                </View>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -89,142 +121,116 @@ const BookingStatusBanner = ({ booking, onPress }) => {
 };
 
 const styles = StyleSheet.create({
-  statusBanner: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: theme.colors.success,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    height: 110,
+  cardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12, // Reduced padding
+    height: 130, // Fixed height to match promo banner
+    justifyContent: 'space-between',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    marginBottom: 4,
   },
-  statusBannerGradient: {
-    flex: 1,
+  topSection: {
+  },
+  vendorInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    gap: 15,
   },
-  abstractCircle: {
-    position: 'absolute',
-    right: -20,
-    top: -20,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  avatar: {
+    width: 48, // Slightly smaller avatar
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
   },
-  statusBannerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15,
-  },
-  statusIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#E0E0E0',
   },
-  badge: {
-    backgroundColor: theme.colors.accent || '#FFD700',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 4,
+  detailsCol: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
   },
-  badgeText: {
-    fontSize: 9,
-    color: '#000',
-    letterSpacing: 0.5,
-  },
-  statusTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    letterSpacing: -0.5,
-  },
-  statusSubtitle: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    marginTop: 1,
-  },
-  divider: {
-    width: 1,
-    height: '40%',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  statusBannerRight: {
-    alignItems: 'flex-end',
-  },
-  timeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusTime: {
-    color: '#FFF',
+  vendorName: {
     fontSize: 16,
+    color: theme.colors.textBlack,
+    marginBottom: 2,
   },
-  statusTimeSub: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 11,
-    marginTop: 2,
+  vendorRole: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    // Removed badge container and text styles as they are no longer used
   },
-  arrowCircleLight: {
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginLeft: 10,
+  },
+  actionBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FAFAFA',
   },
-  emptyBanner: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    height: 100,
+  bottomSection: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
-  emptyGradient: {
-    flex: 1,
+  dateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    gap: 16,
+    gap: 8,
   },
-  emptyIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    overflow: 'hidden',
+  dateText: {
+    fontSize: 14,
+    color: theme.colors.textBlack,
+    fontWeight: '500',
   },
-  iconGradient: {
-    flex: 1,
-    justifyContent: 'center',
+  otpMinimalContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 8,
   },
-  emptyTitle: {
-    fontSize: 17,
+  otpMinimalLabel: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginRight: 4,
+    fontWeight: 'bold',
+  },
+  otpHighlight: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  otpMinimalValue: {
+    fontSize: 12,
     color: '#2E7D32',
-    letterSpacing: -0.4,
-    marginBottom: 2,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: 'rgba(46, 125, 50, 0.7)',
-  },
-  arrowCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(46, 125, 50, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    letterSpacing: 1,
   },
 });
 

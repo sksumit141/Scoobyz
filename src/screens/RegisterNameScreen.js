@@ -6,7 +6,11 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -14,11 +18,11 @@ import AppButton from '../components/AppButton';
 import AppScreen from '../components/AppScreen';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { customerApi } from '../services/api';
-import { ActivityIndicator, Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 const RegisterNameScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -38,54 +42,57 @@ const RegisterNameScreen = ({ navigation }) => {
   };
 
   return (
-    <AppScreen scrollable={true} padding={true}>
-      <View style={styles.content}>
-        {/* Logo at center top */}
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('../../assets/scoobyz_logo-removebg-preview.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-
-        <View style={styles.formContainer}>
-          <AppText type="heading" weight="700" style={styles.title}>
-            What's your name?
-          </AppText>
-          <AppText style={styles.subtitle}>
-            We'll use this to personalize your Scoobyz experience.
-          </AppText>
-
-          <AppInput
-            placeholder="Enter your name"
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            autoCapitalize="words"
-          />
-
-          <AppButton
-            style={[
-              styles.button,
-              { opacity: name.length > 2 && !loading ? 1 : 0.6 }
-            ]}
-            disabled={name.length <= 2 || loading}
-            onPress={handleContinue}
-          >
-            <View style={styles.buttonContent}>
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <>
-                  <AppText style={styles.buttonText} weight="600">Continue</AppText>
-                  <MaterialCommunityIcons name="arrow-right" size={20} color="white" style={{ marginLeft: 8 }} />
-                </>
-              )}
-            </View>
-          </AppButton>
-        </View>
+    <AppScreen scrollable={false} padding={false} safeAreaTop={false}>
+      <View style={[styles.headerRow, { paddingTop: Math.max(20, insets.top) }]}>
+        <Image
+          source={require('../../assets/scoobyz_logo-removebg-preview.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
+
+      <KeyboardAvoidingView 
+        style={{ flex: 1, width: '100%' }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={[styles.content, { paddingBottom: Math.max(40, insets.bottom + 20) }]}>
+          <View style={styles.formContainer}>
+            <AppText type="heading" weight="700" style={styles.title}>
+              What's your name?
+            </AppText>
+            <AppText style={styles.subtitle}>
+              We'll use this to personalize your Scoobyz experience.
+            </AppText>
+
+            <AppInput
+              placeholder="Enter your name"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+
+            <AppButton
+              style={[
+                styles.button,
+                { opacity: name.length > 2 && !loading ? 1 : 0.6 }
+              ]}
+              disabled={name.length <= 2 || loading}
+              onPress={handleContinue}
+            >
+              <View style={styles.buttonContent}>
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <AppText style={styles.buttonText} weight="600">Continue</AppText>
+                    <MaterialCommunityIcons name="arrow-right" size={20} color="white" style={{ marginLeft: 8 }} />
+                  </>
+                )}
+              </View>
+            </AppButton>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </AppScreen>
   );
 };
@@ -102,17 +109,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 40,
+    justifyContent: 'flex-end',
   },
-  logoContainer: {
-    marginTop: Math.min(60, width * 0.15),
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    width: '100%',
+    marginBottom: 20,
   },
   logo: {
-    width: width * 0.65,
-    aspectRatio: 2.2,
-    marginLeft: 25,
+    width: 80,
+    height: 40,
   },
   formContainer: {
     width: '100%',

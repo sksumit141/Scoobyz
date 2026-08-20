@@ -16,14 +16,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import AppButton from '../components/AppButton';
 import { theme } from '../styles/theme';
 import { addressApi } from '../services/api';
 import CustomAlert from '../components/CustomAlert';
+import PawLoader from '../components/PawLoader';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
-const AddressBookScreen = ({ navigation }) => {
+const AddressBookScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { top: 40 };
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +34,13 @@ const AddressBookScreen = ({ navigation }) => {
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '' });
   const [locating, setLocating] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
+
+  const [userPhone, setUserPhone] = useState('');
+
+  // Search Autocomplete State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -42,7 +52,24 @@ const AddressBookScreen = ({ navigation }) => {
     state: '',
     pincode: '',
     isDefault: true,
+    phone: '',
   });
+
+  const handleEdit = (item) => {
+    setFormData({
+      id: item.id,
+      label: item.label || 'Home',
+      fullAddress: item.fullAddress || '',
+      areaLocality: item.areaLocality || '',
+      landmark: item.landmark || '',
+      city: item.city || '',
+      state: item.state || '',
+      pincode: item.pincode || '',
+      isDefault: item.isDefault,
+      phone: item.phone || '',
+    });
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     fetchAddresses();
@@ -51,7 +78,18 @@ const AddressBookScreen = ({ navigation }) => {
   useEffect(() => {
     fetchAddresses();
     getUserLocation();
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await AsyncStorage.getItem('user_profile');
+      if (profile) {
+        const parsed = JSON.parse(profile);
+        setUserPhone(parsed.mobile || '');
+      }
+    } catch (e) { }
+  };
 
   const getUserLocation = async () => {
     try {
@@ -131,6 +169,91 @@ const AddressBookScreen = ({ navigation }) => {
     }
   };
 
+  let searchTimeout = null;
+  const handleSearchChange = (text) => {
+    setSearchQuery(text);
+    if (!text.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      fetchSuggestions(text);
+    }, 500);
+  };
+
+  const fetchSuggestions = async (text) => {
+    try {
+      setIsSearching(true);
+      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) throw new Error('Maps API key missing');
+
+      const targetUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${apiKey}&components=country:in`;
+      const url = Platform.OS === 'web'
+        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+        : targetUrl;
+
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === 'OK') {
+        setSuggestions(data.predictions);
+      } else {
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Fetch suggestions error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSuggestionSelect = async (place_id) => {
+    try {
+      setIsSearching(true);
+      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) throw new Error('Maps API key missing');
+
+      const targetUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&key=${apiKey}&fields=name,geometry,address_components,formatted_address`;
+      const url = Platform.OS === 'web'
+        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+        : targetUrl;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK') {
+        const result = data.result;
+        const components = result.address_components;
+        const getComp = (type) => components.find(c => c.types.includes(type))?.long_name || '';
+
+        const houseInfo = result.name || getComp('premise') || getComp('sublocality_level_1');
+        const areaInfo = getComp('sublocality_level_2') || getComp('sublocality');
+
+        setFormData({
+          label: 'Home',
+          fullAddress: houseInfo || result.formatted_address,
+          areaLocality: areaInfo,
+          city: getComp('administrative_area_level_2') || getComp('locality'),
+          state: getComp('administrative_area_level_1'),
+          pincode: getComp('postal_code'),
+          latitude: result.geometry?.location?.lat,
+          longitude: result.geometry?.location?.lng,
+          isDefault: true,
+        });
+
+        setSearchQuery('');
+        setSuggestions([]);
+        setModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Fetch place details error:', error);
+      showAlert('Error', 'Could not fetch location details.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const autoFillFromLocation = async (openModal = true) => {
     try {
       setLocating(true);
@@ -205,11 +328,19 @@ const AddressBookScreen = ({ navigation }) => {
       showAlert('Required', 'Please enter your full address.');
       return;
     }
+    if (!formData.phone || formData.phone.trim().length < 10) {
+      showAlert('Required', 'Please enter a valid 10-digit phone number.');
+      return;
+    }
     try {
       setLoading(true);
-      await addressApi.create(formData);
+      if (formData.id) {
+        await addressApi.update(formData.id, formData);
+      } else {
+        await addressApi.create(formData);
+      }
       setModalVisible(false);
-      setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: false });
+      setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: false, phone: '' });
       await fetchAddresses();
     } catch (error) {
       console.error('Save address error:', error);
@@ -246,23 +377,8 @@ const AddressBookScreen = ({ navigation }) => {
   };
 
   return (
-    <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.background}>
-      <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerTitleRow}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
-          <AppText weight="bold" style={styles.headerTitle}>Address</AppText>
-        </TouchableOpacity>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={{ marginRight: 10 }} />
-          <TextInput
-            placeholder="Search for area, street name..."
-            placeholderTextColor={theme.colors.textTertiary}
-            style={styles.searchInput}
-          />
-        </View>
-      </View>
+    <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.background}>
+      <AppHeader title="Select a Location" style={{ paddingBottom: 0 }} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Quick Options */}
@@ -285,7 +401,7 @@ const AddressBookScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.quickOptionRow}
             onPress={() => {
-              setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: true });
+              setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: true, phone: userPhone });
               setModalVisible(true);
             }}
           >
@@ -305,14 +421,36 @@ const AddressBookScreen = ({ navigation }) => {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={theme.colors.error} style={{ marginTop: 20 }} />
+          <PawLoader fullScreen={false} />
         ) : addresses.length === 0 ? (
           <View style={styles.emptyContainer}>
             <AppText style={styles.emptyText}>No saved addresses found</AppText>
           </View>
         ) : (
           addresses.map((item, index) => (
-            <TouchableOpacity key={`${item.id}-${index}`} style={styles.addressCard}>
+            <TouchableOpacity
+              key={`${item.id}-${index}`}
+              style={styles.addressCard}
+              onPress={async () => {
+                if (route.params?.returnScreen) {
+                  navigation.navigate({
+                    name: route.params.returnScreen,
+                    params: { selectedAddress: item },
+                    merge: true,
+                  });
+                } else {
+                  try {
+                    setLoading(true);
+                    await addressApi.update(item.id, { ...item, isDefault: true });
+                    await AsyncStorage.setItem('cached_default_address', JSON.stringify({ ...item, isDefault: true }));
+                    navigation.goBack();
+                  } catch (e) {
+                    setLoading(false);
+                    console.error('Failed to set default address:', e);
+                  }
+                }
+              }}
+            >
               <View style={styles.cardTop}>
                 <View style={styles.cardIconWrapper}>
                   <MaterialCommunityIcons
@@ -331,15 +469,15 @@ const AddressBookScreen = ({ navigation }) => {
                   <AppText style={styles.cardAddress} numberOfLines={2}>
                     {item.fullAddress}, {item.areaLocality}, {item.city}
                   </AppText>
-                  <AppText style={styles.cardPhone}>Phone number: +91-8116870514</AppText>
+                  {item.phone && (
+                    <AppText style={styles.cardPhone}>Phone number: {item.phone}</AppText>
+                  )}
 
                   <View style={styles.cardActionRow}>
-                    <TouchableOpacity style={styles.miniActionBtn}>
-                      <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.colors.success} />
+                    <TouchableOpacity style={styles.miniActionBtn} onPress={() => handleEdit(item)}>
+                      <MaterialCommunityIcons name="pencil-outline" size={16} color={theme.colors.success} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.miniActionBtn}>
-                      <MaterialCommunityIcons name="share-variant" size={16} color={theme.colors.success} />
-                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.miniActionBtn} onPress={() => handleDelete(item.id)}>
                       <MaterialCommunityIcons name="delete-outline" size={16} color={theme.colors.success} />
                     </TouchableOpacity>
@@ -364,7 +502,8 @@ const AddressBookScreen = ({ navigation }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          enabled={Platform.OS === 'ios'}
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
@@ -472,6 +611,18 @@ const AddressBookScreen = ({ navigation }) => {
               </View>
 
 
+              <View style={styles.inputGroup}>
+                <AppText style={styles.inputLabel}>Phone Number</AppText>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter 10 digit mobile number"
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                  value={formData.phone}
+                  onChangeText={(val) => setFormData({ ...formData, phone: val })}
+                />
+              </View>
+
               <TouchableOpacity
                 style={styles.checkboxRow}
                 onPress={() => setFormData({ ...formData, isDefault: !formData.isDefault })}
@@ -510,18 +661,20 @@ const AddressBookScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   header: {
     backgroundColor: theme.colors.background,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 20,
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    gap: 10,
+    marginBottom: 16,
+    display: 'none', // deprecated by AppHeader
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     color: theme.colors.textBlack,
+    fontFamily: theme.fonts.heading,
+    display: 'none', // deprecated by AppHeader
   },
   searchContainer: {
     flexDirection: 'row',
@@ -667,7 +820,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+
   },
   inputGroup: {
     marginBottom: 20,
@@ -727,7 +880,37 @@ const styles = StyleSheet.create({
 
   saveBtnText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 55,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    paddingVertical: 8,
+    ...theme.shadows?.medium,
+    elevation: 4,
+    zIndex: 100,
+    maxHeight: 250,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  suggestionTitle: {
+    fontSize: 15,
+    color: theme.colors.textBlack,
+    marginBottom: 2,
+  },
+  suggestionSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
   },
 });
 

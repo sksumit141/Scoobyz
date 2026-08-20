@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     StyleSheet,
@@ -16,6 +16,7 @@ import { bookingsApi } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatISTDate } from '../utils/date_utils';
 import InvoiceComponent from '../components/InvoiceComponent';
+import PawLoader from '../components/PawLoader';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 120000; // 2 minutes
@@ -187,7 +188,7 @@ export default function BookingPendingScreen({ navigation, route }) {
     const dots = '.'.repeat(dotCount);
 
     return (
-        <AppScreen safeArea={false} padding={false} backgroundColor={theme.colors.success}>
+        <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.success}>
             <LinearGradient
                 colors={[theme.colors.success, theme.colors.success]}
                 style={styles.container}
@@ -300,7 +301,7 @@ export default function BookingPendingScreen({ navigation, route }) {
                         />
                         {paying && (
                             <View style={styles.payingOverlay}>
-                                <ActivityIndicator size="large" color={theme.colors.primary} />
+                                <PawLoader fullScreen={false} />
                                 <AppText style={{ marginTop: 10, color: '#333' }} weight="bold">Processing Payment...</AppText>
                             </View>
                         )}
