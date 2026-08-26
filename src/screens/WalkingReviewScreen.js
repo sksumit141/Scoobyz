@@ -40,9 +40,9 @@ export default function WalkingReviewScreen({ navigation, route }) {
 
   let displayTotal = quote?.total || total || 450;
   
-  // Force 25x multiplier for Monthly total if it seems to be 30x or needs correction
-  if (frequency === 'Monthly' && quote?.basePrice) {
-    displayTotal = Number(quote.basePrice) * 25 * (route.params?.timesPerDay || 1);
+  // If frequency is Monthly, rely on the exact total calculated in WalkingServiceScreen
+  if (frequency === 'Monthly') {
+    displayTotal = total || quote?.total || 2799;
   }
   const displayPet = pet || { name: "Bruno", breed: "Dog", id: 1 };
 
@@ -124,7 +124,7 @@ export default function WalkingReviewScreen({ navigation, route }) {
           <View style={styles.cancellationBox}>
             <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.textBlack} style={{ marginTop: 2 }} />
             <AppText style={styles.cancellationText}>
-              Cancellations made within 24hrs are subject to a 50% convenience fee.
+              Cancellations made within 24hrs are subject to a ₹49 convenience fee.
             </AppText>
           </View>
         </View>

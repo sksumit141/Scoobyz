@@ -17,8 +17,8 @@ const { width } = Dimensions.get('window');
 const CARDS_DATA = [
   { id: '1', title: 'Grooming', icon: 'scissors-cutting' },
   { id: '2', title: 'Walking', icon: 'dog-service' },
-  // { id: '3', title: 'Boarding', icon: 'home-variant' },
-  // { id: '4', title: 'Veterinary', icon: 'stethoscope' },
+  { id: '3', title: 'Boarding', icon: 'home-variant' },
+  { id: '4', title: 'Vaccination', icon: 'needle' },
 ];
 
 const LandingScreen = ({ navigation }) => {
@@ -132,8 +132,8 @@ const LandingScreen = ({ navigation }) => {
 
   const navigateToService = (service) => {
     const params = { serviceName: service.title, pet: selectedPet };
-    if (service.title === 'Boarding') {
-      navigation.navigate('BoardingService', params);
+    if (service.title === 'Boarding' || service.title === 'Vaccination') {
+      navigation.navigate('ComingSoon', params);
     } else if (service.title === 'Walking') {
       // if (!hasUsedFreeDemo) {
       //   params.isDemo = true;
@@ -153,7 +153,7 @@ const LandingScreen = ({ navigation }) => {
         {/* Header Section */}
         <View
           style={[styles.header, {
-            paddingTop: Math.max((insets.top || 40) - 10, 20),
+            paddingTop: Math.max((insets.top || 40), 20),
             backgroundColor: theme.colors.primaryDark
           }]}
         >
@@ -345,8 +345,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     paddingVertical: 8,
-    paddingRight: 16,
+    paddingRight: 8,
     marginLeft: -4, // Pull slightly left to align with content visually
+    marginTop: -13, // Shift up slightly to align horizontally with the address text block
   },
 
   greetingWrapper: {
@@ -457,6 +458,7 @@ const styles = StyleSheet.create({
   manageText: {
     color: theme.colors.textSecondary,
     fontSize: 12,
+    fontWeight: 'bold',
   },
   petsList: {
     marginHorizontal: -24, // Break out of content padding to allow edge scroll
@@ -510,7 +512,6 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     width: width < 360 ? '100%' : '47%', // 1 column on tiny screens, 2 cols on regular
-    flexGrow: 1,
     minWidth: 120,
     backgroundColor: theme.colors.white,
     padding: width < 360 ? 12 : 14,

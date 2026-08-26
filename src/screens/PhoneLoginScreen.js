@@ -17,10 +17,10 @@ const PhoneLoginScreen = ({ navigation, route }) => {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', icon: 'alert-circle-outline', onConfirm: null });
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', icon: 'alert-circle-outline', onConfirm: null, buttonText: 'Okay', confirmText: 'Confirm' });
 
-  const showAlert = (title, message, icon = 'alert-circle-outline', onConfirm = null) => {
-    setAlertConfig({ visible: true, title, message, icon, onConfirm });
+  const showAlert = (title, message, icon = 'alert-circle-outline', onConfirm = null, buttonText = 'Okay', confirmText = 'Confirm') => {
+    setAlertConfig({ visible: true, title, message, icon, onConfirm, buttonText, confirmText });
   };
 
   const handleContinue = async () => {
@@ -40,17 +40,21 @@ const PhoneLoginScreen = ({ navigation, route }) => {
       if (err.data && err.data.isExistingUser !== undefined) {
         if (mode === 'signup' && err.data.isExistingUser) {
           showAlert(
-            'Login/Signup Mixup',
-            'Oops! It looks like you already have an account. Please select "Log In" instead of "Sign Up".',
+            'Account Exists',
+            'This phone number is already registered. Log in to continue',
             'account-alert-outline',
-            () => navigation.replace('Welcome')
+            () => navigation.replace('Welcome'),
+            'Cancel',
+            'Login'
           );
         } else if (mode === 'login' && !err.data.isExistingUser) {
           showAlert(
-            'Login/Signup Mixup',
-            'We couldn\'t find an account with this number. Please select "Sign Up" to create a new account.',
+            'No Account Found',
+            'This phone number is not registered yet. Sign up to continue',
             'account-plus-outline',
-            () => navigation.replace('Welcome')
+            () => navigation.replace('Welcome'),
+            'Cancel',
+            'Sign Up'
           );
         } else {
           showAlert('Error', err.message || 'Failed to send OTP.');
@@ -77,49 +81,48 @@ const PhoneLoginScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        <KeyboardAvoidingView 
-          style={{ flex: 1, width: '100%' }} 
+        <KeyboardAvoidingView
+          style={{ flex: 1, width: '100%' }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-        <View style={styles.content}>
+          <View style={styles.content}>
 
-          <View style={styles.formContainer}>
-            <AppText type="heading" weight="700" style={styles.title}>
-              What's your number?
-            </AppText>
-            <AppText style={styles.subtitle}>
-              We'll send a code to verify your phone.
-            </AppText>
+            <View style={styles.formContainer}>
+              <AppText type="heading" weight="700" style={styles.title}>
+                What's your number?
+              </AppText>
+              <AppText style={styles.subtitle}>
+                We'll send a code to verify your phone.
+              </AppText>
 
-            <AppInput
-              placeholder="Enter 10-digit phone number"
-              value={phone}
-              onChangeText={(txt) => {
-                setPhone(txt.replace(/[^0-9]/g, ''));
-                setError('');
-              }}
-              keyboardType="phone-pad"
-              maxLength={10}
-              autoFocus
-            />
+              <AppInput
+                placeholder="Enter 10-digit phone number"
+                value={phone}
+                onChangeText={(txt) => {
+                  setPhone(txt.replace(/[^0-9]/g, ''));
+                  setError('');
+                }}
+                keyboardType="phone-pad"
+                maxLength={10}
+                autoFocus
+              />
 
-            {error ? <AppText style={styles.errorText}>{error}</AppText> : null}
+              {error ? <AppText style={styles.errorText}>{error}</AppText> : null}
 
-            <AppButton
-              style={[
-                styles.button,
-                { opacity: phone.length === 10 && !loading ? 1 : 0.6 }
-              ]}
-              disabled={phone.length !== 10 || loading}
-              onPress={handleContinue}
-            >
-              <View style={styles.buttonContent}>
-                <AppText style={styles.buttonText} weight="600">Send OTP</AppText>
-                <MaterialCommunityIcons name="arrow-right" size={20} color="white" style={{ marginLeft: 8 }} />
-              </View>
-            </AppButton>
+              <AppButton
+                style={[
+                  styles.button,
+                  { opacity: phone.length === 10 && !loading ? 1 : 0.6 }
+                ]}
+                disabled={phone.length !== 10 || loading}
+                onPress={handleContinue}
+              >
+                <View style={styles.buttonContent}>
+                  <AppText style={styles.buttonText} weight="600">Send OTP</AppText>
+                </View>
+              </AppButton>
+            </View>
           </View>
-        </View>
         </KeyboardAvoidingView>
       </AppScreen>
 
@@ -128,9 +131,10 @@ const PhoneLoginScreen = ({ navigation, route }) => {
         title={alertConfig.title}
         message={alertConfig.message}
         iconName={alertConfig.icon}
-        onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
+        buttonText={alertConfig.buttonText}
+        confirmText={alertConfig.confirmText}
         onConfirm={alertConfig.onConfirm}
-        confirmText="Take me there"
+        onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
       />
     </>
   );
@@ -141,8 +145,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 60,
+    justifyContent: 'center',
   },
 
   formContainer: {
@@ -156,11 +159,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 20,
+    marginBottom: 18,
+    lineHeight: 18,
     paddingHorizontal: 20,
   },
   button: {
@@ -170,7 +173,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,

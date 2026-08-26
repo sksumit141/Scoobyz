@@ -31,7 +31,7 @@ const AddressBookScreen = ({ navigation, route }) => {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '' });
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', iconName: 'alert-circle-outline', onConfirm: null, buttonText: 'Okay', confirmText: 'Confirm', type: 'info' });
   const [locating, setLocating] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
 
@@ -319,13 +319,29 @@ const AddressBookScreen = ({ navigation, route }) => {
 
 
 
-  const showAlert = (title, message) => {
-    setAlertConfig({ visible: true, title, message });
+  const showAlert = (title, message, iconName = 'alert-circle-outline', onConfirm = null, buttonText = 'Okay', confirmText = 'Confirm', type = 'info') => {
+    setAlertConfig({ visible: true, title, message, iconName, onConfirm, buttonText, confirmText, type });
   };
 
   const handleSave = async () => {
     if (!formData.fullAddress.trim()) {
-      showAlert('Required', 'Please enter your full address.');
+      showAlert('Required', 'Please enter your house/flat/building.');
+      return;
+    }
+    if (!formData.areaLocality.trim()) {
+      showAlert('Required', 'Please enter your area or locality.');
+      return;
+    }
+    if (!formData.city.trim()) {
+      showAlert('Required', 'Please enter your city.');
+      return;
+    }
+    if (!formData.state.trim()) {
+      showAlert('Required', 'Please enter your state.');
+      return;
+    }
+    if (!formData.pincode.trim() || formData.pincode.trim().length !== 6) {
+      showAlert('Required', 'Please enter a valid 6-digit pincode.');
       return;
     }
     if (!formData.phone || formData.phone.trim().length < 10) {
@@ -350,17 +366,28 @@ const AddressBookScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      setLoading(true);
-      await addressApi.delete(id);
-      await fetchAddresses();
-    } catch (error) {
-      console.error('Delete address error:', error);
-      showAlert('Error', 'Failed to delete address.');
-    } finally {
-      setLoading(false);
-    }
+  const handleDelete = (id) => {
+    showAlert(
+      'Delete Address',
+      'Are you sure you want to permanently delete this address?',
+      'delete-outline',
+      async () => {
+        setAlertConfig(prev => ({ ...prev, visible: false }));
+        try {
+          setLoading(true);
+          await addressApi.delete(id);
+          await fetchAddresses();
+        } catch (error) {
+          console.error('Delete address error:', error);
+          showAlert('Error', 'Failed to delete address.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      'Cancel',
+      'Delete',
+      'error'
+    );
   };
 
   const setDefault = async (id) => {
@@ -461,7 +488,14 @@ const AddressBookScreen = ({ navigation, route }) => {
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <View style={styles.cardTitleRow}>
-                    <AppText style={styles.cardLabel} weight="bold">{item.label}</AppText>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <AppText style={styles.cardLabel} weight="bold">{item.label}</AppText>
+                      {item.isDefault && (
+                        <View style={{ backgroundColor: theme.colors.success + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                          <AppText style={{ color: theme.colors.success, fontSize: 12 }} weight="bold">Default</AppText>
+                        </View>
+                      )}
+                    </View>
                     {currentLocation && (
                       <AppText style={styles.distanceText}>{calculateDistance(item.latitude, item.longitude)}</AppText>
                     )}
@@ -551,7 +585,8 @@ const AddressBookScreen = ({ navigation, route }) => {
                 <AppText style={styles.inputLabel}>House / Flat / Building</AppText>
                 <TextInput
                   style={styles.input}
-                  placeholder=""
+                  placeholder="e.g. Flat 101, Elite Apartments"
+                  placeholderTextColor={theme.colors.primaryDark}
                   value={formData.fullAddress}
                   onChangeText={(val) => setFormData({ ...formData, fullAddress: val })}
                 />
@@ -561,7 +596,8 @@ const AddressBookScreen = ({ navigation, route }) => {
                 <AppText style={styles.inputLabel}>Area / Locality</AppText>
                 <TextInput
                   style={styles.input}
-                  placeholder=""
+                  placeholder="e.g. Koramangala 4th Block"
+                  placeholderTextColor={theme.colors.primaryDark}
                   value={formData.areaLocality}
                   onChangeText={(val) => setFormData({ ...formData, areaLocality: val })}
                 />
@@ -571,7 +607,8 @@ const AddressBookScreen = ({ navigation, route }) => {
                 <AppText style={styles.inputLabel}>Landmark (Optional)</AppText>
                 <TextInput
                   style={styles.input}
-                  placeholder=""
+                  placeholder="e.g. Near Sony World Signal"
+                  placeholderTextColor={theme.colors.primaryDark}
                   value={formData.landmark}
                   onChangeText={(val) => setFormData({ ...formData, landmark: val })}
                 />
@@ -582,7 +619,8 @@ const AddressBookScreen = ({ navigation, route }) => {
                   <AppText style={styles.inputLabel}>City</AppText>
                   <TextInput
                     style={styles.input}
-                    placeholder=""
+                    placeholder="e.g. Bengaluru"
+                    placeholderTextColor={theme.colors.primaryDark}
                     value={formData.city}
                     onChangeText={(val) => setFormData({ ...formData, city: val })}
                   />
@@ -591,7 +629,8 @@ const AddressBookScreen = ({ navigation, route }) => {
                   <AppText style={styles.inputLabel}>State</AppText>
                   <TextInput
                     style={styles.input}
-                    placeholder=""
+                    placeholder="e.g. Karnataka"
+                    placeholderTextColor={theme.colors.primaryDark}
                     value={formData.state}
                     onChangeText={(val) => setFormData({ ...formData, state: val })}
                   />
@@ -602,7 +641,8 @@ const AddressBookScreen = ({ navigation, route }) => {
                 <AppText style={styles.inputLabel}>Pincode</AppText>
                 <TextInput
                   style={styles.input}
-                  placeholder=""
+                  placeholder="e.g. 560034"
+                  placeholderTextColor={theme.colors.primaryDark}
                   keyboardType="number-pad"
                   maxLength={6}
                   value={formData.pincode}
@@ -610,12 +650,12 @@ const AddressBookScreen = ({ navigation, route }) => {
                 />
               </View>
 
-
               <View style={styles.inputGroup}>
                 <AppText style={styles.inputLabel}>Phone Number</AppText>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter 10 digit mobile number"
+                  placeholder="e.g. 9876543210"
+                  placeholderTextColor={theme.colors.primaryDark}
                   keyboardType="phone-pad"
                   maxLength={15}
                   value={formData.phone}
@@ -652,6 +692,11 @@ const AddressBookScreen = ({ navigation, route }) => {
         visible={alertConfig.visible}
         title={alertConfig.title}
         message={alertConfig.message}
+        iconName={alertConfig.iconName}
+        buttonText={alertConfig.buttonText}
+        confirmText={alertConfig.confirmText}
+        onConfirm={alertConfig.onConfirm}
+        type={alertConfig.type}
         onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
       />
     </AppScreen>

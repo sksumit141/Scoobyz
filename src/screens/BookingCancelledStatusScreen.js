@@ -72,8 +72,8 @@ export default function BookingCancelledStatusScreen({ route, navigation }) {
     }
 
     const totalCost = parseFloat(booking?.totalCost || '2200');
-    // Using simple mock calculation for cancellation fee (50% based on info banner on details screen)
-    const cancellationFee = totalCost * 0.5;
+    // Using simple mock calculation for cancellation fee (₹49 based on info banner on details screen)
+    const cancellationFee = Math.min(49, totalCost);
     const refundAmount = totalCost - cancellationFee;
 
     return (

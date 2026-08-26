@@ -7,11 +7,12 @@ import { theme } from '../styles/theme';
 export default function PaymentSummaryModal({
   visible, onClose, cart = [], total = 0, room = null, meal = null,
   frequency = '1x', nights = 1, isAggressive = false, aggressiveFee = 0,
-  timesPerDay = 1, amountPaid = null, remainingAmount = null
+  timesPerDay = 1, amountPaid = null, remainingAmount = null,
+  addons: passedAddons = []
 }) {
   const mainPackage = cart[0] || {};
-  const addons = (mainPackage.addons || []).map(a => ({
-    label: a.addonName || a.name || 'Add-on',
+  const addons = (passedAddons.length > 0 ? passedAddons : (mainPackage.addons || [])).map(a => ({
+    label: a.addonName || a.name || a.title || 'Add-on',
     value: Number(a.addonPrice) || Number(a.price) || 0
   }));
 

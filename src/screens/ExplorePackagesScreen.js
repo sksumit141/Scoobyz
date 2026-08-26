@@ -115,7 +115,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
     <AppScreen safeAreaTop={true} padding={false} scrollable={false} backgroundColor={theme.colors.background}>
       <AppHeader title={expert?.name ? `${expert.name}'s Packages` : 'Explore Packages'} />
 
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {loading && <ActivityIndicator size="large" color={theme.colors.primaryDark} style={{ marginTop: 40 }} />}
 
@@ -154,7 +154,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
           <View style={styles.sizeBanner}>
             <MaterialCommunityIcons name="dog" size={18} color={theme.colors.primaryDark} />
             <AppText style={styles.sizeBannerText}>
-              Showing prices for <AppText weight="bold" style={{color: theme.colors.primaryDark}}>{petSize}</AppText> dogs
+              Showing prices for <AppText weight="bold" style={{ color: theme.colors.primaryDark }}>{petSize}</AppText> dogs
             </AppText>
           </View>
         )}
@@ -189,19 +189,19 @@ export default function ExplorePackagesScreen({ route, navigation }) {
           // ==========================================================
           const customPricing = {
             'fresh': {
-                Small:  { original: 799, launch: 699 },
-                Medium: { original: 899, launch: 799 },
-                Large:  { original: 999, launch: 899 }
+              Small: { original: 799, launch: 699 },
+              Medium: { original: 899, launch: 799 },
+              Large: { original: 999, launch: 899 }
             },
             'signature': {
-                Small:  { original: 1499, launch: 1299 }, // Replace these numbers!
-                Medium: { original: 1699, launch: 1499 }, // Replace these numbers!
-                Large:  { original: 1899, launch: 1699 } // Replace these numbers!
+              Small: { original: 1499, launch: 1299 }, // Replace these numbers!
+              Medium: { original: 1699, launch: 1499 }, // Replace these numbers!
+              Large: { original: 1899, launch: 1699 } // Replace these numbers!
             },
             'royal': {
-                Small:  { original: 1799, launch: 1499 }, // Replace these numbers!
-                Medium: { original: 1999, launch: 1699 }, // Replace these numbers!
-                Large:  { original: 2299, launch: 1899 } // Replace these numbers!
+              Small: { original: 1799, launch: 1499 }, // Replace these numbers!
+              Medium: { original: 1999, launch: 1699 }, // Replace these numbers!
+              Large: { original: 2299, launch: 1899 } // Replace these numbers!
             }
           };
 

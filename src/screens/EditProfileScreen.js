@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -63,11 +63,17 @@ const EditProfileScreen = ({ navigation }) => {
         setLoading(true);
         const selectedImage = result.assets[0];
 
-        const response = await fetch(selectedImage.uri);
-        const blob = await response.blob();
-
         const formData = new FormData();
-        formData.append('photo', blob, 'profile_photo.jpg');
+        if (Platform.OS === 'web') {
+          const response = await fetch(selectedImage.uri);
+          const blob = await response.blob();
+          formData.append('photo', blob, 'profile_photo.jpg');
+        } else {
+          const filename = selectedImage.uri.split('/').pop();
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image`;
+          formData.append('photo', { uri: selectedImage.uri, name: filename, type });
+        }
 
         const uploadRes = await customerApi.uploadPhoto(formData);
         if (uploadRes.success) {
@@ -291,7 +297,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 14,
     color: '#2D3748',
     fontFamily: theme.fonts.regular,
   },

@@ -194,8 +194,8 @@ export default function WalkingServiceScreen({ navigation }) {
     }
   } else if (frequency === 'Monthly') {
     let base = 0;
-    if (timesPerDay === 1) base = 3499;
-    else if (timesPerDay === 2) base = 4999;
+    if (timesPerDay === 1) base = 2799;
+    else if (timesPerDay === 2) base = 4499;
     else if (timesPerDay === 3) base = 5999;
 
     let extra = 0;
@@ -387,7 +387,7 @@ export default function WalkingServiceScreen({ navigation }) {
               )
             })
           ) : (
-            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 10 }}>
+            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingBottom: 10, marginTop: -8 }}>
               No slots available for today. Please select a future date.
             </AppText>
           )}
@@ -582,11 +582,9 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   dateScroll: {
-    marginHorizontal: -24,
     marginBottom: 32,
   },
   dateScrollContent: {
-    paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 20,
   },
@@ -727,13 +725,13 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     backgroundColor: theme.colors.success,
-    paddingVertical: 18,
-    paddingHorizontal: 56,
-    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
   },
   confirmBtnText: {
     color: theme.colors.white,
-    fontSize: 18,
+    fontSize: 16,
   },
   endDateContainer: {
     flexDirection: 'row',

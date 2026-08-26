@@ -80,13 +80,13 @@ const OtpScreen = ({ navigation, route }) => {
         await AsyncStorage.setItem('authToken', data.token);
         await AsyncStorage.setItem('userId', String(data.userId));
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
-        
+
         registerAndSendPushToken();
 
         if (data.isOnboarded) {
-             navigation.replace('LandingScreen');
+          navigation.replace('LandingScreen');
         } else {
-             navigation.replace('RegisterName');
+          navigation.replace('RegisterName');
         }
       } else {
         setError(data.details || 'Verification failed.');
@@ -121,8 +121,8 @@ const OtpScreen = ({ navigation, route }) => {
           />
         </View>
 
-        <KeyboardAvoidingView 
-          style={{ flex: 1, width: '100%' }} 
+        <KeyboardAvoidingView
+          style={{ flex: 1, width: '100%' }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.content, { paddingBottom: Math.max(20, insets.bottom + 10) }]}>
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     alignItems: 'center',
-    justifyContent: 'flex-end', // Pushes the form to the bottom for all screen sizes
+    justifyContent: 'center',
   },
   headerRow: {
     flexDirection: 'row',
@@ -218,11 +218,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 22,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   otpContainer: {
     flexDirection: 'row',
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   resendContainer: {
     flexDirection: 'row',
-    marginTop: 25,
+    marginTop: 10,
     alignItems: 'center',
   },
   resendTextLabel: {

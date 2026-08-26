@@ -85,7 +85,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   containerLight: {
-    // Removed white background/border for a transparent look
+    paddingHorizontal: 0,
+    paddingVertical: 8,
   },
   containerDark: {
     backgroundColor: theme.colors.white,

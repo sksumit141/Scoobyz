@@ -209,46 +209,7 @@ export default function CustomTimePicker({
               </AppText>
             </TouchableOpacity>
 
-            {/* AM / PM */}
-            <View style={styles.periodToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.periodBtn,
-                  period === 'AM' && styles.periodBtnActive,
-                ]}
-                onPress={() => setPeriod('AM')}
-                activeOpacity={0.8}
-              >
-                <AppText
-                  style={[
-                    styles.periodText,
-                    period === 'AM' && styles.periodTextActive,
-                  ]}
-                  weight="bold"
-                >
-                  AM
-                </AppText>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.periodBtn,
-                  period === 'PM' && styles.periodBtnActive,
-                ]}
-                onPress={() => setPeriod('PM')}
-                activeOpacity={0.8}
-              >
-                <AppText
-                  style={[
-                    styles.periodText,
-                    period === 'PM' && styles.periodTextActive,
-                  ]}
-                  weight="bold"
-                >
-                  PM
-                </AppText>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* -------------------------------------------------
@@ -275,11 +236,7 @@ export default function CustomTimePicker({
 
               <View style={styles.scrollBox}>
 
-                {/* Selection indicator */}
-                <View
-                  pointerEvents="none"
-                  style={styles.selectionIndicator}
-                />
+
 
                 <ScrollView
                   ref={hourScrollRef}
@@ -329,11 +286,7 @@ export default function CustomTimePicker({
 
               <View style={styles.scrollBox}>
 
-                {/* Selection indicator */}
-                <View
-                  pointerEvents="none"
-                  style={styles.selectionIndicator}
-                />
+
 
                 <ScrollView
                   ref={minuteScrollRef}

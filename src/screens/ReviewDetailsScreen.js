@@ -10,7 +10,7 @@ import AppText from '../components/AppText';
 import ServiceHeader from '../components/ServiceHeader';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import { theme } from '../styles/theme';
-import { bookingsApi, addressApi, BASE_URL } from '../services/api';
+import { bookingsApi, addressApi, discoverApi, BASE_URL } from '../services/api';
 import MapComponent from '../components/MapComponent';
 import CustomAlert from '../components/CustomAlert';
 import { useDiscount } from '../contexts/DiscountContext';
@@ -136,6 +136,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   const isScoobyzMatch = expert?.id === 'scoobyz_match' || expert?.userId === 'scoobyz_match';
 
   const [quantities, setQuantities] = useState(() => {
+    if (params.quantities) return params.quantities;
     const q = { 'main': 1 };
     (params.cart?.[0]?.addons || []).forEach(a => {
       q[a.id || a.name || a.addonName] = 1;
@@ -144,19 +145,60 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   });
 
   const mainPackage = cart[0] || {};
-  const addons = mainPackage.addons || [];
+  const [localAddons, setLocalAddons] = useState(() => {
+    if (params.localAddons) return params.localAddons;
+    return mainPackage.addons || [];
+  });
+  const [availableAddons, setAvailableAddons] = useState([]);
+  const [isAddonsDropdownOpen, setAddonsDropdownOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (isGrooming) {
+      const fetchAddons = async () => {
+        try {
+          let data;
+          if (isScoobyzMatch) {
+            data = await discoverApi.scoobyzPackages();
+          } else if (expert?.id || expert?.userId) {
+            data = await discoverApi.groomerPackages(expert?.userId || expert?.id);
+          }
+          if (data && data.addons) {
+            setAvailableAddons(data.addons);
+          }
+        } catch (e) {
+          console.log('Failed to fetch grooming addons', e);
+        }
+      };
+      fetchAddons();
+    }
+  }, [isGrooming, isScoobyzMatch, expert]);
 
   const dynamicTotal = React.useMemo(() => {
     let sum = 0;
     if (isGrooming) {
       sum += (mainPackage.basePrice || mainPackage.price || 0) * (quantities['main'] || 1);
-      addons.forEach(a => {
+      localAddons.forEach(a => {
         sum += (a.addonPrice || a.price || 0) * (quantities[a.id || a.name || a.addonName] || 0);
       });
       return sum > 0 ? sum : total;
     }
     return total;
-  }, [quantities, mainPackage, addons, isGrooming, total]);
+  }, [quantities, mainPackage, localAddons, isGrooming, total]);
+
+  const expandedAddons = React.useMemo(() => {
+    const arr = [];
+    localAddons.forEach(a => {
+      const addonKey = a.id || a.name || a.addonName || a.title;
+      const qty = quantities[addonKey] || 0;
+      for (let i = 0; i < qty; i++) {
+        arr.push({
+          name: a.addonName || a.addon_name || a.name || a.title || 'Add-on',
+          price: a.addonPrice || a.price || 0
+        });
+      }
+    });
+    return arr;
+  }, [localAddons, quantities]);
 
   const discountedTotal = calculateDiscountedPrice(dynamicTotal, serviceType);
   const amountPaid = (paymentType === 'partial' ? dynamicTotal * 0.3 : dynamicTotal);
@@ -292,11 +334,14 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
         }
       }
       const originalNotes = params.notes || '';
+      
       const payload = {
         ...buildPayload(params, { paymentType, amountPaid: amountPaid, remainingAmount: remainingAmount, totalCost: dynamicTotal }),
         addressId: selectedAddress?.id, requiresAdminAssignment: isScoobyzMatch,
         isDemo: params.isDemo || false, paymentReferenceId: finalPaymentReferenceId,
         notes: `_OP:${dynamicTotal}_ ${originalNotes}`.trim(),
+        selectedSubServices: expandedAddons,
+        packageName: cart[0]?.title || cart[0]?.name || 'Grooming Package'
       };
       const result = await apiCall(payload);
       const bookingId = result?.bookingId || result?.id;
@@ -410,13 +455,13 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
             <AppText style={styles.servicePrice} weight="bold">₹{mainPackage.basePrice || mainPackage.price || total}</AppText>
           </View>
         </View>
-        {addons.length > 0 && (
+        {localAddons.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { marginTop: 8 }]}>
               <MaterialCommunityIcons name="plus" size={18} color={theme.colors.textBlack} />
               <AppText style={styles.sectionTitle}>ADD-ONS</AppText>
             </View>
-            {addons.map((addon, idx) => {
+            {localAddons.map((addon, idx) => {
               const addonKey = addon.id || addon.name || addon.addonName;
               const qty = quantities[addonKey] || 0;
               return (
@@ -445,11 +490,70 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                       </TouchableOpacity>
                     </View>
                   </View>
-                  {idx < addons.length - 1 && <View style={styles.dottedLine} />}
+                  {idx < localAddons.length - 1 && <View style={styles.dottedLine} />}
                 </React.Fragment>
               );
             })}
           </>
+        )}
+
+        {/* NEW "Add Services" Dropdown */}
+        {availableAddons.length > 0 && (
+          <View style={{ marginTop: localAddons.length > 0 ? 16 : 8, paddingTop: localAddons.length > 0 ? 16 : 0, borderTopWidth: localAddons.length > 0 ? 1 : 0, borderTopColor: '#f0f0f0' }}>
+            <TouchableOpacity 
+              style={[styles.sectionHeader, { justifyContent: 'space-between', marginBottom: 0 }]}
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setAddonsDropdownOpen(!isAddonsDropdownOpen);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="plus-circle-outline" size={18} color={theme.colors.primaryDark} style={{ marginRight: 6 }} />
+                <AppText style={[styles.sectionTitle, { color: theme.colors.primaryDark }]}>ADD SERVICES</AppText>
+              </View>
+              <MaterialCommunityIcons name={isAddonsDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={theme.colors.primaryDark} />
+            </TouchableOpacity>
+
+            {isAddonsDropdownOpen && (
+              <View style={{ marginTop: 16, paddingHorizontal: 4 }}>
+                {availableAddons.filter(a => !localAddons.find(la => {
+                  const k1 = la.id || la.name || la.addonName || la.title;
+                  const k2 = a.id || a.name || a.addonName || a.title;
+                  return k1 && k2 && k1 === k2;
+                })).map((addon, idx) => {
+                  return (
+                    <View key={'avail-'+idx} style={[styles.serviceRow, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }]}>
+                      <MaterialCommunityIcons name={addon.icon || 'paw'} size={20} color="#526D82" style={{ marginRight: 16 }} />
+                      <View style={styles.serviceInfo}>
+                        <AppText style={styles.serviceName} weight="bold">
+                          {addon.addonName || addon.addon_name || addon.name || addon.title || 'Add-on'}
+                        </AppText>
+                        <AppText style={styles.servicePrice} weight="bold">₹{addon.addonPrice || addon.price}</AppText>
+                      </View>
+                      <TouchableOpacity 
+                        style={[styles.qtyBtn, { width: 32, height: 32, backgroundColor: theme.colors.primaryDark, borderColor: theme.colors.primaryDark }]}
+                        onPress={() => {
+                          const addonKey = addon.id || addon.name || addon.addonName || addon.title;
+                          setLocalAddons([...localAddons, addon]);
+                          setQuantities(prev => ({ ...prev, [addonKey]: 1 }));
+                        }}
+                      >
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.colors.white} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+                {availableAddons.filter(a => !localAddons.find(la => {
+                  const k1 = la.id || la.name || la.addonName || la.title;
+                  const k2 = a.id || a.name || a.addonName || a.title;
+                  return k1 && k2 && k1 === k2;
+                })).length === 0 && (
+                  <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 8 }}>All available services added.</AppText>
+                )}
+              </View>
+            )}
+          </View>
         )}
       </View>
     );
@@ -543,12 +647,12 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
             <View style={{ flex: 1, marginLeft: 8 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <AppText style={styles.smallLabel}>MODE</AppText>
-                <TouchableOpacity onPress={() => navigation.navigate('AddressBook', { returnScreen: 'ReviewDetails', reviewParams: route.params })}>
+                <TouchableOpacity onPress={() => navigation.navigate('AddressBook', { returnScreen: 'ReviewDetails', reviewParams: { ...route.params, localAddons, quantities } })}>
                   <AppText style={{ color: theme.colors.primary, fontSize: 10 }} weight="bold">CHANGE</AppText>
                 </TouchableOpacity>
               </View>
               <AppText style={[styles.mainValue, { marginBottom: 6 }]} weight="bold">
-                {visitType || (isBoarding ? 'Boarding Facility' : 'Home Service')}
+                {(visitType === 'Home Visit' ? 'Visit' : visitType) || (isBoarding ? 'Boarding Facility' : 'Home Service')}
               </AppText>
               <AppText style={styles.addressText} numberOfLines={2}>
                 {selectedAddress?.fullAddress || (typeof address === 'string' ? address : '')}
@@ -642,7 +746,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           <View style={styles.cancellationBox}>
             <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.textBlack} style={{ marginTop: 2 }} />
             <AppText style={styles.cancellationText}>
-              Cancellations made within 24 hrs of the appointment are subject to a 50% fee.
+              Cancellations made within 24 hrs of the appointment are subject to a ₹49 fee.
             </AppText>
           </View>
         </View>
@@ -665,6 +769,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
         visible={isPaymentModalVisible} onClose={() => setPaymentModalVisible(false)}
         cart={cart} total={dynamicTotal} room={selectedRoom} meal={selectedMeal} nights={nights}
         frequency={frequency} isAggressive={isAggressive} aggressiveFee={aggressiveFee} timesPerDay={timesPerDay}
+        addons={expandedAddons}
       />
       <CustomAlert
         visible={alertConfig.visible} title={alertConfig.title}

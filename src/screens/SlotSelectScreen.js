@@ -88,28 +88,18 @@ export default function SlotSelectScreen({ navigation }) {
 
   const handleSuggestionPress = (label) => {
     if (label === 'Evening') {
-      const todayObj = generatedDates.find(d => d.day === 'Today');
-      if (todayObj) {
-        setSuggestionOverlay({
-          visible: true,
-          title: 'Select Evening Slot',
-          options: ['04:00 PM', '05:30 PM', '06:30 PM'],
-          targetDateStr: todayObj.date
-        });
-      }
+      setSuggestionOverlay({
+        visible: true,
+        title: 'Select Evening Slot',
+        options: ['04:00 PM', '05:30 PM', '06:30 PM'],
+        targetDateStr: selectedDate
+      });
     } else if (label === 'Morning') {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      if (tomorrow.getMonth() !== monthDate.getMonth()) {
-        const nextMonth = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), 1);
-        setMonthDate(nextMonth);
-      }
       setSuggestionOverlay({
         visible: true,
         title: 'Select Morning Slot',
         options: ['09:00 AM', '10:00 AM', '11:00 AM'],
-        targetDateStr: tomorrow.getDate().toString().padStart(2, '0')
+        targetDateStr: selectedDate
       });
     }
   };
@@ -265,7 +255,7 @@ export default function SlotSelectScreen({ navigation }) {
               )
             })
           ) : (
-            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 10 }}>
+            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', marginTop: -10, paddingBottom: 10 }}>
               No slots available for today. Please select a future date.
             </AppText>
           )}
@@ -525,11 +515,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dateScroll: {
-    marginHorizontal: -24,
     marginBottom: 32, // Increased gap below the date scroller
   },
   dateScrollContent: {
-    paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 20, // Prevent drop-shadow clipping at the bottom
   },
@@ -601,7 +589,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   slotItem: {
-    width: width < 380 ? '47%' : '31%',
+    width: '31%',
     backgroundColor: theme.colors.white,
     paddingVertical: 14,
     borderRadius: 12,

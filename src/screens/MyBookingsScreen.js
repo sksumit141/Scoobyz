@@ -177,7 +177,7 @@ export default function MyBookingsScreen({ navigation }) {
                                 </View>
                                 <AppText style={styles.serviceTasks} numberOfLines={2}>Order ID: #{item.id}</AppText>
                             </View>
-                            {item.status === 'cancelled' && <View style={[styles.statusTag, { backgroundColor: '#F5F5F5' }]}><AppText style={[styles.statusTagText, { color: '#757575' }]}>CANCELLED</AppText></View>}
+                            {item.status === 'cancelled' && <View style={[styles.statusTag, { backgroundColor: '#FFEBEE' }]}><AppText style={[styles.statusTagText, { color: '#D32F2F' }]}>CANCELLED</AppText></View>}
                             {item.status === 'declined' && <View style={[styles.statusTag, { backgroundColor: '#FFEBEE' }]}><AppText style={[styles.statusTagText, { color: '#D32F2F' }]}>DECLINED</AppText></View>}
                             {item.status === 'rescheduled' && <View style={[styles.statusTag, { backgroundColor: '#F3E5F5' }]}><AppText style={[styles.statusTagText, { color: '#6A1B9A' }]}>RESCHEDULED</AppText></View>}
                             {item.status === 'pending' && <View style={[styles.statusTag, { backgroundColor: '#FFF3E0' }]}><AppText style={[styles.statusTagText, { color: '#E65100' }]}>PENDING</AppText></View>}
@@ -520,15 +520,16 @@ export default function MyBookingsScreen({ navigation }) {
             },
             cardMiddleRow: {
                 flexDirection: 'row',
-                alignItems: 'center',
+                alignItems: 'flex-start',
             },
             metaColumn: {
                 flex: 1,
                 flexDirection: 'row',
-                alignItems: 'center',
+                alignItems: 'flex-start',
             },
             metaIcon: {
                 marginRight: 10,
+                marginTop: 2, // slightly lower to align with the first line of text
             },
             metaTextContainer: {
                 flex: 1,

@@ -29,9 +29,23 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
 
   if (!packageData) return null;
 
-  const availableAddons = (packageData?.availableAddons || []).filter(a => 
+  const availableAddons = (packageData?.availableAddons || []).filter(a =>
     !a.customServiceName || a.customServiceName === packageData.title
   );
+
+  const isRoyalPamper = packageData?.title?.toLowerCase()?.includes('royal pamper') || packageData?.name?.toLowerCase()?.includes('royal pamper');
+
+  const isAdditionalCharge = (name) => {
+    if (!name) return false;
+    const lowerName = name.toLowerCase().trim();
+    return lowerName.includes('matting') || lowerName.includes('handling') || lowerName.includes('giant breed');
+  };
+
+  const regularAddons = isRoyalPamper
+    ? []
+    : availableAddons.filter(a => !isAdditionalCharge(a.addonName) && !isAdditionalCharge(a.name));
+
+  const additionalCharges = availableAddons.filter(a => isAdditionalCharge(a.addonName) || isAdditionalCharge(a.name));
 
   const handleToggleAddon = (id) => {
     setSelectedAddons(prev =>
@@ -52,7 +66,7 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
   const currentAddonsTotal = availableAddons
     .filter(a => selectedAddons.includes(String(a.id)))
     .reduce((sum, a) => sum + (Number(a.addonPrice) || Number(a.price) || 0), 0);
-    
+
   const finalTotal = basePriceOnly + currentAddonsTotal;
 
   return (
@@ -92,12 +106,13 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
             </View>
 
             <View style={styles.addonsList}>
-              {availableAddons.length === 0 && (
+              {regularAddons.length === 0 && !isRoyalPamper && (
                 <AppText style={{ textAlign: 'center', color: theme.colors.textSecondary, marginVertical: 20 }}>
                   No extra add-ons available for this service.
                 </AppText>
               )}
-              {availableAddons.map((addon) => {
+
+              {regularAddons.map((addon) => {
                 const addonId = String(addon.id);
                 const isSelected = selectedAddons.includes(addonId);
                 const price = Number(addon.addonPrice) || Number(addon.price) || 0;
@@ -123,6 +138,41 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
               })}
             </View>
 
+            {additionalCharges.length > 0 && (
+              <View style={[styles.section, { marginTop: isRoyalPamper ? -10 : 24 }]}>
+                <AppText style={[styles.sectionLabel, { fontSize: 18, color: '#000000' }]} weight="bold">Additional charges</AppText>
+                <AppText style={{ fontSize: 12, color: theme.colors.textSecondary, marginBottom: 12 }}>
+                  *These charges may also be applied by the groomer upon physical inspection.
+                </AppText>
+                <View style={styles.addonsList}>
+                  {additionalCharges.map((addon) => {
+                    const addonId = String(addon.id);
+                    const isSelected = selectedAddons.includes(addonId);
+                    const price = Number(addon.addonPrice) || Number(addon.price) || 0;
+                    return (
+                      <TouchableOpacity
+                        key={addonId}
+                        style={[styles.addonItem, isSelected && styles.addonItemActive]}
+                        onPress={() => handleToggleAddon(addonId)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.addonIconBg}>
+                          <MaterialCommunityIcons name={addon.icon || "dog"} size={18} color={theme.colors.white} />
+                        </View>
+                        <AppText style={styles.addonTitle} weight={isSelected ? "bold" : "regular"}>{addon.addonName || addon.name}</AppText>
+                        <AppText style={styles.addonPrice} weight="bold">₹{price}</AppText>
+                        <MaterialCommunityIcons
+                          name="paw"
+                          size={20}
+                          color={isSelected ? '#D32F2F' : '#A0AAB5'}
+                        />
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              </View>
+            )}
+
           </ScrollView>
 
           <View style={styles.bottomBar}>
@@ -134,12 +184,12 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
               style={styles.addBtn}
               activeOpacity={0.8}
               onPress={() => {
-                onAdd({ 
-                  packageId: packageData.id, 
-                  basePrice: basePriceOnly, 
-                  addons: availableAddons.filter(a => selectedAddons.includes(String(a.id))), 
-                  totalAddonPrice: currentAddonsTotal, 
-                  medicalInfo 
+                onAdd({
+                  packageId: packageData.id,
+                  basePrice: basePriceOnly,
+                  addons: availableAddons.filter(a => selectedAddons.includes(String(a.id))),
+                  totalAddonPrice: currentAddonsTotal,
+                  medicalInfo
                 });
               }}
             >

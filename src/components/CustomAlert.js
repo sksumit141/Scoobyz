@@ -143,10 +143,10 @@ const getStyles = (insets) => StyleSheet.create({
     lineHeight: 32,
   },
   message: {
-    fontSize: 16,
+    fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
     paddingHorizontal: 15,
   },
   buttonRow: {

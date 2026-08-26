@@ -24,8 +24,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 250,
-    height: 125,
+    width: 320,
+    height: 160,
     marginLeft: 30, // Shifting slightly to the right for perfect visual balance
   },
 });

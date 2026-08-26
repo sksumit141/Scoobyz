@@ -136,12 +136,17 @@ const ProfileScreen = ({ navigation }) => {
         setLoading(true);
         const selectedImage = result.assets[0];
 
-        // Fetch the image to get a blob (works on both mobile and web)
-        const response = await fetch(selectedImage.uri);
-        const blob = await response.blob();
-
         const formData = new FormData();
-        formData.append('photo', blob, 'profile_photo.jpg');
+        if (Platform.OS === 'web') {
+          const response = await fetch(selectedImage.uri);
+          const blob = await response.blob();
+          formData.append('photo', blob, 'profile_photo.jpg');
+        } else {
+          const filename = selectedImage.uri.split('/').pop();
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image`;
+          formData.append('photo', { uri: selectedImage.uri, name: filename, type });
+        }
 
         const uploadRes = await customerApi.uploadPhoto(formData);
         if (uploadRes.success) {
@@ -403,7 +408,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     color: '#333333',
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: theme.fonts.heading,
     marginBottom: 4,
   },

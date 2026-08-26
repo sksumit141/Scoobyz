@@ -265,7 +265,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                 {/* Top Section */}
                 <View style={styles.topSection}>
                     {booking.status === 'rescheduled' && (
-                        <View style={{ backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 16, width: '90%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 16, marginTop: -20, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
                             <Ionicons name="time-outline" size={20} color="#E65100" style={{ marginRight: 8 }} />
                             <AppText style={{ color: '#E65100', flex: 1, fontSize: 13 }}>
                                 Reschedule request sent. Waiting for vendor approval.
@@ -273,7 +273,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                         </View>
                     )}
                     {booking.status === 'declined' && (
-                        <View style={{ backgroundColor: '#FFEBEE', padding: 12, borderRadius: 8, marginBottom: 16, width: '90%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ backgroundColor: '#FFEBEE', padding: 12, borderRadius: 8, marginBottom: 16, marginTop: -20, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
                             <Ionicons name="alert-circle" size={20} color="#D32F2F" style={{ marginRight: 8 }} />
                             <AppText style={{ color: '#D32F2F', flex: 1, fontSize: 13 }}>
                                 The vendor has declined this request. Please select a different date and time by clicking Reschedule below.
@@ -281,9 +281,9 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                         </View>
                     )}
                     {booking.status === 'cancelled' && (
-                        <View style={{ backgroundColor: '#F5F5F5', padding: 12, borderRadius: 8, marginBottom: 16, width: '90%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
-                            <Ionicons name="close-circle" size={20} color="#757575" style={{ marginRight: 8 }} />
-                            <AppText style={{ color: '#757575', flex: 1, fontSize: 13 }}>
+                        <View style={{ backgroundColor: '#FFEBEE', padding: 12, borderRadius: 8, marginBottom: 16, marginTop: -20, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="close-circle" size={20} color="#D32F2F" style={{ marginRight: 8 }} />
+                            <AppText style={{ color: '#D32F2F', flex: 1, fontSize: 13 }}>
                                 This booking has been cancelled.
                             </AppText>
                         </View>
@@ -296,37 +296,47 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
 
                 {/* Main Info Card */}
                 <View style={styles.card}>
-                    {/* Date & Time & PIN */}
+                    {/* Date & Time & Expert Row */}
                     <View style={[styles.infoBlock, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }]}>
-                        <View>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
                             <AppText style={styles.infoLabel}>DATE & TIME</AppText>
                             <AppText style={styles.infoValue}>
                                 {formatBookingDate(booking.serviceDate)}{booking.timeSlot ? ` • ${booking.timeSlot}` : ' • 10:30 AM'}
                             </AppText>
                         </View>
-                        {(booking.status === 'confirmed' || booking.status === 'in_progress') && booking.otp && (
+                        <View style={{ width: 1, backgroundColor: '#F0F2F5', height: '100%', marginHorizontal: 8 }} />
+                        <View style={{ flex: 1, paddingLeft: 10 }}>
+                            <AppText style={styles.infoLabel}>{booking.bookingType === 'walking' ? 'WALKER' : 'EXPERT'}</AppText>
+                            <View style={styles.expertRow}>
+                                <AppText style={[styles.infoValue, { flex: 1 }]} numberOfLines={1}>{booking.vendorName || (['pending', 'awaiting_vendor'].includes(booking.status) ? 'Assigning...' : 'Unassigned')}</AppText>
+                                {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
+                                    <>
+                                        <TouchableOpacity style={[styles.actionIconBtn, { width: 28, height: 28, marginLeft: 6 }]} activeOpacity={0.8} onPress={handleCall}>
+                                            <Ionicons name="call-outline" size={14} color="#FFF" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={[styles.actionIconBtn, { width: 28, height: 28, marginLeft: 6 }]} activeOpacity={0.8}>
+                                            <Ionicons name="chatbubble-outline" size={14} color="#FFF" />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* PIN Block (if exists) */}
+                    {(booking.status === 'confirmed' || booking.status === 'in_progress') && booking.otp && (
+                        <View style={[styles.infoBlock, { flexDirection: 'row', alignItems: 'center' }]}>
                             <View style={[styles.otpMinimalContainer, { marginTop: 0 }]}>
                                 <AppText style={styles.otpMinimalLabel}>PIN</AppText>
                                 <View style={styles.otpHighlight}>
                                     <AppText style={styles.otpMinimalValue} weight="bold">{booking.otp}</AppText>
                                 </View>
                             </View>
-                        )}
-                    </View>
-
-                    {/* Expert */}
-                    <View style={styles.infoBlock}>
-                        <AppText style={styles.infoLabel}>EXPERT</AppText>
-                        <View style={styles.expertRow}>
-                            <AppText style={[styles.infoValue, { flex: 1 }]}>{booking.vendorName || 'Sarah Jenkens'}</AppText>
-                            <TouchableOpacity style={styles.actionIconBtn} activeOpacity={0.8} onPress={handleCall}>
-                                <Ionicons name="call-outline" size={16} color="#FFF" />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionIconBtn} activeOpacity={0.8}>
-                                <Ionicons name="chatbubble-outline" size={16} color="#FFF" />
-                            </TouchableOpacity>
+                            <AppText style={{ flex: 1, marginLeft: 12, fontSize: 12, color: theme.colors.textSecondary }}>
+                                Share this PIN with your {booking.bookingType === 'walking' ? 'walker' : 'expert'} to start the service.
+                            </AppText>
                         </View>
-                    </View>
+                    )}
 
                     {/* Address */}
                     <View style={styles.infoBlock}>
@@ -404,7 +414,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                 <View style={styles.infoBanner}>
                     <Ionicons name="information-circle-outline" size={18} color={theme.colors.textSecondary} style={{ marginTop: 2 }} />
                     <AppText style={styles.infoBannerText}>
-                        Cancellation made within 24hrs of the appointment are subject to 50% fee.
+                        Cancellation made within 24hrs of the appointment are subject to a ₹49 fee.
                     </AppText>
                 </View>
 

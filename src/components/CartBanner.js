@@ -28,7 +28,7 @@ const CartBanner = () => {
             <MaterialCommunityIcons name="cart-outline" size={24} color={theme.colors.white} />
           </View>
           <View style={styles.textContainer}>
-            <AppText style={styles.title} weight="bold">Uncompleted Booking</AppText>
+            <AppText style={styles.title} weight="bold">Incomplete Booking</AppText>
             <AppText style={styles.subtitle}>{cartItem.serviceName} • ₹{cartItem.amount}</AppText>
           </View>
         </View>

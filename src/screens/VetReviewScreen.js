@@ -87,7 +87,7 @@ export default function VetReviewScreen({ navigation, route }) {
           <View style={styles.cancellationBox}>
             <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.textBlack} style={{ marginTop: 2 }} />
             <AppText style={styles.cancellationText}>
-              Cancellations made within 24hrs are subject to a 50% convenience fee.
+              Cancellations made within 24hrs are subject to a ₹49 convenience fee.
             </AppText>
           </View>
         </View>

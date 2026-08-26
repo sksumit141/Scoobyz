@@ -252,7 +252,8 @@ const AddPetProfileScreen = ({ navigation, route }) => {
           extraScrollHeight={100}
         >
           {/* PET SELECTION HORIZONTAL LIST */}
-          <ScrollView
+          {pets.length > 0 && (
+            <ScrollView
             horizontal
             showsHorizontalScrollIndicator={true}
             nestedScrollEnabled={true}
@@ -290,7 +291,8 @@ const AddPetProfileScreen = ({ navigation, route }) => {
               )
             })}
 
-          </ScrollView>
+            </ScrollView>
+          )}
 
           {/* MAIN FORM CARD */}
           <View style={styles.formContainer}>
@@ -501,7 +503,7 @@ const AddPetProfileScreen = ({ navigation, route }) => {
                   disabled={saving}
                 >
                   <AppText style={styles.saveButtonText} weight="bold">
-                    {saving ? 'Saving...' : 'Update Details'}
+                    {saving ? 'Saving...' : (activePet ? 'Update Details' : 'Add Pet')}
                   </AppText>
                 </TouchableOpacity>
 
@@ -603,7 +605,7 @@ const styles = StyleSheet.create({
   formContainer: {
     paddingHorizontal: 24,
     paddingTop: 10,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   sectionTitle: {
     fontSize: 20,

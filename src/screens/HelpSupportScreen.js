@@ -36,7 +36,7 @@ const FAQS = [
     id: '4',
     category: 'Account',
     question: 'Can I cancel my appointment?',
-    answer: 'Yes, cancellations made within 24 hours of the appointment are subject to a 50% convenience fee.'
+    answer: 'Yes, cancellations made within 24 hours of the appointment are subject to a ₹49 convenience fee.'
   }
 ];
 

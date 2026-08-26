@@ -90,7 +90,7 @@ export default function ExploreScreen({ navigation }) {
           <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color="#999" style={styles.searchIcon} />
             <TextInput
-              placeholder="Search for grooming, walking or vet"
+              placeholder="Search for grooming, walking, boarding..."
               style={styles.searchInput}
               placeholderTextColor="#999"
             />
@@ -239,6 +239,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#222',
+    textAlign: 'center',
+    marginRight: 30, // Balances the 20px icon + 10px margin on the left
   },
   content: {
     paddingTop: 24,

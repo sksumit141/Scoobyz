@@ -28,7 +28,7 @@ const RegisterNameScreen = ({ navigation }) => {
 
   const handleContinue = async () => {
     if (name.trim().length < 2) return;
-    
+
     setLoading(true);
     try {
       await customerApi.updateProfile({ name: name.trim() });
@@ -51,11 +51,11 @@ const RegisterNameScreen = ({ navigation }) => {
         />
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1, width: '100%' }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1, width: '100%' }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={[styles.content, { paddingBottom: Math.max(40, insets.bottom + 20) }]}>
+        <View style={styles.content}>
           <View style={styles.formContainer}>
             <AppText type="heading" weight="700" style={styles.title}>
               What's your name?
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   headerRow: {
     flexDirection: 'row',
@@ -134,11 +134,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 20,
+    marginBottom: 10,
+    lineHeight: 18,
     paddingHorizontal: 20,
   },
   button: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,

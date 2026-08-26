@@ -76,6 +76,7 @@ import RatingReviewScreen from './src/screens/RatingReviewScreen';
 import ViewSubmittedReviewScreen from './src/screens/ViewSubmittedReviewScreen';
 import TrackingScreen from './src/screens/TrackingScreen';
 import VideoCallScreen from './src/screens/VideoCallScreen';
+import ComingSoonScreen from './src/screens/ComingSoonScreen';
 import BookVendorScreen from './src/screens/BookVendorScreen';
 import ReviewDetailsScreen from './src/screens/ReviewDetailsScreen';
 import BookingPendingScreen from './src/screens/BookingPendingScreen';
@@ -181,6 +182,7 @@ export default function App() {
             <Stack.Screen name="LandingScreen" component={LandingScreen} />
             <Stack.Screen name="Menu" component={MenuScreen} />
             <Stack.Screen name="Explore" component={ExploreScreen} />
+            <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
             
             {/* Drawer Screens restored to Stack for proper back-button behavior */}
             <Stack.Screen name="Profile" component={ProfileScreen} />

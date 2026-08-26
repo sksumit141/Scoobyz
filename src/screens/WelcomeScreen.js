@@ -329,12 +329,6 @@ const WelcomeScreen = ({ navigation }) => {
               <AppText style={styles.miniButtonText}>Log In</AppText>
             </AppButton>
 
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => transitionTo('initial')}
-            >
-              <AppText style={styles.backText} weight="700">Back</AppText>
-            </TouchableOpacity>
           </View>
         );
 
