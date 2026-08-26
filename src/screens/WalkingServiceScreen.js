@@ -466,7 +466,7 @@ export default function WalkingServiceScreen({ navigation }) {
             });
           }}
         >
-          <AppText style={styles.confirmBtnText} weight="bold">Find Walkers</AppText>
+          <AppText style={styles.confirmBtnText} weight="bold">Confirm</AppText>
         </TouchableOpacity>
       </View>
 
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   confirmBtn: {
     backgroundColor: theme.colors.success,
     paddingVertical: 14,
-    paddingHorizontal: 40,
+    paddingHorizontal: 36,
     borderRadius: 12,
   },
   confirmBtnText: {

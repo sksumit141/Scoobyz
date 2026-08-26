@@ -223,7 +223,7 @@ const LandingScreen = ({ navigation }) => {
                 <AppText style={{ color: theme.colors.textBlack, fontWeight: '900', fontSize: width < 360 ? 12 : 14, marginBottom: 4 }}>
                   WELCOME TO{'\n'}MY DOGGIE DEALS
                 </AppText>
-                <AppText style={{ fontSize: width < 360 ? 9 : 10, color: theme.colors.textPrimary }}>Your one-stop shop for all your pet needs!</AppText>
+                <AppText style={{ fontSize: width < 360 ? 9 : 10, color: theme.colors.textPrimary }}>Your one-stop shop for your pets.</AppText>
               </View>
               <Image
                 source={require('../../assets/hero_dog.jpg')}
@@ -298,7 +298,7 @@ const LandingScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Services Section */}
-          <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+          <View style={[styles.sectionHeader, { marginTop: 0 }]}>
             <AppText type="heading" style={styles.sectionTitle}>Services</AppText>
           </View>
 
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingRight: 8,
     marginLeft: -4, // Pull slightly left to align with content visually
-    marginTop: -13, // Shift up slightly to align horizontally with the address text block
+    marginTop: -14, // Shift up slightly to align horizontally with the address text block
   },
 
   greetingWrapper: {

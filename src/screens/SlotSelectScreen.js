@@ -681,13 +681,13 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     backgroundColor: theme.colors.success,
-    paddingVertical: 18,
-    paddingHorizontal: 56,
-    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    borderRadius: 12,
   },
   confirmBtnText: {
     color: theme.colors.white,
-    fontSize: 18,
+    fontSize: 16,
   },
   overlayBackground: {
     flex: 1,
