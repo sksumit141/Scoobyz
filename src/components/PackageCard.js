@@ -24,7 +24,7 @@ export default function PackageCard({ pkg, onAdd, isAdded, isSelected }) {
       
       <AppText style={styles.title} weight="bold">{pkg.title}</AppText>
       
-      <Image source={{ uri: pkg.image }} style={styles.image} />
+      <Image source={typeof pkg.image === 'string' ? { uri: pkg.image } : pkg.image} style={styles.image} />
       
       {/* 
       {pkg.duration ? (

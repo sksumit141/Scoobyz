@@ -11,10 +11,10 @@ import { useBackHandler } from '../hooks/useBackHandler';
 export default function BookingCancelledStatusScreen({ route, navigation }) {
     const { booking } = route.params;
 
-    // Hardware back + visual back both go to MyBookings (terminal screen — nothing to go back to)
+    // Hardware back + visual back both go to Landing (terminal screen)
     const { handleBack } = useBackHandler({
         onBack: () => {
-            navigation.navigate('MyBookings');
+            navigation.navigate('LandingScreen');
             return true;
         }
     });
@@ -79,7 +79,7 @@ export default function BookingCancelledStatusScreen({ route, navigation }) {
     return (
         <AppScreen padding={false} style={styles.screen}>
             {/* Header */}
-            <AppHeader title="Booking Status" onBack={handleBack} />
+            <AppHeader title="Booking Status" closeIcon={true} onBackPress={handleBack} />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 

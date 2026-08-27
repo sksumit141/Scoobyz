@@ -75,7 +75,7 @@ export default function MyBookingsScreen({ navigation }) {
         return allBookings.filter(item => {
             const status = (item.status || '').toLowerCase();
             if (filter === 'upcoming') {
-                return status === 'pending' || status === 'confirmed' || status === 'in_progress' || status === 'rescheduled';
+                return status === 'pending' || status === 'confirmed' || status === 'in_progress' || status === 'rescheduled' || status === 'awaiting_vendor';
             } else if (filter === 'past') {
                 return status === 'completed';
             } else if (filter === 'cancelled') {
@@ -181,7 +181,8 @@ export default function MyBookingsScreen({ navigation }) {
                             {item.status === 'declined' && <View style={[styles.statusTag, { backgroundColor: '#FFEBEE' }]}><AppText style={[styles.statusTagText, { color: '#D32F2F' }]}>DECLINED</AppText></View>}
                             {item.status === 'rescheduled' && <View style={[styles.statusTag, { backgroundColor: '#F3E5F5' }]}><AppText style={[styles.statusTagText, { color: '#6A1B9A' }]}>RESCHEDULED</AppText></View>}
                             {item.status === 'pending' && <View style={[styles.statusTag, { backgroundColor: '#FFF3E0' }]}><AppText style={[styles.statusTagText, { color: '#E65100' }]}>PENDING</AppText></View>}
-                            {!['cancelled', 'declined', 'rescheduled', 'pending'].includes(item.status) && (
+                            {item.status === 'awaiting_vendor' && <View style={[styles.statusTag, { backgroundColor: '#FFF3E0' }]}><AppText style={[styles.statusTagText, { color: '#E65100' }]}>ASSIGNING</AppText></View>}
+                            {!['cancelled', 'declined', 'rescheduled', 'pending', 'awaiting_vendor'].includes(item.status) && (
                                 <Ionicons name="chevron-forward" size={18} color="#C4CCD3" style={styles.chevron} />
                             )}
                         </View>

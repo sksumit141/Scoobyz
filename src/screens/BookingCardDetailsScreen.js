@@ -272,6 +272,14 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                             </AppText>
                         </View>
                     )}
+                    {booking.status === 'awaiting_vendor' && (
+                        <View style={{ backgroundColor: '#E3F2FD', padding: 12, borderRadius: 8, marginBottom: 16, marginTop: -20, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="search-outline" size={20} color="#1976D2" style={{ marginRight: 8 }} />
+                            <AppText style={{ color: '#1976D2', flex: 1, fontSize: 13 }}>
+                                Assigning a nearby expert to your order...
+                            </AppText>
+                        </View>
+                    )}
                     {booking.status === 'declined' && (
                         <View style={{ backgroundColor: '#FFEBEE', padding: 12, borderRadius: 8, marginBottom: 16, marginTop: -20, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center' }}>
                             <Ionicons name="alert-circle" size={20} color="#D32F2F" style={{ marginRight: 8 }} />

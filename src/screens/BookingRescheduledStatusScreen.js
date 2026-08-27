@@ -110,10 +110,11 @@ export default function BookingRescheduledStatusScreen({ route, navigation }) {
         };
     }, [bookingId]);
 
-    // Disable back while waiting — go to MyBookings if already resolved
+    // Disable back while waiting — go to Landing if already resolved
     const { handleBack } = useBackHandler({
         onBack: () => {
-            navigation.navigate('MyBookings');
+            if (status === 'waiting') return true; // block back
+            navigation.navigate('LandingScreen');
             return true;
         }
     });
@@ -217,7 +218,7 @@ export default function BookingRescheduledStatusScreen({ route, navigation }) {
     return (
         <AppScreen padding={false} style={styles.screen}>
             {/* Header */}
-            <AppHeader title="Booking Status" onBack={handleBack} />
+            <AppHeader title="Booking Status" closeIcon={true} onBackPress={handleBack} />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 

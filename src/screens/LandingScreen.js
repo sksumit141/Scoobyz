@@ -231,6 +231,15 @@ const LandingScreen = ({ navigation }) => {
                 resizeMode="cover"
               />
             </View>
+
+            {/* Promo Banner 2 */}
+            <View style={[styles.banner, { paddingLeft: 0, backgroundColor: 'transparent' }]}>
+              <Image
+                source={require('../../assets/AppHomepage.png')}
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                resizeMode="cover"
+              />
+            </View>
           </AutoScrollBanners>
 
           {/* My Pets Section */}

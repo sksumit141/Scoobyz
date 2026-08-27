@@ -11,6 +11,7 @@ export default function AppHeader({
   onBackPress, 
   rightComponent, 
   showBackButton = true,
+  closeIcon = false,
   style,
   headerTheme = 'light' // 'light' means dark text/icons, 'dark' means white text/icons
 }) {
@@ -26,7 +27,7 @@ export default function AppHeader({
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <MaterialCommunityIcons name="chevron-left" size={28} color={textColor} />
+          <MaterialCommunityIcons name={closeIcon ? "close" : "chevron-left"} size={28} color={textColor} />
         </TouchableOpacity>
       )}
       

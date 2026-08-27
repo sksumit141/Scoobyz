@@ -6,11 +6,23 @@ import AppScreen from '../components/AppScreen';
 import AppHeader from '../components/AppHeader';
 import PackageCard from '../components/PackageCard';
 import AddonsModal from '../components/AddonsModal';
-import { discoverApi } from '../services/api';
+import { discoverApi, petsApi } from '../services/api';
 import { theme } from '../styles/theme';
 
 export default function ExplorePackagesScreen({ route, navigation }) {
-  const { expert, serviceName = 'Grooming', isScoobyzGrooming, pet } = route.params || {};
+  const { expert, serviceName = 'Grooming', isScoobyzGrooming, pet: petParam } = route.params || {};
+
+  // Always fetch the latest pet from the server so breed/size changes reflect instantly
+  const [livePet, setLivePet] = useState(petParam || {});
+  useEffect(() => {
+    if (petParam?.id) {
+      petsApi.get(petParam.id)
+        .then(updatedPet => { if (updatedPet) setLivePet(updatedPet); })
+        .catch(() => {}); // fallback to petParam already set
+    }
+  }, [petParam?.id]);
+
+  const pet = livePet;
   const petSize = pet?.size || 'Medium';
   const [packages, setPackages] = useState([]);
   const [addons, setAddons] = useState([]);
@@ -33,9 +45,32 @@ export default function ExplorePackagesScreen({ route, navigation }) {
       setLoading(true);
       setError(null);
 
+      const mapPackageImage = (p) => {
+        const titleLower = (p.name || p.title || p.serviceName || '').toLowerCase();
+        let imageUri = require('../../assets/3.png');
+
+        if (titleLower.includes('basic')) {
+          imageUri = require('../../assets/1.png');
+        } else if (titleLower.includes('fresh') || titleLower.includes('delux') || titleLower.includes('signature')) {
+          imageUri = require('../../assets/2.png');
+        }
+
+        return {
+          id: String(p.id),
+          title: p.name || p.serviceName || p.title || 'Package',
+          price: Number(p.price) || 0,
+          duration: p.duration || '',
+          features: p.features || [],
+          badge: p.serviceName || p.badge || '',
+          image: imageUri,
+          pricing: p.pricing || null
+        };
+      };
+
       if (isScoobyzGrooming) {
         const data = await discoverApi.scoobyzPackages();
-        setPackages(data.packages || []);
+        const mappedScoobyz = (data.packages || []).map(mapPackageImage);
+        setPackages(mappedScoobyz);
         setAddons(data.addons || []);
         return;
       }
@@ -59,28 +94,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
           p.serviceName?.toLowerCase().includes(serviceName.toLowerCase()) && p.name
         );
 
-        // Map backend format to what PackageCard expects
-        const mapped = rawPackages.map(p => {
-          const titleLower = (p.name || '').toLowerCase();
-
-          let imageUri = p.image || 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=600&q=80';
-
-          if (titleLower.includes('delux')) {
-            imageUri = 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600&q=80';
-          } else if (titleLower.includes('basic')) {
-            imageUri = 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&q=80';
-          }
-
-          return {
-            id: String(p.id),
-            title: p.name || p.serviceName || 'Package',
-            price: Number(p.price) || 0,
-            duration: p.duration || '',
-            features: [],
-            badge: p.serviceName || '',
-            image: imageUri,
-          };
-        });
+        const mapped = rawPackages.map(mapPackageImage);
         setPackages(mapped);
       }
       setAddons(data.addons || []);
@@ -98,11 +112,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
     if (isAdded) {
       setCart(prev => prev.filter(item => item.packageId !== pkg.id));
     } else {
-      let finalPrice = pkg.price;
-      if (isScoobyzGrooming && pkg.pricing) {
-        finalPrice = pkg.pricing[petSize]?.launch || pkg.pricing.Medium.launch;
-      }
-      setActiveModalPkg({ ...pkg, price: finalPrice, availableAddons: addons });
+      setActiveModalPkg({ ...pkg, price: pkg.price, availableAddons: addons });
     }
   };
 
@@ -188,6 +198,11 @@ export default function ExplorePackagesScreen({ route, navigation }) {
           // prices for all 3 types of services here!
           // ==========================================================
           const customPricing = {
+            'basic': {
+              Small: { original: 799, launch: 699 },
+              Medium: { original: 899, launch: 799 },
+              Large: { original: 999, launch: 899 }
+            },
             'fresh': {
               Small: { original: 799, launch: 699 },
               Medium: { original: 899, launch: 799 },
@@ -223,13 +238,14 @@ export default function ExplorePackagesScreen({ route, navigation }) {
               isSelected={serviceName === 'Boarding' && selectedRoom?.id === pkg.id}
               isAdded={isAdded}
               onAdd={() => {
+                const packageWithUpdatedPrice = { ...pkg, price: displayPrice, originalPrice: originalPrice };
                 if (serviceName === 'Boarding') {
-                  setSelectedRoom(pkg);
+                  setSelectedRoom(packageWithUpdatedPrice);
                 } else {
                   if (addons && addons.length > 0) {
-                    handleAddClick(pkg);
+                    handleAddClick(packageWithUpdatedPrice);
                   } else {
-                    setCart([{ ...pkg, basePrice: displayPrice, totalAddonPrice: 0 }]);
+                    setCart([{ ...packageWithUpdatedPrice, basePrice: displayPrice, totalAddonPrice: 0 }]);
                   }
                 }
               }}
@@ -277,6 +293,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
                 ...route.params,
                 cart,
                 total,
+                pet, // pass livePet (freshly fetched) so breed/size is always current
                 expert: isScoobyzGrooming ? { id: 'scoobyz_match', name: 'Scoobyz Team Match' } : expert,
                 serviceType: serviceName
               });

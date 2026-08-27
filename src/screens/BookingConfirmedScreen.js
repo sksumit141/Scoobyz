@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Animated, Easing, Modal, LayoutAnimation, Platform, UIManager } from 'react-native';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// Note: setLayoutAnimationEnabledExperimental causes black screens on some Android devices
+// when used alongside Animated with useNativeDriver. Keeping it off here.
+const safeLayoutAnimation = () => {
+  try {
+    if (Platform.OS !== 'android') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+  } catch (e) {}
+};
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
@@ -58,7 +64,7 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
   const [isPackageExpanded, setIsPackageExpanded] = useState(false);
 
   const togglePackageAccordion = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    safeLayoutAnimation();
     setIsPackageExpanded(!isPackageExpanded);
   };
 

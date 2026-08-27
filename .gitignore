@@ -44,3 +44,4 @@ yarn-error.*
 # Firebase
 google-services.json
 *firebase-adminsdk*.json
+*scoobyz-816f1-7dbfe11276a1.json

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     StyleSheet,
@@ -19,7 +19,6 @@ import InvoiceComponent from '../components/InvoiceComponent';
 import PawLoader from '../components/PawLoader';
 
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120000; // 2 minutes
 
 export default function BookingPendingScreen({ navigation, route }) {
     const {
@@ -44,7 +43,6 @@ export default function BookingPendingScreen({ navigation, route }) {
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const intervalRef = useRef(null);
-    const timeoutRef = useRef(null);
     const dotRef = useRef(null);
 
     useEffect(() => {
@@ -53,20 +51,17 @@ export default function BookingPendingScreen({ navigation, route }) {
         startDotAnimation();
 
         const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-            // Prevent going back if still pending and not timed out
-            if (!timedOut && status === 'pending') {
-                e.preventDefault();
-            }
+            // Allow going back to home manually if they press the cross button
+            // If they use standard back, we let them since the booking remains open.
         });
 
         return () => {
             clearInterval(intervalRef.current);
-            clearTimeout(timeoutRef.current);
             clearInterval(dotRef.current);
             pulseAnim.stopAnimation();
             unsubscribe();
         };
-    }, [navigation, timedOut, status]);
+    }, [navigation, status]);
 
     const startPulsing = () => {
         Animated.loop(
@@ -110,16 +105,10 @@ export default function BookingPendingScreen({ navigation, route }) {
                 console.warn('[Pending] Poll error:', err.message);
             }
         }, POLL_INTERVAL_MS);
-
-        timeoutRef.current = setTimeout(() => {
-            clearInterval(intervalRef.current);
-            setTimedOut(true);
-        }, POLL_TIMEOUT_MS);
     };
 
     const stopPolling = () => {
         clearInterval(intervalRef.current);
-        clearTimeout(timeoutRef.current);
         clearInterval(dotRef.current);
     };
 
@@ -194,6 +183,13 @@ export default function BookingPendingScreen({ navigation, route }) {
                 style={styles.container}
             >
 
+                {/* Close (Cross) Button */}
+                <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => navigation.navigate('LandingScreen')}
+                >
+                    <Ionicons name="close" size={28} color={theme.colors.white} />
+                </TouchableOpacity>
 
                 <View style={styles.body}>
                     {/* Pulse Animation */}
@@ -201,30 +197,15 @@ export default function BookingPendingScreen({ navigation, route }) {
                         <Animated.View style={[styles.outerRing, { transform: [{ scale: pulseAnim }] }]} />
                         <Animated.View style={[styles.innerRing, { transform: [{ scale: pulseAnim }] }]} />
                         <View style={styles.iconCircle}>
-                            <Ionicons name="hourglass-outline" size={40} color={theme.colors.primaryDark} />
+                            <Ionicons name="search-outline" size={40} color={theme.colors.primaryDark} />
                         </View>
                     </View>
 
-                    {timedOut ? (
-                        <>
-                            <AppText style={styles.title} weight="bold">No Response Yet</AppText>
-                            <AppText style={styles.subtitle}>
-                                The vendor hasn't responded within 2 minutes.{'\n'}Please try again or choose another vendor.
-                            </AppText>
-                            <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.goBack()}>
-                                <AppText style={styles.retryBtnText} weight="bold">Go Back</AppText>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <AppText style={styles.title} weight="bold">Waiting for Vendor{dots}</AppText>
-                            <AppText style={styles.subtitle}>
-                                Your booking request has been sent to{'\n'}
-                                <AppText weight="bold" style={{ color: theme.colors.white }}>
-                                    {expert.name || expert.businessName || 'the vendor'}
-                                </AppText>
-                                {'\n'}Please wait while they confirm your slot.
-                            </AppText>
+                    <AppText style={styles.title} weight="bold">Searching{dots}</AppText>
+                    <AppText style={styles.subtitle}>
+                        Your booking request is live.
+                        {'\n'}We are searching for eligible vendors...
+                    </AppText>
 
                             {/* Booking Summary Pill */}
                             <View style={styles.summaryPill}>
@@ -241,8 +222,6 @@ export default function BookingPendingScreen({ navigation, route }) {
                             </View>
 
                             <AppText style={styles.bookingIdText}>Booking #{bookingId}</AppText>
-                        </>
-                    )}
                 </View>
             </LinearGradient>
 

@@ -87,14 +87,14 @@ export default function ExploreScreen({ navigation }) {
             }
           />
 
-          <View style={styles.searchContainer}>
+          {/* <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color="#999" style={styles.searchIcon} />
             <TextInput
-              placeholder="Search for grooming, walking, boarding..."
+              placeholder=""
               style={styles.searchInput}
               placeholderTextColor="#999"
             />
-          </View>
+          </View> */}
         </View>
 
         <View style={styles.content}>

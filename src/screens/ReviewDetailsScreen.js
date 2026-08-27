@@ -18,9 +18,14 @@ import { useCart } from '../contexts/CartContext';
 import { formatISTDate, getISTDateString } from '../utils/date_utils';
 import RazorpayCheckout from 'react-native-razorpay';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// Safe LayoutAnimation wrapper — avoids black screens on older Android devices
+const safeLayoutAnimation = () => {
+  try {
+    if (Platform.OS !== 'android') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+  } catch (e) {}
+};
 
 function getServiceApi(serviceType) {
   switch ((serviceType || '').toLowerCase()) {
