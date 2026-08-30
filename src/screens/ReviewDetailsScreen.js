@@ -482,7 +482,18 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                     <View style={styles.qtyContainer}>
                       <TouchableOpacity
                         style={styles.qtyBtn}
-                        onPress={() => setQuantities(prev => ({ ...prev, [addonKey]: Math.max(0, qty - 1) }))}
+                        onPress={() => {
+                          if (qty - 1 <= 0) {
+                            setLocalAddons(prev => prev.filter(a => (a.id || a.name || a.addonName) !== addonKey));
+                            setQuantities(prev => {
+                              const newQ = { ...prev };
+                              delete newQ[addonKey];
+                              return newQ;
+                            });
+                          } else {
+                            setQuantities(prev => ({ ...prev, [addonKey]: qty - 1 }));
+                          }
+                        }}
                       >
                         <MaterialCommunityIcons name="minus" size={16} color={theme.colors.textBlack} />
                       </TouchableOpacity>

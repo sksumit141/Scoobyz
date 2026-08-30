@@ -160,8 +160,8 @@ const getStyles = (insets) => StyleSheet.create({
     paddingHorizontal: 8,
   },
   button: {
-    height: 72,
-    borderRadius: 24,
+    height: 56,
+    borderRadius: 16,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -172,7 +172,7 @@ const getStyles = (insets) => StyleSheet.create({
   },
   primaryButtonText: {
     color: theme.colors.primaryDark,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
@@ -181,7 +181,7 @@ const getStyles = (insets) => StyleSheet.create({
   },
   cancelButtonText: {
     color: theme.colors.textSecondary,
-    fontSize: 18,
+    fontSize: 16,
   },
   confirmButton: {
     backgroundColor: 'transparent',

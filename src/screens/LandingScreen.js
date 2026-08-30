@@ -307,7 +307,7 @@ const LandingScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Services Section */}
-          <View style={[styles.sectionHeader, { marginTop: 0 }]}>
+          <View style={[styles.sectionHeader, { marginTop: 12 }]}>
             <AppText type="heading" style={styles.sectionTitle}>Services</AppText>
           </View>
 

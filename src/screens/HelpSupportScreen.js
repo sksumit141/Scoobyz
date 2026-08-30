@@ -107,7 +107,7 @@ export default function HelpSupportScreen({ navigation }) {
 
   return (
     <AppScreen safeAreaTop={false} padding={false} backgroundColor="#F9F8F5">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
         {/* Header Section */}
         <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
@@ -198,7 +198,7 @@ export default function HelpSupportScreen({ navigation }) {
             <MaterialCommunityIcons name="chevron-right" size={24} color="#BBB" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.contactCard} activeOpacity={0.8}>
+          {/* <TouchableOpacity style={styles.contactCard} activeOpacity={0.8}>
             <View style={styles.contactIconWrapper}>
               <MaterialCommunityIcons name="phone-outline" size={24} color="#FFF" />
             </View>
@@ -207,7 +207,7 @@ export default function HelpSupportScreen({ navigation }) {
               <AppText style={styles.contactSubtitle}>Mon-Fri, 9am - 6pm</AppText>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#BBB" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Account Management Section */}
           <AppText type="heading" weight="bold" style={[styles.sectionTitle, { marginTop: 20 }]}>Account Management</AppText>

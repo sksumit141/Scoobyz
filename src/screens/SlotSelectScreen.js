@@ -59,7 +59,7 @@ export default function SlotSelectScreen({ navigation }) {
   const generatedDates = generateDates(monthDate);
 
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
-  const [selectedSlot, setSelectedSlot] = useState('09:00 AM');
+  const [selectedSlot, setSelectedSlot] = useState(null);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [choiceModalVisible, setChoiceModalVisible] = useState(false);
 
@@ -84,7 +84,11 @@ export default function SlotSelectScreen({ navigation }) {
     targetDateStr: null
   });
 
-  const formattedSelected = selectedDate ? `${formatISTDate(selectedDate, { day: '2-digit', month: 'short' })}, ${selectedSlot}` : '';
+  const formattedSelected = selectedSlot
+    ? (selectedDate === new Date().toDateString()
+      ? `Today at ${selectedSlot}`
+      : `${formatISTDate(selectedDate, { day: 'numeric', month: 'short' })} at ${selectedSlot}`)
+    : 'Select a time';
 
   const handleSuggestionPress = (label) => {
     if (label === 'Evening') {
@@ -266,7 +270,7 @@ export default function SlotSelectScreen({ navigation }) {
           style={[
             styles.slotItem,
             styles.customSlotBtn,
-            !ALL_SLOTS.includes(selectedSlot) && styles.slotItemActive,
+            selectedSlot && !ALL_SLOTS.includes(selectedSlot) && styles.slotItemActive,
             { width: '100%', marginTop: 10, marginBottom: 24 }
           ]}
           onPress={() => setTimePickerVisible(true)}
@@ -275,21 +279,21 @@ export default function SlotSelectScreen({ navigation }) {
           <MaterialCommunityIcons
             name="plus"
             size={18}
-            color={!ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark}
+            color={selectedSlot && !ALL_SLOTS.includes(selectedSlot) ? theme.colors.white : theme.colors.primaryDark}
           />
           <AppText
             style={[
               styles.slotText,
-              !ALL_SLOTS.includes(selectedSlot) && styles.slotTextActive,
+              selectedSlot && !ALL_SLOTS.includes(selectedSlot) && styles.slotTextActive,
             ]}
           >
-            {!ALL_SLOTS.includes(selectedSlot) ? `Selected: ${selectedSlot}` : 'Add Custom Time'}
+            {selectedSlot && !ALL_SLOTS.includes(selectedSlot) ? `Selected: ${selectedSlot}` : 'Add Custom Time'}
           </AppText>
         </TouchableOpacity>
 
         <CustomTimePicker
           visible={timePickerVisible}
-          initialTime={selectedSlot}
+          initialTime={selectedSlot || '09:00 AM'}
           onConfirm={(time) => setSelectedSlot(time)}
           onClose={() => setTimePickerVisible(false)}
         />
@@ -327,6 +331,10 @@ export default function SlotSelectScreen({ navigation }) {
           style={styles.confirmBtn}
           activeOpacity={0.8}
           onPress={() => {
+            if (!selectedSlot) {
+              Alert.alert('Time Required', 'Please select a time slot to continue.');
+              return;
+            }
             if (visitType === 'Home Visit') {
               if (serviceName === 'Grooming') {
                 // Shifted: go directly to ExplorePackages instead of GroomingPackages

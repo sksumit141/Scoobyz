@@ -33,15 +33,6 @@ import PawLoader from '../components/PawLoader';
 WebBrowser.maybeCompleteAuthSession();
 
 configureGoogleAuth();
-// Enable LayoutAnimation for Android
-try {
-  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
-} catch (e) {
-  console.log('LayoutAnimation not supported');
-}
-
 const { width, height } = Dimensions.get('window');
 const isSmallDevice = height < 700;
 
@@ -56,14 +47,17 @@ const WelcomeScreen = ({ navigation }) => {
   };
 
   const fadeAnim = React.useRef(new Animated.Value(1)).current;
+  const isTransitioning = React.useRef(false);
 
   const transitionTo = (newState, mode = null) => {
+    if (isTransitioning.current) return;
+    isTransitioning.current = true;
+
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
     }).start(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setAuthState(newState);
       if (mode) setSelectedMode(mode);
 
@@ -71,7 +65,9 @@ const WelcomeScreen = ({ navigation }) => {
         toValue: 1,
         duration: 250,
         useNativeDriver: true,
-      }).start();
+      }).start(() => {
+        isTransitioning.current = false;
+      });
     });
   };
 

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, FlatList, Image, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, FlatList, Image, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import AppHeader from '../components/AppHeader';
+import CustomAlert from '../components/CustomAlert';
 import { theme } from '../styles/theme';
 import { articlesApi } from '../services/api';
 
@@ -19,6 +20,7 @@ export default function ExploreScreen({ navigation }) {
   const regularArticles = articles.filter(a => !a.isFeatured);
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef(null);
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '' });
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -115,7 +117,13 @@ export default function ExploreScreen({ navigation }) {
           {/* Tips & Articles Carousel */}
           <View style={styles.sectionHeader}>
             <AppText type="heading" weight="bold" style={styles.sectionTitle}>Tips & Articles</AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('Articles')}>
+            <TouchableOpacity onPress={() => {
+              if (articles.length === 0) {
+                setAlertConfig({ visible: true, title: 'No Articles', message: 'No articles currently available. Stay tuned!' });
+              } else {
+                navigation.navigate('Articles');
+              }
+            }}>
               <AppText style={styles.viewAllText}>View All</AppText>
             </TouchableOpacity>
           </View>
@@ -170,6 +178,12 @@ export default function ExploreScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+      <CustomAlert 
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        onClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </AppScreen>
   );
 }

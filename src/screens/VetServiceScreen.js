@@ -52,7 +52,7 @@ export default function VetServiceScreen({ navigation }) {
   const [monthDate, setMonthDate] = useState(new Date());
   const generatedDates = generateDates(monthDate);
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
-  const [selectedSlot, setSelectedSlot] = useState('09:00 AM');
+  const [selectedSlot, setSelectedSlot] = useState(null);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
 
   const handlePrevMonth = () => {
@@ -264,6 +264,10 @@ export default function VetServiceScreen({ navigation }) {
           activeOpacity={0.8}
           disabled={!isFormValid()}
           onPress={() => {
+            if (!selectedSlot) {
+              Alert.alert('Time Required', 'Please select a time slot to continue.');
+              return;
+            }
             const currentParams = route?.params || {};
             navigation.navigate('VetList', {
               ...currentParams,

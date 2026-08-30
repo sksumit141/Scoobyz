@@ -82,7 +82,7 @@ export default function WalkingServiceScreen({ navigation }) {
   const [monthDate, setMonthDate] = useState(new Date());
   const generatedDates = generateDates(monthDate);
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
-  const [selectedSlots, setSelectedSlots] = useState(['09:00 AM']);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [choiceModalVisible, setChoiceModalVisible] = useState(false);
   const [customSlot, setCustomSlot] = useState(null);
