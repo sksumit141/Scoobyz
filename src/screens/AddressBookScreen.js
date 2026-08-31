@@ -357,11 +357,15 @@ const AddressBookScreen = ({ navigation, route }) => {
       }
       setModalVisible(false);
       setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: false, phone: '' });
-      await fetchAddresses();
+      
+      // Delay fetching to allow Modal to close fully on iOS
+      setTimeout(async () => {
+        await fetchAddresses();
+        setLoading(false);
+      }, Platform.OS === 'ios' ? 400 : 0);
     } catch (error) {
       console.error('Save address error:', error);
       showAlert('Error', 'Failed to save address.');
-    } finally {
       setLoading(false);
     }
   };
@@ -371,18 +375,20 @@ const AddressBookScreen = ({ navigation, route }) => {
       'Delete Address',
       'Are you sure you want to permanently delete this address?',
       'delete-outline',
-      async () => {
+      () => {
         setAlertConfig(prev => ({ ...prev, visible: false }));
-        try {
-          setLoading(true);
-          await addressApi.delete(id);
-          await fetchAddresses();
-        } catch (error) {
-          console.error('Delete address error:', error);
-          showAlert('Error', 'Failed to delete address.');
-        } finally {
-          setLoading(false);
-        }
+        setTimeout(async () => {
+          try {
+            setLoading(true);
+            await addressApi.delete(id);
+            await fetchAddresses();
+          } catch (error) {
+            console.error('Delete address error:', error);
+            showAlert('Error', 'Failed to delete address.');
+          } finally {
+            setLoading(false);
+          }
+        }, Platform.OS === 'ios' ? 400 : 0);
       },
       'Cancel',
       'Delete',
@@ -460,17 +466,23 @@ const AddressBookScreen = ({ navigation, route }) => {
               style={styles.addressCard}
               onPress={async () => {
                 if (route.params?.returnScreen) {
-                  navigation.navigate({
-                    name: route.params.returnScreen,
-                    params: { ...(route.params.reviewParams || {}), selectedAddress: item },
-                    merge: true,
-                  });
+                  // Wait slightly to let any touch ripple finish
+                  setTimeout(() => {
+                    navigation.navigate({
+                      name: route.params.returnScreen,
+                      params: { ...(route.params.reviewParams || {}), selectedAddress: item },
+                      merge: true,
+                    });
+                  }, 100);
                 } else {
                   try {
                     setLoading(true);
                     await addressApi.update(item.id, { ...item, isDefault: true });
                     await AsyncStorage.setItem('cached_default_address', JSON.stringify({ ...item, isDefault: true }));
-                    navigation.goBack();
+                    setLoading(false);
+                    setTimeout(() => {
+                      navigation.goBack();
+                    }, 100);
                   } catch (e) {
                     setLoading(false);
                     console.error('Failed to set default address:', e);
