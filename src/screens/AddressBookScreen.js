@@ -29,7 +29,10 @@ const { width } = Dimensions.get('window');
 const AddressBookScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { top: 40 };
   const [addresses, setAddresses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Separate loading states: listLoading for the address list, saving for form submit
+  const [listLoading, setListLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState(false); // guard against double-taps
   const [modalVisible, setModalVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', iconName: 'alert-circle-outline', onConfirm: null, buttonText: 'Okay', confirmText: 'Confirm', type: 'info' });
   const [locating, setLocating] = useState(false);
@@ -71,10 +74,7 @@ const AddressBookScreen = ({ navigation, route }) => {
     setModalVisible(true);
   };
 
-  useEffect(() => {
-    fetchAddresses();
-  }, []);
-
+  // Single consolidated useEffect — eliminates the double fetch on mount
   useEffect(() => {
     fetchAddresses();
     getUserLocation();
@@ -123,14 +123,14 @@ const AddressBookScreen = ({ navigation, route }) => {
 
   const fetchAddresses = async () => {
     try {
-      setLoading(true);
+      setListLoading(true);
       const data = await addressApi.list();
       setAddresses(data);
     } catch (error) {
       console.error('Fetch addresses error:', error);
       showAlert('Error', 'Failed to load addresses.');
     } finally {
-      setLoading(false);
+      setListLoading(false);
     }
   };
 
@@ -324,6 +324,7 @@ const AddressBookScreen = ({ navigation, route }) => {
   };
 
   const handleSave = async () => {
+    if (saving) return; // guard against double-tap
     if (!formData.fullAddress.trim()) {
       showAlert('Required', 'Please enter your house/flat/building.');
       return;
@@ -349,46 +350,52 @@ const AddressBookScreen = ({ navigation, route }) => {
       return;
     }
     try {
-      setLoading(true);
+      setSaving(true);
       if (formData.id) {
         await addressApi.update(formData.id, formData);
       } else {
         await addressApi.create(formData);
       }
+      setSaving(false);
+      // Close modal first, THEN refresh list after animation completes on iOS
       setModalVisible(false);
       setFormData({ label: 'Home', fullAddress: '', areaLocality: '', landmark: '', city: '', state: '', pincode: '', isDefault: false, phone: '' });
-      
-      // Delay fetching to allow Modal to close fully on iOS
-      setTimeout(async () => {
-        await fetchAddresses();
-        setLoading(false);
-      }, Platform.OS === 'ios' ? 400 : 0);
+      setTimeout(() => {
+        fetchAddresses();
+      }, Platform.OS === 'ios' ? 450 : 50);
     } catch (error) {
       console.error('Save address error:', error);
+      setSaving(false);
       showAlert('Error', 'Failed to save address.');
-      setLoading(false);
     }
   };
 
   const handleDelete = (id) => {
+    if (actionInProgress) return;
     showAlert(
       'Delete Address',
       'Are you sure you want to permanently delete this address?',
       'delete-outline',
       () => {
+        // Close the CustomAlert first, then delete after its slide-out animation
         setAlertConfig(prev => ({ ...prev, visible: false }));
         setTimeout(async () => {
           try {
-            setLoading(true);
+            setActionInProgress(true);
+            // Optimistically remove from list for instant feedback
+            setAddresses(prev => prev.filter(a => a.id !== id));
             await addressApi.delete(id);
+            // Refresh to confirm server state
             await fetchAddresses();
           } catch (error) {
             console.error('Delete address error:', error);
+            // Restore list on failure
+            await fetchAddresses();
             showAlert('Error', 'Failed to delete address.');
           } finally {
-            setLoading(false);
+            setActionInProgress(false);
           }
-        }, Platform.OS === 'ios' ? 400 : 0);
+        }, Platform.OS === 'ios' ? 450 : 50);
       },
       'Cancel',
       'Delete',
@@ -397,15 +404,16 @@ const AddressBookScreen = ({ navigation, route }) => {
   };
 
   const setDefault = async (id) => {
+    if (actionInProgress) return;
     try {
-      setLoading(true);
+      setActionInProgress(true);
       await addressApi.update(id, { isDefault: true });
       await fetchAddresses();
     } catch (error) {
       console.error('Set default error:', error);
       showAlert('Error', 'Failed to set default address.');
     } finally {
-      setLoading(false);
+      setActionInProgress(false);
     }
   };
 
@@ -453,7 +461,7 @@ const AddressBookScreen = ({ navigation, route }) => {
           <AppText style={styles.sectionTitle} weight="900">SAVED ADDRESSES</AppText>
         </View>
 
-        {loading ? (
+        {listLoading ? (
           <PawLoader fullScreen={false} />
         ) : addresses.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -463,30 +471,36 @@ const AddressBookScreen = ({ navigation, route }) => {
           addresses.map((item, index) => (
             <TouchableOpacity
               key={`${item.id}-${index}`}
-              style={styles.addressCard}
-              onPress={async () => {
+              style={[styles.addressCard, actionInProgress && { opacity: 0.6 }]}
+              activeOpacity={0.7}
+              disabled={actionInProgress}
+              onPress={() => {
+                if (actionInProgress) return;
                 if (route.params?.returnScreen) {
-                  // Wait slightly to let any touch ripple finish
+                  setActionInProgress(true);
+                  // Small delay to let touch feedback render before navigation
                   setTimeout(() => {
                     navigation.navigate({
                       name: route.params.returnScreen,
                       params: { ...(route.params.reviewParams || {}), selectedAddress: item },
                       merge: true,
                     });
-                  }, 100);
+                    // Don't reset actionInProgress — screen is unmounting
+                  }, 150);
                 } else {
-                  try {
-                    setLoading(true);
-                    await addressApi.update(item.id, { ...item, isDefault: true });
-                    await AsyncStorage.setItem('cached_default_address', JSON.stringify({ ...item, isDefault: true }));
-                    setLoading(false);
-                    setTimeout(() => {
-                      navigation.goBack();
-                    }, 100);
-                  } catch (e) {
-                    setLoading(false);
-                    console.error('Failed to set default address:', e);
-                  }
+                  setActionInProgress(true);
+                  (async () => {
+                    try {
+                      await addressApi.update(item.id, { ...item, isDefault: true });
+                      await AsyncStorage.setItem('cached_default_address', JSON.stringify({ ...item, isDefault: true }));
+                      setTimeout(() => {
+                        navigation.goBack();
+                      }, 150);
+                    } catch (e) {
+                      setActionInProgress(false);
+                      console.error('Failed to set default address:', e);
+                    }
+                  })();
                 }
               }}
             >
@@ -520,11 +534,25 @@ const AddressBookScreen = ({ navigation, route }) => {
                   )}
 
                   <View style={styles.cardActionRow}>
-                    <TouchableOpacity style={styles.miniActionBtn} onPress={() => handleEdit(item)}>
+                    <TouchableOpacity
+                      style={styles.miniActionBtn}
+                      disabled={actionInProgress}
+                      onPress={(e) => {
+                        e.stopPropagation(); // prevent triggering card's onPress
+                        handleEdit(item);
+                      }}
+                    >
                       <MaterialCommunityIcons name="pencil-outline" size={16} color={theme.colors.success} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.miniActionBtn} onPress={() => handleDelete(item.id)}>
+                    <TouchableOpacity
+                      style={styles.miniActionBtn}
+                      disabled={actionInProgress}
+                      onPress={(e) => {
+                        e.stopPropagation(); // prevent triggering card's onPress
+                        handleDelete(item.id);
+                      }}
+                    >
                       <MaterialCommunityIcons name="delete-outline" size={16} color={theme.colors.success} />
                     </TouchableOpacity>
                   </View>
@@ -690,7 +718,8 @@ const AddressBookScreen = ({ navigation, route }) => {
               <AppButton
                 onPress={handleSave}
                 style={styles.saveBtn}
-                loading={loading}
+                loading={saving}
+                disabled={saving}
               >
                 <AppText style={styles.saveBtnText} weight="bold">Save Address</AppText>
               </AppButton>
