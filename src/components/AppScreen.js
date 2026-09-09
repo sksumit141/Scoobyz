@@ -22,11 +22,28 @@ const AppScreen = ({
   padding = true,
   safeAreaTop = true,
   safeAreaBottom = true, // NEW: apply bottom inset when there's no footer eating it
+  keyboardAvoiding = true,
   backgroundColor = theme.colors.background,
   statusBarStyle = 'dark-content',
 }) => {
   const insets = useSafeAreaInsets();
   const ContentWrapper = scrollable ? ScrollView : View;
+  const content = (
+    <ContentWrapper
+      style={styles.contentWrapper}
+      contentContainerStyle={[
+        scrollable ? styles.scrollContent : styles.fixedContent,
+        padding && styles.padded,
+        // only pad bottom here if there's no sticky footer (footer handles its own inset)
+        !footer && safeAreaBottom && { paddingBottom: insets.bottom + theme.spacing.md },
+        style,
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {children}
+    </ContentWrapper>
+  );
 
   return (
     <View
@@ -42,27 +59,16 @@ const AppScreen = ({
 
       {header ? <View style={styles.headerSlot}>{header}</View> : null}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        enabled={Platform.OS === 'ios'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-        style={styles.keyboardView}
-      >
-        <ContentWrapper
-          style={styles.contentWrapper}
-          contentContainerStyle={[
-            scrollable ? styles.scrollContent : styles.fixedContent,
-            padding && styles.padded,
-            // only pad bottom here if there's no sticky footer (footer handles its own inset)
-            !footer && safeAreaBottom && { paddingBottom: insets.bottom + theme.spacing.md },
-            style,
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+      {keyboardAvoiding ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          enabled={Platform.OS === 'ios'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+          style={styles.keyboardView}
         >
-          {children}
-        </ContentWrapper>
-      </KeyboardAvoidingView>
+          {content}
+        </KeyboardAvoidingView>
+      ) : content}
 
       {footer ? (
         <View style={[styles.footerSlot, { paddingBottom: insets.bottom || theme.spacing.md }]}>

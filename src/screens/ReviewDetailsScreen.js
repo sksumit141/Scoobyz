@@ -133,8 +133,8 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   const [isPaymentModalVisible, setPaymentModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  // Grooming uses a fixed ₹99 slot booking charge; other services use full/partial
-  const GROOMING_SLOT_FEE = 0;
+  // Grooming uses a fixed ₹199 slot booking charge; other services use full/partial
+  const GROOMING_SLOT_FEE = 199;
   const [paymentType, setPaymentType] = useState((isWalking || isGrooming) ? 'full' : null);
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'info' });
   const [validationMsg, setValidationMsg] = useState('');
@@ -210,7 +210,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   }, [localAddons, quantities]);
 
   const discountedTotal = calculateDiscountedPrice(dynamicTotal, serviceType);
-  // For grooming: ₹99 flat slot booking fee charged upfront; rest paid after service
+  // For grooming: ₹199 flat slot booking fee charged upfront; rest paid after service
   const groomingAmountPaid = isGrooming ? GROOMING_SLOT_FEE : null;
   const groomingRemainingAmount = isGrooming ? Math.max(0, dynamicTotal - GROOMING_SLOT_FEE) : null;
 
@@ -307,7 +307,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
     try {
       const apiCall = getServiceApi(serviceType);
       let finalPaymentReferenceId = null;
-      // For grooming, always charge the ₹99 slot booking fee upfront.
+      // For grooming, always charge the ₹199 slot booking fee upfront.
       // For other services, charge the selected amount (full or partial).
       const chargeAmount = isGrooming ? GROOMING_SLOT_FEE : amountPaid;
       if (!params.isDemo && chargeAmount > 0) {

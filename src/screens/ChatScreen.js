@@ -105,7 +105,7 @@ export default function ChatScreen({ navigation, route }) {
   };
 
   return (
-    <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.primaryDark}>
+    <AppScreen safeAreaTop={true} padding={false} keyboardAvoiding={false} backgroundColor={theme.colors.primaryDark}>
       {/* Header Section */}
       <View style={styles.header}>
         <AppHeader 
@@ -128,11 +128,7 @@ export default function ChatScreen({ navigation, route }) {
         />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
+      <View style={styles.container}>
         {/* Chat Area */}
         {loading && messages.length === 0 ? (
           <View style={styles.loadingArea}>
@@ -165,28 +161,32 @@ export default function ChatScreen({ navigation, route }) {
         )}
 
         {/* Input Area */}
-        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TextInput
-            style={[styles.input, inputFocused && styles.inputFocused]}
-            placeholder="Type your message..."
-            placeholderTextColor="#888"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-          />
-          
-          <TouchableOpacity 
-            style={[styles.sendBtn, !inputText.trim() && { opacity: 0.5 }]} 
-            onPress={handleSend}
-            disabled={!inputText.trim()}
-          >
-            <Ionicons name="send" size={18} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <TextInput
+              style={[styles.input, inputFocused && styles.inputFocused]}
+              placeholder="Type your message..."
+              placeholderTextColor="#888"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+            />
+            <TouchableOpacity
+              style={[styles.sendBtn, !inputText.trim() && { opacity: 0.5 }]}
+              onPress={handleSend}
+              disabled={!inputText.trim()}
+            >
+              <Ionicons name="send" size={18} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </AppScreen>
   );
 }
