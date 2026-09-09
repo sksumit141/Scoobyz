@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, Alert, Modal, Dimensions, Linking, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Image, Alert, Modal, Dimensions, Linking, Platform, DeviceEventEmitter } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
@@ -10,6 +10,25 @@ import { bookingsApi, BASE_URL } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
 
 const { width } = Dimensions.get('window');
+
+const humanize = (value) => String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, character => character.toUpperCase());
+
+const formatPrice = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? `₹${amount.toFixed(2)}` : '';
+};
+
+const ServiceSummaryRow = ({ icon, label, value }) => value ? (
+    <View style={styles.serviceSummaryRow}>
+        <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
+        <View style={styles.serviceSummaryText}>
+            <AppText style={styles.serviceSummaryLabel}>{label}</AppText>
+            <AppText style={styles.serviceSummaryValue} weight="bold">{value}</AppText>
+        </View>
+    </View>
+) : null;
 
 export default function BookingCardDetailsScreen({ route, navigation }) {
     const { bookingId, openReschedule } = route.params;
@@ -80,19 +99,32 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
         </View>
     );
 
-    useEffect(() => {
-        const fetchBookingDetails = async () => {
-            try {
-                const data = await bookingsApi.get(bookingId);
-                setBooking(data);
-            } catch (error) {
-                console.error('Fetch booking details error:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchBookingDetails();
+    const fetchBookingDetails = useCallback(async ({ silent = false } = {}) => {
+        try {
+            const data = await bookingsApi.get(bookingId);
+            setBooking(data);
+        } catch (error) {
+            if (!silent) console.error('Fetch booking details error:', error);
+        } finally {
+            if (!silent) setLoading(false);
+        }
     }, [bookingId]);
+
+    useEffect(() => {
+        fetchBookingDetails();
+    }, [fetchBookingDetails]);
+
+    useEffect(() => {
+        if (booking?.bookingType !== 'walking' || ['completed', 'cancelled'].includes(booking.status)) return undefined;
+        const timer = setInterval(() => fetchBookingDetails({ silent: true }), 6000);
+        const subscription = DeviceEventEmitter.addListener('refresh_customer_bookings', () => {
+            fetchBookingDetails({ silent: true });
+        });
+        return () => {
+            clearInterval(timer);
+            subscription.remove();
+        };
+    }, [booking?.bookingType, booking?.status, fetchBookingDetails]);
 
     // Auto-open reschedule modal if the user was redirected from a declined reschedule
     useEffect(() => {
@@ -223,23 +255,25 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
         ? (booking.petPhotoUrl.startsWith('http') ? booking.petPhotoUrl : `${BASE_URL}${booking.petPhotoUrl}`)
         : 'https://images.unsplash.com/photo-1591160690555-5debfba289f0?q=80&w=256&auto=format&fit=crop';
 
+    const serviceDetails = booking.serviceDetails || {};
+    const packageDetails = serviceDetails.package || null;
+    const selectedAddons = (serviceDetails.addons || []).filter(item => item.category !== 'additional_charge');
+    const additionalCharges = (serviceDetails.addons || []).filter(item => item.category === 'additional_charge');
+    const walkProgress = booking.bookingType === 'walking' ? booking.sessionProgress : null;
+    const currentWalk = walkProgress?.activeSession || walkProgress?.nextSession;
+
     // Resolve service tasks / details
     let serviceTasks = booking.notes || '';
     if (serviceTasks && serviceTasks.includes('_OP:')) {
         serviceTasks = serviceTasks.replace(/_OP:\d+(\.\d+)?_?\s*/g, '').trim();
     }
-    if (!serviceTasks) {
-        if (booking.bookingType === 'grooming') {
-            serviceTasks = 'Full groom, Nail trim, Ear cleaning';
-        } else if (booking.bookingType === 'walking') {
-            serviceTasks = 'Regular dog walk, exercise, hydration';
-        } else if (booking.bookingType === 'veterinary') {
-            serviceTasks = 'Consultation, health check, prescription';
-        } else if (booking.bookingType === 'boarding') {
-            serviceTasks = 'Overnight stay, meals, playtime';
-        } else {
-            serviceTasks = 'Professional premium pet service';
-        }
+    if (!serviceTasks && packageDetails?.features?.length) {
+        serviceTasks = packageDetails.features.join(' • ');
+    }
+    if (!serviceTasks && booking.bookingType === 'walking') {
+        serviceTasks = [serviceDetails.frequency, serviceDetails.duration,
+            serviceDetails.timesPerDay ? `${serviceDetails.timesPerDay} walk(s) per day` : null]
+            .filter(Boolean).join(' • ');
     }
 
     // Resolve address
@@ -302,6 +336,153 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                     <AppText style={styles.serviceTasks}>{serviceTasks}</AppText>
                 </View>
 
+                {/* Complete snapshot of what the customer reviewed before booking */}
+                <View style={styles.card}>
+                    <AppText style={styles.serviceDetailTitle} weight="bold">SERVICE DETAILS</AppText>
+
+                    {packageDetails && (
+                        <View style={styles.packageBlock}>
+                            <View style={styles.packageHeadingRow}>
+                                <MaterialCommunityIcons name="package-variant-closed" size={22} color={theme.colors.primaryDark} />
+                                <View style={styles.packageHeadingText}>
+                                    <AppText style={styles.packageName} weight="bold">{packageDetails.name}</AppText>
+                                    {(packageDetails.subtitle || packageDetails.duration) && (
+                                        <AppText style={styles.packageMeta}>
+                                            {[packageDetails.subtitle, packageDetails.duration].filter(Boolean).join(' • ')}
+                                        </AppText>
+                                    )}
+                                </View>
+                            </View>
+                            {packageDetails.features?.length > 0 && (
+                                <View style={styles.serviceList}>
+                                    <AppText style={styles.serviceListTitle} weight="bold">PACKAGE INCLUDES</AppText>
+                                    {packageDetails.features.map((feature, index) => (
+                                        <View key={`${feature}-${index}`} style={styles.serviceLineItem}>
+                                            <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
+                                            <AppText style={styles.serviceLineItemText}>{feature}</AppText>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    {booking.bookingType === 'walking' && (
+                        <View style={styles.walkingGrid}>
+                            <ServiceSummaryRow icon="clock-outline" label="Duration" value={serviceDetails.duration} />
+                            <ServiceSummaryRow icon="repeat" label="Frequency" value={humanize(serviceDetails.frequency)} />
+                            <ServiceSummaryRow icon="counter" label="Walks per day" value={serviceDetails.timesPerDay ? String(serviceDetails.timesPerDay) : null} />
+                            <ServiceSummaryRow icon="calendar-week" label="Recurring days" value={serviceDetails.recurringDays?.join(', ')} />
+                            <ServiceSummaryRow icon="clock-check-outline" label="Selected slot(s)" value={booking.timeSlot} />
+
+                            {walkProgress?.totalSessions > 0 && (
+                                <View style={styles.walkProgressBlock}>
+                                    <View style={styles.walkProgressHeader}>
+                                        <AppText style={styles.walkProgressTitle} weight="bold">WALK PROGRESS</AppText>
+                                        <AppText style={styles.walkProgressCount} weight="bold">
+                                            {walkProgress.completedSessions}/{walkProgress.totalSessions}
+                                        </AppText>
+                                    </View>
+                                    <View style={styles.walkProgressTrack}>
+                                        <View
+                                            style={[
+                                                styles.walkProgressFill,
+                                                { width: `${Math.round((walkProgress.completedSessions / walkProgress.totalSessions) * 100)}%` },
+                                            ]}
+                                        />
+                                    </View>
+
+                                    {currentWalk && (
+                                        <View style={styles.currentWalkCard}>
+                                            <View style={styles.currentWalkInfo}>
+                                                <AppText style={styles.currentWalkTitle} weight="bold">
+                                                    {currentWalk.status === 'in_progress' ? 'Walk live now' : `Next walk #${currentWalk.sessionNumber}`}
+                                                </AppText>
+                                                <AppText style={styles.currentWalkMeta}>
+                                                    {formatBookingDate(currentWalk.serviceDate)} • {currentWalk.timeSlot}
+                                                </AppText>
+                                            </View>
+                                            {currentWalk.otp && (
+                                                <View style={styles.walkOtpBox}>
+                                                    <AppText style={styles.walkOtpLabel}>PIN</AppText>
+                                                    <AppText style={styles.walkOtpValue} weight="bold">{currentWalk.otp}</AppText>
+                                                </View>
+                                            )}
+                                        </View>
+                                    )}
+
+                                    {walkProgress.activeSession && (
+                                        <TouchableOpacity
+                                            style={styles.trackWalkButton}
+                                            onPress={() => navigation.navigate('TrackingScreen', { booking })}
+                                        >
+                                            <Ionicons name="navigate" size={17} color="#FFF" />
+                                            <AppText style={styles.trackWalkButtonText} weight="bold">TRACK LIVE WALK</AppText>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <View style={styles.walkSessionList}>
+                                        {walkProgress.sessions.map((session) => (
+                                            <View key={session.id} style={styles.walkSessionRow}>
+                                                <Ionicons
+                                                    name={session.status === 'completed' ? 'checkmark-circle' : session.status === 'in_progress' ? 'navigate-circle' : 'ellipse-outline'}
+                                                    size={18}
+                                                    color={session.status === 'completed' ? theme.colors.success : session.status === 'in_progress' ? theme.colors.primaryDark : '#A5ADB5'}
+                                                />
+                                                <AppText style={styles.walkSessionText}>
+                                                    Walk #{session.sessionNumber} • {formatBookingDate(session.serviceDate)} • {session.timeSlot}
+                                                </AppText>
+                                                <AppText style={styles.walkSessionStatus} weight="bold">{humanize(session.status)}</AppText>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    {serviceDetails.visitType && booking.bookingType !== 'walking' && (
+                        <ServiceSummaryRow icon="map-marker-outline" label="Visit type" value={humanize(serviceDetails.visitType)} />
+                    )}
+
+                    {selectedAddons.length > 0 && (
+                        <View style={styles.serviceList}>
+                            <AppText style={styles.serviceListTitle} weight="bold">SELECTED ADD-ONS</AppText>
+                            {selectedAddons.map((addon, index) => (
+                                <View key={`${addon.name}-${index}`} style={styles.serviceLineItem}>
+                                    <Ionicons name="add-circle" size={16} color={theme.colors.primaryDark} />
+                                    <View style={styles.serviceLineItemBody}>
+                                        <AppText style={styles.serviceLineItemText} weight="bold">{addon.name}</AppText>
+                                        {addon.description ? <AppText style={styles.serviceLineDescription}>{addon.description}</AppText> : null}
+                                    </View>
+                                    {addon.price !== undefined && <AppText style={styles.serviceLinePrice} weight="bold">{formatPrice(addon.price)}</AppText>}
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
+                    {additionalCharges.length > 0 && (
+                        <View style={styles.serviceList}>
+                            <AppText style={styles.serviceListTitle} weight="bold">ADDITIONAL CHARGES</AppText>
+                            {additionalCharges.map((charge, index) => (
+                                <View key={`${charge.name}-${index}`} style={styles.serviceLineItem}>
+                                    <Ionicons name="alert-circle" size={16} color="#A65A00" />
+                                    <View style={styles.serviceLineItemBody}>
+                                        <AppText style={styles.serviceLineItemText} weight="bold">{charge.name}</AppText>
+                                        {charge.description ? <AppText style={styles.serviceLineDescription}>{charge.description}</AppText> : null}
+                                    </View>
+                                    {charge.price !== undefined && <AppText style={styles.serviceLinePrice} weight="bold">{formatPrice(charge.price)}</AppText>}
+                                </View>
+                            ))}
+                        </View>
+                    )}
+
+                    <View style={styles.serviceTotalRow}>
+                        <AppText style={styles.serviceTotalLabel}>TOTAL SERVICE AMOUNT</AppText>
+                        <AppText style={styles.serviceTotalValue} weight="bold">{formatPrice(booking.totalCost)}</AppText>
+                    </View>
+                </View>
+
                 {/* Main Info Card */}
                 <View style={styles.card}>
                     {/* Date & Time & Expert Row */}
@@ -361,7 +542,9 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                         <>
                             <View style={styles.divider} />
                             <View style={styles.actionButtonsRow}>
-                                {booking.status !== 'declined' && (
+                                {booking.status !== 'declined' && !(booking.bookingType === 'walking' && (
+                                    walkProgress?.activeSession || walkProgress?.completedSessions > 0
+                                )) && (
                                     <TouchableOpacity 
                                         style={[styles.actionBtn, styles.cancelBtn]} 
                                         activeOpacity={0.8}
@@ -614,6 +797,217 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
+    },
+    serviceDetailTitle: {
+        fontSize: 13,
+        color: theme.colors.textTertiary,
+        letterSpacing: 0.8,
+        marginBottom: 16,
+    },
+    packageBlock: {
+        marginBottom: 4,
+    },
+    packageHeadingRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    packageHeadingText: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    packageName: {
+        color: theme.colors.textBlack,
+        fontSize: 17,
+    },
+    packageMeta: {
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 18,
+        marginTop: 2,
+    },
+    serviceList: {
+        borderTopWidth: 1,
+        borderTopColor: '#F0F2F5',
+        marginTop: 14,
+        paddingTop: 14,
+    },
+    serviceListTitle: {
+        color: theme.colors.textTertiary,
+        fontSize: 11,
+        letterSpacing: 0.6,
+        marginBottom: 9,
+    },
+    serviceLineItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 10,
+    },
+    serviceLineItemBody: {
+        flex: 1,
+        marginLeft: 8,
+    },
+    serviceLineItemText: {
+        flex: 1,
+        color: theme.colors.textBlack,
+        fontSize: 13,
+        lineHeight: 19,
+        marginLeft: 8,
+    },
+    serviceLineDescription: {
+        color: theme.colors.textSecondary,
+        fontSize: 11,
+        lineHeight: 16,
+    },
+    serviceLinePrice: {
+        color: theme.colors.primaryDark,
+        fontSize: 13,
+        marginLeft: 10,
+    },
+    walkingGrid: {
+        marginTop: -6,
+    },
+    walkProgressBlock: {
+        marginTop: 18,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F2F5',
+        paddingTop: 16,
+    },
+    walkProgressHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    walkProgressTitle: {
+        color: theme.colors.textTertiary,
+        fontSize: 11,
+        letterSpacing: 0.6,
+    },
+    walkProgressCount: {
+        color: theme.colors.primaryDark,
+        fontSize: 13,
+    },
+    walkProgressTrack: {
+        height: 7,
+        backgroundColor: '#E7EBE7',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginTop: 9,
+    },
+    walkProgressFill: {
+        height: '100%',
+        backgroundColor: theme.colors.success,
+        borderRadius: 4,
+    },
+    currentWalkCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 14,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: '#F3F7F2',
+    },
+    currentWalkInfo: {
+        flex: 1,
+    },
+    currentWalkTitle: {
+        color: theme.colors.textBlack,
+        fontSize: 14,
+    },
+    currentWalkMeta: {
+        color: theme.colors.textSecondary,
+        fontSize: 11,
+        marginTop: 3,
+    },
+    walkOtpBox: {
+        alignItems: 'center',
+        backgroundColor: '#E0F2E0',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        marginLeft: 10,
+    },
+    walkOtpLabel: {
+        color: theme.colors.textSecondary,
+        fontSize: 8,
+    },
+    walkOtpValue: {
+        color: '#2E7D32',
+        fontSize: 15,
+        letterSpacing: 2,
+    },
+    trackWalkButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: theme.colors.primaryDark,
+        borderRadius: 10,
+        paddingVertical: 11,
+        marginTop: 12,
+    },
+    trackWalkButtonText: {
+        color: '#FFF',
+        fontSize: 12,
+    },
+    walkSessionList: {
+        marginTop: 10,
+    },
+    walkSessionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F5',
+    },
+    walkSessionText: {
+        flex: 1,
+        color: theme.colors.textSecondary,
+        fontSize: 10,
+        marginLeft: 7,
+    },
+    walkSessionStatus: {
+        color: theme.colors.primaryDark,
+        fontSize: 9,
+        marginLeft: 6,
+    },
+    serviceSummaryRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F2F5',
+        paddingVertical: 11,
+    },
+    serviceSummaryText: {
+        flex: 1,
+        marginLeft: 10,
+    },
+    serviceSummaryLabel: {
+        color: theme.colors.textTertiary,
+        fontSize: 10,
+        textTransform: 'uppercase',
+    },
+    serviceSummaryValue: {
+        color: theme.colors.textBlack,
+        fontSize: 13,
+        marginTop: 2,
+    },
+    serviceTotalRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: '#F0F2F5',
+        marginTop: 12,
+        paddingTop: 15,
+    },
+    serviceTotalLabel: {
+        color: theme.colors.textSecondary,
+        fontSize: 11,
+        letterSpacing: 0.5,
+    },
+    serviceTotalValue: {
+        color: theme.colors.primaryDark,
+        fontSize: 17,
     },
     infoBlock: {
         marginBottom: 20,

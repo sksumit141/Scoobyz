@@ -3,7 +3,6 @@ import {
     View,
     StyleSheet,
     TouchableOpacity,
-    SafeAreaView,
     TextInput,
     KeyboardAvoidingView,
     Platform,
@@ -12,11 +11,12 @@ import {
     ScrollView,
     Alert,
 } from 'react-native';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { reviewsApi } from '../services/api';
 import { useBackHandler, safeGoBack } from '../hooks/useBackHandler';
@@ -25,23 +25,32 @@ import PawLoader from '../components/PawLoader';
 // ─── Star rating labels ───
 const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
 
+const getNameInitials = (name) => {
+    const parts = String(name || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+
+    if (parts.length === 0) return 'V';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
 export default function RatingReviewScreen({ navigation, route }) {
-    const { bookingId, vendorName, vendorImage, vendorRole, petName } = route.params || {};
+    const { bookingId, vendorName, vendorRole, petName } = route.params || {};
     const insets = useSafeAreaInsets ? useSafeAreaInsets() : { top: 40 };
 
     const [rating, setRating] = useState(0);
     const [reviewText, setReviewText] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null); // { uri, uploading }
-    const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [isReviewed, setIsReviewed] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
 
     const displayVendorName = vendorName || 'Your Groomer';
     const displayVendorRole = vendorRole || 'Pet Care Professional';
     const displayPetName = petName || 'your pet';
-    const displayVendorImage = vendorImage
-        || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256&auto=format&fit=crop';
+    const vendorInitials = getNameInitials(displayVendorName);
 
     const { handleBack } = useBackHandler();
 
@@ -99,10 +108,7 @@ export default function RatingReviewScreen({ navigation, route }) {
 
     // ─── Remove selected image ───
     const removeImage = () => {
-        Alert.alert('Remove Photo', 'Remove this photo from your review?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove', style: 'destructive', onPress: () => setSelectedImage(null) },
-        ]);
+        setSelectedImage(null);
     };
 
     // ─── Submit review ───
@@ -193,13 +199,8 @@ export default function RatingReviewScreen({ navigation, route }) {
 
     if (initialLoading) {
         return (
-            <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
-                <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                        <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
-                    </TouchableOpacity>
-                    <AppText style={styles.headerTitle} type="heading" weight="bold">Rate Your Experience</AppText>
-                </View>
+            <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.background}>
+                <AppHeader title="Rate Your Experience" onBackPress={handleBack} />
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <PawLoader fullScreen={false} />
                 </View>
@@ -208,20 +209,8 @@ export default function RatingReviewScreen({ navigation, route }) {
     }
 
     return (
-        <AppScreen safeAreaTop={false} padding={false} backgroundColor={theme.colors.background}>
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top || 40 }]}>
-                <TouchableOpacity
-                    onPress={handleBack}
-                    style={styles.backBtn}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <Ionicons name="arrow-back" size={24} color={theme.colors.textBlack} />
-                </TouchableOpacity>
-                <AppText style={styles.headerTitle} type="heading" weight="bold">
-                    Rate Your Experience
-                </AppText>
-            </View>
+        <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.background}>
+            <AppHeader title="Rate Your Experience" onBackPress={handleBack} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -234,7 +223,11 @@ export default function RatingReviewScreen({ navigation, route }) {
                 >
                     {/* Vendor Profile */}
                     <View style={styles.profileSection}>
-                        <Image source={{ uri: displayVendorImage }} style={styles.profileImage} />
+                        <View style={styles.vendorMonogram}>
+                            <AppText style={styles.vendorInitials} weight="bold">
+                                {vendorInitials}
+                            </AppText>
+                        </View>
                         <AppText style={styles.vendorName} type="heading" weight="bold">
                             {displayVendorName}
                         </AppText>
@@ -384,16 +377,6 @@ export default function RatingReviewScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        backgroundColor: theme.colors.background,
-    },
-    backBtn: { marginRight: 15 },
-    headerTitle: { fontSize: 20, color: theme.colors.textBlack },
-
     keyboardView: { flex: 1 },
     scrollContent: {
         paddingHorizontal: 24,
@@ -406,12 +389,19 @@ const styles = StyleSheet.create({
         marginTop: 16,
         marginBottom: 28,
     },
-    profileImage: {
+    vendorMonogram: {
         width: 96,
         height: 96,
-        borderRadius: 20,
-        backgroundColor: '#EBEAE6',
+        borderRadius: 48,
+        backgroundColor: theme.colors.primaryDark,
         marginBottom: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    vendorInitials: {
+        color: '#FFFFFF',
+        fontSize: 32,
+        letterSpacing: 1,
     },
     vendorName: {
         fontSize: 20,

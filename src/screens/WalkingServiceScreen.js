@@ -10,6 +10,7 @@ import CustomTimePicker from '../components/CustomTimePicker';
 import SelectionChoiceModal from '../components/SelectionChoiceModal';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
+import { discoverApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -89,6 +90,21 @@ export default function WalkingServiceScreen({ navigation }) {
 
   const [endDate, setEndDate] = useState(null);
   const [validationMsg, setValidationMsg] = useState('');
+  const [pricingData, setPricingData] = useState(null);
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await discoverApi.walkingPackages();
+        if (response?.defaultPricing) {
+          setPricingData(response.defaultPricing);
+        }
+      } catch (error) {
+        console.error('Failed to fetch walking pricing:', error);
+      }
+    };
+    fetchPricing();
+  }, []);
 
   const handlePrevMonth = () => {
     const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
@@ -177,36 +193,44 @@ export default function WalkingServiceScreen({ navigation }) {
   const availableSlots = getFilteredSlots();
 
   let calculatedPrice = 0;
-  // if (!isDemo) {
-  if (frequency === 'One-time') {
-    if (timesPerDay === 1) {
-      if (duration === '30 min') calculatedPrice = 149;
-      if (duration === '45 min') calculatedPrice = 179;
-      if (duration === '1 hr') calculatedPrice = 199;
-    } else if (timesPerDay === 2) {
-      if (duration === '30 min') calculatedPrice = 275;
-      if (duration === '45 min') calculatedPrice = 320;
-      if (duration === '1 hr') calculatedPrice = 349;
-    } else if (timesPerDay === 3) {
-      if (duration === '30 min') calculatedPrice = 425;
-      if (duration === '45 min') calculatedPrice = 500;
-      if (duration === '1 hr') calculatedPrice = 600;
+  if (pricingData && pricingData[frequency]) {
+    const timesMap = pricingData[frequency];
+    // Find the correct timesPerDay tier (fallback to highest if exceeds map)
+    const tier = timesMap[timesPerDay] || timesMap[Object.keys(timesMap).pop()];
+    if (tier && tier[duration]) {
+      calculatedPrice = tier[duration];
     }
-  } else if (frequency === 'Monthly') {
-    let base = 0;
-    if (timesPerDay === 1) base = 2799;
-    else if (timesPerDay === 2) base = 4499;
-    else if (timesPerDay === 3) base = 5999;
+  } else {
+    // Fallback if API fails
+    if (frequency === 'One-time') {
+      if (timesPerDay === 1) {
+        if (duration === '30 min') calculatedPrice = 149;
+        if (duration === '45 min') calculatedPrice = 179;
+        if (duration === '1 hr') calculatedPrice = 199;
+      } else if (timesPerDay === 2) {
+        if (duration === '30 min') calculatedPrice = 275;
+        if (duration === '45 min') calculatedPrice = 320;
+        if (duration === '1 hr') calculatedPrice = 349;
+      } else if (timesPerDay === 3) {
+        if (duration === '30 min') calculatedPrice = 425;
+        if (duration === '45 min') calculatedPrice = 500;
+        if (duration === '1 hr') calculatedPrice = 600;
+      }
+    } else if (frequency === 'Monthly') {
+      let base = 0;
+      if (timesPerDay === 1) base = 4299;
+      else if (timesPerDay === 2) base = 6499;
+      else if (timesPerDay === 3) base = 7999;
 
-    let extra = 0;
-    if (duration === '45 min') extra = 200;
-    if (duration === '1 hr') extra = 350;
+      let extra = 0;
+      if (duration === '45 min') extra = 200;
+      if (duration === '1 hr') extra = 350;
 
-    calculatedPrice = base + extra;
+      calculatedPrice = base + extra;
+    }
   }
-  // }
 
-  const totalPrice = calculatedPrice; // isDemo ? 0 : calculatedPrice;
+  const totalPrice = calculatedPrice;
 
   const handleContinue = () => {
     if (!selectedSlots || selectedSlots.length !== timesPerDay) {

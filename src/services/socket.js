@@ -1,25 +1,52 @@
 import io from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './api';
 
-// Exporting as a singleton instance
 export const socket = io(BASE_URL, {
-    autoConnect: true,
+    autoConnect: false,
     transports: ['websocket'],
     reconnection: true,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
+    auth: {},
 });
 
-socket.on('connect', () => {
-    console.log('Socket connected:', socket.id);
-});
+let connectedToken = null;
+let connectionPromise = null;
 
-socket.on('disconnect', (reason) => {
-    console.log('Socket disconnected:', reason);
-});
+export const connectTrackingSocket = async () => {
+    const token = await AsyncStorage.getItem('authToken');
+    if (!token) return false;
+    if (socket.connected && connectedToken !== token) socket.disconnect();
+    socket.auth = { token };
+    if (socket.connected) return true;
+    if (connectionPromise) return connectionPromise;
 
-socket.on('connect_error', (error) => {
-    console.error('Socket connection error:', error);
+    connectionPromise = new Promise(resolve => {
+        const finish = value => {
+            connectionPromise = null;
+            resolve(value);
+        };
+        const timer = setTimeout(() => {
+            socket.off('connect', onConnect);
+            finish(false);
+        }, 8000);
+        const onConnect = () => {
+            clearTimeout(timer);
+            connectedToken = token;
+            finish(true);
+        };
+        socket.once('connect', onConnect);
+        socket.connect();
+    });
+    return connectionPromise;
+};
+
+socket.on('connect', () => console.log('Customer tracking socket connected:', socket.id));
+socket.on('disconnect', reason => {
+    connectedToken = null;
+    console.log('Customer tracking socket disconnected:', reason);
 });
+socket.on('connect_error', error => console.warn('Customer tracking socket error:', error.message));
 
 export default socket;

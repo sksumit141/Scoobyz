@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import io from 'socket.io-client';
 import { BASE_URL } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Platform-specific WebRTC imports
 let RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, mediaDevices;
@@ -33,6 +34,7 @@ export default function useWebRTC(roomId) {
         if (!roomId) return;
         socket.current = io(BASE_URL, {
             transports: ['websocket'],
+            auth: callback => AsyncStorage.getItem('authToken').then(token => callback({ token })),
         });
 
         const startCall = async () => {

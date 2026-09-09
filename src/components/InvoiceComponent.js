@@ -2,11 +2,10 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from './AppText';
-import PriceDisplay from './PriceDisplay';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
 
-export default function InvoiceComponent({ booking, onPayBalance }) {
+export default function InvoiceComponent({ booking, onPayBalance, paying = false }) {
   if (!booking) return null;
 
   const {
@@ -41,25 +40,16 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
   const safeTotal = parseFloat(totalCost || 0);
   const safePaid = parseFloat(amountPaid || 0);
   const dbRemaining = parseFloat(remainingAmount || 0);
-
-  let originalCostToDisplay = totalCost;
-  if (booking.notes && booking.notes.includes('_OP:')) {
-      const match = booking.notes.match(/_OP:(\d+(\.\d+)?)/);
-      if (match) {
-          originalCostToDisplay = match[1];
-      }
-  } else if (safeTotal > 0 && safeTotal <= 300) {
-      // Fallback for old bookings that don't have the _OP: hack in notes
-      // If the totalCost is highly discounted (e.g. 40), fake the original price as 600
-      // so the UI can still show the original price crossed out as requested.
-      originalCostToDisplay = '600';
-  }
+  const displayTotal = Number.isFinite(safeTotal) ? safeTotal.toFixed(2) : '0.00';
   
   // Fallback if dbRemaining is 0 but we know total > paid (fixes old bookings)
   const displayRemaining = dbRemaining > 0 ? remainingAmount : (safeTotal - safePaid > 0 ? (safeTotal - safePaid).toString() : '0');
   
   const isPartial = paymentType === 'partial';
   const hasBalance = parseFloat(displayRemaining) > 0;
+  const isPaymentDue = hasBalance && paymentStatus === 'awaiting_payment';
+  const isPendingPayment = hasBalance && (paymentStatus === 'pending' || paymentStatus === 'awaiting_payment');
+  const paymentTypeColor = isPendingPayment ? '#D32F2F' : isPartial ? '#1976D2' : '#2E7D32';
 
   return (
     <View style={styles.container}>
@@ -90,24 +80,19 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
 
       <View style={styles.row}>
         <AppText style={styles.label} weight="bold">Total Amount</AppText>
-        <PriceDisplay 
-          originalPrice={originalCostToDisplay}
-          serviceName={serviceName || 'Grooming'}
-          style={styles.value}
-          valueStyle={styles.value}
-        />
+        <AppText style={styles.value} weight="bold">₹ {displayTotal}</AppText>
       </View>
 
       <View style={styles.row}>
         <AppText style={styles.label}>Payment Type</AppText>
         <View style={styles.typeRow}>
           <MaterialCommunityIcons
-            name={isPartial ? "chart-donut-variant" : "check-decagram"}
+            name={isPendingPayment ? "alert-circle" : isPartial ? "chart-donut-variant" : "check-decagram"}
             size={14}
-            color={isPartial ? "#1976D2" : "#2E7D32"}
+            color={paymentTypeColor}
           />
-          <AppText style={[styles.value, { marginLeft: 4, color: isPartial ? "#1976D2" : "#2E7D32" }]} weight="bold">
-            {isPartial ? "Partial (30%)" : (paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') ? "Pending Payment" : "Full Payment"}
+          <AppText style={[styles.value, { marginLeft: 4, color: paymentTypeColor }]} weight="bold">
+            {isPaymentDue ? "Payment Due" : isPartial ? "Partial (30%)" : paymentStatus === 'pending' ? "Pending Payment" : "Full Payment"}
           </AppText>
         </View>
       </View>
@@ -118,26 +103,38 @@ export default function InvoiceComponent({ booking, onPayBalance }) {
           <AppText style={styles.receiptValue}>₹ {amountPaid || 0}</AppText>
         </View>
 
-        {isPartial && (
+        {hasBalance && (
           <View style={[styles.receiptRow, { marginTop: 8 }]}>
-            <AppText style={[styles.receiptLabel, { color: '#D32F2F' }]}>Balance Due</AppText>
+            <AppText style={[styles.receiptLabel, { color: '#D32F2F' }]}>
+              {status === 'completed' ? 'Payable Amount' : 'Balance Due'}
+            </AppText>
             <AppText style={[styles.receiptValue, { color: '#D32F2F' }]} weight="bold">₹ {displayRemaining}</AppText>
           </View>
         )}
       </View>
 
-      {isPartial && hasBalance && (
+      {hasBalance && (
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color="#1976D2" />
           <AppText style={styles.infoText}>
-            The remaining balance of ₹ {displayRemaining} can be paid now or at the time of service.
+            {status === 'completed'
+              ? `The service is complete. Please pay ₹ ${displayRemaining} to settle this booking.`
+              : `The remaining balance of ₹ ${displayRemaining} can be paid securely online.`}
           </AppText>
         </View>
       )}
 
-      {((isPartial && hasBalance) || paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') && onPayBalance && (
-        <TouchableOpacity style={styles.payBalanceBtn} onPress={onPayBalance}>
-          <AppText style={styles.payBalanceText} weight="bold">PAY {(paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') ? 'NOW' : 'BALANCE'} ₹ {displayRemaining}</AppText>
+      {hasBalance && (isPartial || paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') && onPayBalance && (
+        <TouchableOpacity
+          style={[styles.payBalanceBtn, paying && styles.payBalanceBtnDisabled]}
+          onPress={onPayBalance}
+          disabled={paying}
+        >
+          <AppText style={styles.payBalanceText} weight="bold">
+            {paying
+              ? 'OPENING RAZORPAY...'
+              : `PAY ${(paymentStatus === 'pending' || paymentStatus === 'awaiting_payment') ? 'NOW' : 'BALANCE'} ₹ ${displayRemaining}`}
+          </AppText>
         </TouchableOpacity>
       )}
 
@@ -277,5 +274,8 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     letterSpacing: 1,
+  },
+  payBalanceBtnDisabled: {
+    opacity: 0.65,
   },
 });

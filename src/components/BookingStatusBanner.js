@@ -1,33 +1,26 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, Image, Linking } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
-import { BASE_URL } from '../services/api';
-import { useNavigation } from '@react-navigation/native';
 
-const { width } = Dimensions.get('window');
-
-const BookingStatusBanner = ({ booking, onPress }) => {
-  const navigation = useNavigation();
-
+const BookingStatusBanner = ({ booking, onPress, onPay, paying = false }) => {
   if (!booking) return null;
 
-  const isPending = booking.status === 'pending';
-  
-  // Resolve vendor image
-  let vendorImageUri = null;
-  if (booking.vendorImage) {
-      vendorImageUri = booking.vendorImage.startsWith('http') 
-        ? booking.vendorImage 
-        : `${BASE_URL}${booking.vendorImage}`;
-  }
-
-  const getInitials = (name) => {
-    if (!name || name === 'Vendor Assigned') return 'V';
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
+  const payableAmount = Number(booking.remainingAmount || 0);
+  const isGroomingPaymentDue = booking.bookingType === 'grooming'
+    && booking.status === 'completed'
+    && booking.paymentStatus === 'awaiting_payment'
+    && payableAmount > 0;
+  const walkProgress = booking.bookingType === 'walking' ? booking.sessionProgress : null;
+  const currentWalk = walkProgress?.activeSession || walkProgress?.nextSession;
+  const bookingDate = formatISTDate(currentWalk?.serviceDate || booking.serviceDate, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const bookingPin = currentWalk?.otp || booking.otp || '----';
 
   return (
     <TouchableOpacity
@@ -35,87 +28,41 @@ const BookingStatusBanner = ({ booking, onPress }) => {
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <View style={styles.topSection}>
-        <View style={styles.vendorInfoRow}>
-          {/* Avatar Area */}
-          {isPending ? (
-            <View style={styles.avatarPlaceholder}>
-              <MaterialCommunityIcons name="magnify" size={28} color={theme.colors.textSecondary} />
+      {isGroomingPaymentDue ? (
+        <View style={[styles.paymentDueSection, styles.paymentDueContent]}>
+          <AppText style={styles.paymentDueTitle} weight="bold">Grooming completed</AppText>
+          <View style={styles.paymentDueRow}>
+            <View>
+              <AppText style={styles.payableLabel}>TO BE PAID</AppText>
+              <AppText style={styles.payableAmount} weight="bold">₹ {payableAmount.toFixed(2)}</AppText>
             </View>
-          ) : vendorImageUri ? (
-            <Image source={{ uri: vendorImageUri }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.primary, borderWidth: 0 }]}>
-              <AppText style={{ color: '#FFF', fontSize: 20 }} weight="bold">
-                {getInitials(booking.vendorName)}
-              </AppText>
-            </View>
-          )}
-
-          {/* Details Area */}
-          <View style={styles.detailsCol}>
-            <AppText style={styles.vendorName} weight="bold" numberOfLines={1}>
-              {isPending ? 'Searching the vendor...' : booking.vendorName || 'Vendor Assigned'}
-            </AppText>
-            
-            {!isPending && (
-              <AppText style={styles.vendorRole} numberOfLines={1}>
-                {booking.serviceName === 'Grooming' ? 'Senior Groomer' : 
-                 booking.serviceName === 'Walking' ? 'Professional Walker' : 
-                 booking.serviceName === 'Veterinary' ? 'Certified Vet' : 'Pet Care Expert'}
-              </AppText>
-            )}
+            <TouchableOpacity
+              style={[styles.payNowButton, paying && styles.payNowButtonDisabled]}
+              disabled={paying}
+              onPress={(event) => {
+                event?.stopPropagation?.();
+                onPay?.(booking);
+              }}
+            >
+              <AppText style={styles.payNowText} weight="bold">{paying ? 'OPENING...' : 'PAY NOW'}</AppText>
+            </TouchableOpacity>
           </View>
-
-          {/* Action Icons */}
-          {!isPending && (
-            <View style={styles.actionsRow}>
-              {booking.vendorPhone && (
-                <TouchableOpacity 
-                  style={styles.actionBtn}
-                  onPress={() => Linking.openURL(`tel:${booking.vendorPhone}`)}
-                >
-                  <Ionicons name="call-outline" size={16} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity 
-                style={styles.actionBtn}
-                onPress={() => navigation.navigate('Chat', { bookingId: booking.id, partnerName: booking.vendorName || 'Vendor' })}
-              >
-                <Ionicons name="chatbubble-outline" size={16} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
-      </View>
-
-      <View style={styles.bottomSection}>
-        <View style={styles.dateRow}>
-          <View style={styles.dateItem}>
-            <MaterialCommunityIcons name="calendar-blank-outline" size={18} color={theme.colors.textSecondary} />
-            <AppText style={styles.dateText}>
-              {formatISTDate(booking.serviceDate, { day: 'numeric', month: 'short', year: 'numeric' })}
-            </AppText>
+      ) : (
+        <View style={styles.compactContent}>
+          <View style={styles.compactItem}>
+            <MaterialCommunityIcons name="calendar-blank-outline" size={22} color={theme.colors.primaryDark} />
+            <AppText style={styles.compactLabel}>DATE</AppText>
+            <AppText style={styles.compactValue} weight="bold">{bookingDate}</AppText>
           </View>
-          
-          <View style={styles.dateItem}>
-            <MaterialCommunityIcons name="clock-outline" size={18} color={theme.colors.textSecondary} />
-            <AppText style={styles.dateText}>
-              {booking.timeSlot || 'Anytime'}
-            </AppText>
+          <View style={styles.compactDivider} />
+          <View style={styles.compactItem}>
+            <MaterialCommunityIcons name="key-variant" size={22} color={theme.colors.primaryDark} />
+            <AppText style={styles.compactLabel}>PIN</AppText>
+            <AppText style={styles.pinValue} weight="bold">{bookingPin}</AppText>
           </View>
-
-          {/* OTP Section (Inline) */}
-          {(booking.status === 'confirmed' || booking.status === 'in_progress') && booking.otp && (
-            <View style={styles.otpMinimalContainer}>
-                <AppText style={styles.otpMinimalLabel}>PIN</AppText>
-                <View style={styles.otpHighlight}>
-                    <AppText style={styles.otpMinimalValue} weight="bold">{booking.otp}</AppText>
-                </View>
-            </View>
-          )}
         </View>
-      </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -134,103 +81,83 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     marginBottom: 4,
   },
-  topSection: {
-  },
-  vendorInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 48, // Slightly smaller avatar
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#F0F0F0',
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  detailsCol: {
+  compactContent: {
     flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  vendorName: {
-    fontSize: 16,
-    color: theme.colors.textBlack,
-    marginBottom: 2,
-  },
-  vendorRole: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    // Removed badge container and text styles as they are no longer used
-  },
-  actionsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginLeft: 10,
-  },
-  actionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-  },
-  bottomSection: {
+    justifyContent: 'space-around',
     backgroundColor: '#F8F9FA',
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    borderRadius: 12,
+    paddingHorizontal: 18,
   },
-  dateRow: {
+  compactItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactDivider: {
+    width: 1,
+    height: 58,
+    backgroundColor: '#E3E0E8',
+    marginHorizontal: 18,
+  },
+  compactLabel: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    letterSpacing: 1.1,
+    marginTop: 5,
+  },
+  compactValue: {
+    color: theme.colors.textBlack,
+    fontSize: 15,
+    marginTop: 2,
+  },
+  pinValue: {
+    fontSize: 19,
+    color: '#2E7D32',
+    letterSpacing: 2,
+    marginTop: 1,
+  },
+  paymentDueSection: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 12,
+  },
+  paymentDueContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  paymentDueTitle: {
+    color: '#A33A00',
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  paymentDueRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  dateItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dateText: {
-    fontSize: 14,
-    color: theme.colors.textBlack,
-    fontWeight: '500',
-  },
-  otpMinimalContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  otpMinimalLabel: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    marginRight: 4,
-    fontWeight: 'bold',
-  },
-  otpHighlight: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-  },
-  otpMinimalValue: {
-    fontSize: 12,
-    color: '#2E7D32',
+  payableLabel: {
+    color: '#A33A00',
+    fontSize: 9,
     letterSpacing: 1,
+  },
+  payableAmount: {
+    color: '#E65100',
+    fontSize: 17,
+  },
+  payNowButton: {
+    backgroundColor: '#E65100',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  payNowButtonDisabled: {
+    opacity: 0.65,
+  },
+  payNowText: {
+    color: '#FFF',
+    fontSize: 11,
   },
 });
 

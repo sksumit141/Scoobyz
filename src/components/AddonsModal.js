@@ -185,7 +185,13 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
               activeOpacity={0.8}
               onPress={() => {
                 onAdd({
+                  id: packageData.id,
                   packageId: packageData.id,
+                  title: packageData.title || packageData.name || 'Grooming Package',
+                  name: packageData.name || packageData.title || 'Grooming Package',
+                  subtitle: packageData.subtitle,
+                  duration: packageData.duration,
+                  features: Array.isArray(packageData.features) ? packageData.features : [],
                   basePrice: basePriceOnly,
                   addons: availableAddons.filter(a => selectedAddons.includes(String(a.id))),
                   totalAddonPrice: currentAddonsTotal,

@@ -20,6 +20,7 @@ export default function SupportChatScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('');
   const [userDetails, setUserDetails] = useState(null);
+  const [inputFocused, setInputFocused] = useState(false);
   const scrollViewRef = useRef();
   const socketRef = useRef();
 
@@ -43,7 +44,8 @@ export default function SupportChatScreen({ navigation }) {
         if (id) {
             // Initialize Socket Connection
             socketRef.current = io(BASE_URL, {
-              transports: ['websocket']
+              transports: ['websocket'],
+              auth: callback => AsyncStorage.getItem('authToken').then(token => callback({ token })),
             });
             
             socketRef.current.on('connect', () => {
@@ -103,13 +105,18 @@ export default function SupportChatScreen({ navigation }) {
         />
       </View>
 
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
         {/* Chat Area */}
         <ScrollView 
           ref={scrollViewRef}
           style={styles.chatArea} 
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.length === 0 && (
               <View style={styles.emptyState}>
@@ -135,15 +142,17 @@ export default function SupportChatScreen({ navigation }) {
         </ScrollView>
 
         {/* Input Area */}
-        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, inputFocused && styles.inputFocused]}
             placeholder="Type your message..."
             placeholderTextColor="#888"
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={500}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
           />
           
           <TouchableOpacity 
@@ -154,7 +163,7 @@ export default function SupportChatScreen({ navigation }) {
             <Ionicons name="send" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </AppScreen>
   );
 }
@@ -207,6 +216,12 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     fontSize: 14,
     color: '#333',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  inputFocused: {
+    backgroundColor: '#FFF',
+    borderColor: theme.colors.primaryDark,
   },
   sendBtn: {
     width: 40,

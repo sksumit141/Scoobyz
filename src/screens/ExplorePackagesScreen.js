@@ -194,7 +194,7 @@ export default function ExplorePackagesScreen({ route, navigation }) {
 
           // ==========================================================
           // CUSTOM PRICING CONFIGURATION
-          // You can input the regular (original) and discounted (launch) 
+          // You can input the regular (original) and discounted (launch)
           // prices for all 3 types of services here!
           // ==========================================================
           const customPricing = {

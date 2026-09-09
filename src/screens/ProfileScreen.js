@@ -9,6 +9,7 @@ import { theme } from '../styles/theme';
 import { petsApi, customerApi, BASE_URL } from '../services/api';
 import CustomAlert from '../components/CustomAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { unregisterPushToken } from '../components/PushNotificationManager';
 
 const { width } = Dimensions.get('window');
 
@@ -101,6 +102,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
+      await unregisterPushToken();
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userId');
       navigation.reset({

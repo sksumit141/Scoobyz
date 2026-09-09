@@ -1,129 +1,149 @@
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { navigationRef } from '../../App';
+import { navigateFromCustomerNotification } from '../utils/notificationNavigation';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://scoobyz-backend.onrender.com';
+const CHANNELS = [
+  ['default', 'General', Notifications.AndroidImportance.DEFAULT],
+  ['bookings', 'Bookings', Notifications.AndroidImportance.MAX],
+  ['messages', 'Messages', Notifications.AndroidImportance.HIGH],
+  ['payments', 'Payments and refunds', Notifications.AndroidImportance.HIGH],
+  ['account', 'Account', Notifications.AndroidImportance.DEFAULT],
+];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
 });
 
-export async function registerForPushNotificationsAsync() {
-  if (Platform.OS === 'web') return;
-  let token;
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
+const createAndroidChannels = async () => {
+  if (Platform.OS !== 'android') return;
+  await Promise.all(CHANNELS.map(([id, name, importance]) =>
+    Notifications.setNotificationChannelAsync(id, {
+      name,
+      importance,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
+      lightColor: '#4A6B4B',
+      sound: 'default',
+    })
+  ));
+};
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
-      return;
-    }
-    
-    // Expo project ID needed for EAS builds
-    const projectId =
-      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-    
-    try {
-      if (projectId) {
-         token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      } else {
-         token = (await Notifications.getExpoPushTokenAsync()).data;
-      }
-      console.log('Expo Push Token:', token);
-    } catch (e) {
-      console.error('Error getting expo push token', e);
-    }
-  } else {
-    console.log('Must use physical device for Push Notifications');
-  }
+export async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web' || !Device.isDevice) return null;
+  await createAndroidChannels();
 
-  return token;
+  const existingPermission = await Notifications.getPermissionsAsync();
+  const permission = existingPermission.status === 'granted'
+    ? existingPermission
+    : await Notifications.requestPermissionsAsync();
+  if (permission.status !== 'granted') return null;
+
+  const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+  return (await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)).data;
 }
 
 export async function registerAndSendPushToken() {
   try {
-    const token = await registerForPushNotificationsAsync();
-    if (token) {
-      const authToken = await AsyncStorage.getItem('authToken');
-      if (authToken) {
-        const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://scoobyz-backend.onrender.com';
-        await fetch(`${API_URL}/api/notifications/push-token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify({ pushToken: token })
-        });
-        console.log('Push token sent to backend after login');
-      }
-    }
-  } catch (e) {
-    console.error('Error sending push token:', e);
+    const [pushToken, authToken] = await Promise.all([
+      registerForPushNotificationsAsync(),
+      AsyncStorage.getItem('authToken'),
+    ]);
+    if (!pushToken || !authToken) return false;
+
+    const response = await fetch(`${API_URL}/api/notifications/push-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ pushToken, app: 'customer', platform: Platform.OS }),
+    });
+    if (!response.ok) throw new Error(`Push token registration failed (${response.status})`);
+    await AsyncStorage.setItem('expoPushToken', pushToken);
+    return true;
+  } catch (error) {
+    console.error('Failed to register customer push token:', error);
+    return false;
   }
 }
 
-export async function sendLocalWelcomeNotification() {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Hi 👋",
-      body: "How are you?",
-    },
-    trigger: null,
-  });
+export async function unregisterPushToken() {
+  const [authToken, pushToken] = await Promise.all([
+    AsyncStorage.getItem('authToken'),
+    AsyncStorage.getItem('expoPushToken'),
+  ]);
+  if (!authToken) return;
+
+  try {
+    await fetch(`${API_URL}/api/notifications/push-token/remove`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify({ pushToken }),
+    });
+  } catch (error) {
+    console.warn('Failed to unregister customer push token:', error);
+  } finally {
+    await AsyncStorage.removeItem('expoPushToken');
+  }
 }
 
+const markNotificationRead = async (notificationId) => {
+  if (!notificationId) return;
+  try {
+    const authToken = await AsyncStorage.getItem('authToken');
+    if (!authToken) return;
+    await fetch(`${API_URL}/api/notifications/${notificationId}/read`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+  } catch (error) {
+    console.warn('Failed to mark customer notification as read:', error);
+  }
+};
+
 export default function PushNotificationManager() {
-  const notificationListener = useRef();
-  const responseListener = useRef();
+  const lastResponseId = useRef(null);
 
   useEffect(() => {
     registerAndSendPushToken();
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-    });
+    const handleResponse = (response, retryCount = 0) => {
+      const request = response?.notification?.request;
+      const responseId = request?.identifier;
+      if (responseId && lastResponseId.current === responseId) return;
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification tapped:', response);
-      const data = response?.notification?.request?.content?.data;
-      if (data && data.actionUrl && navigationRef.isReady()) {
-        try {
-          navigationRef.navigate(data.actionUrl, data.params || {});
-        } catch (err) {
-          console.error('Failed to navigate from push notification:', err);
-        }
-      } else {
-        // Fallback or default behavior, e.g., open notifications tab
-        if (navigationRef.isReady()) {
-          navigationRef.navigate('Notifications');
-        }
+      const data = request?.content?.data || {};
+      if (!navigateFromCustomerNotification(data) && retryCount < 10) {
+        setTimeout(() => handleResponse(response, retryCount + 1), 300);
+        return;
       }
+
+      lastResponseId.current = responseId;
+      markNotificationRead(data.notificationId);
+      Notifications.setBadgeCountAsync(0).catch(() => {});
+    };
+
+    const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      const type = notification.request.content.data?.type;
+      DeviceEventEmitter.emit('refresh_notifications');
+      if (String(type || '').startsWith('booking_') || type === 'payment') {
+        DeviceEventEmitter.emit('refresh_customer_bookings');
+      }
+    });
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response) handleResponse(response);
     });
 
     return () => {
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
+      receivedSubscription.remove();
+      responseSubscription.remove();
     };
   }, []);
 

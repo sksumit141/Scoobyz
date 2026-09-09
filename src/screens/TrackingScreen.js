@@ -1,16 +1,55 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Dimensions } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import LiveTrackingMap from '../components/LiveTrackingMap';
+import { bookingsApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function TrackingScreen({ navigation, route }) {
-    const { booking } = route.params || {};
+    const initialBooking = route.params?.booking || null;
+    const bookingId = Number(initialBooking?.id || route.params?.bookingId);
+    const [booking, setBooking] = useState(initialBooking);
+    const [loading, setLoading] = useState(!initialBooking);
+
+    const refreshBooking = useCallback(async () => {
+        if (!bookingId) {
+            setLoading(false);
+            return;
+        }
+        try {
+            const latest = await bookingsApi.get(bookingId);
+            setBooking(latest);
+        } catch (error) {
+            console.warn('Unable to refresh live walk booking:', error.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [bookingId]);
+
+    useEffect(() => {
+        refreshBooking();
+        if (booking?.bookingType !== 'walking' || ['completed', 'cancelled', 'declined'].includes(booking?.status)) {
+            return undefined;
+        }
+        const timer = setInterval(refreshBooking, 5000);
+        return () => clearInterval(timer);
+    }, [booking?.bookingType, booking?.status, refreshBooking]);
+
+    const handleSessionUpdate = useCallback(() => refreshBooking(), [refreshBooking]);
+
+    if (loading && !booking) {
+        return (
+            <AppScreen safeAreaTop={true}>
+                <AppHeader title="Track Walk" />
+                <View style={styles.centerState}><ActivityIndicator size="large" color={theme.colors.primary} /></View>
+            </AppScreen>
+        );
+    }
     
     if (!booking) {
         return (
@@ -81,8 +120,8 @@ export default function TrackingScreen({ navigation, route }) {
                     </View>
                 )}
 
-                {/* Live Walking Tracker - Only for Walking Services in progress */}
-                {booking.serviceName?.toLowerCase().includes('walking') && booking.status === 'in_progress' && (
+                {/* An active walking session is the source of truth for live tracking. */}
+                {booking.bookingType === 'walking' && booking.sessionProgress?.activeSession && (
                     <View style={styles.mapContainer}>
                         <View style={styles.mapHeader}>
                             <Ionicons name="paw" size={18} color={theme.colors.accent} />
@@ -90,7 +129,9 @@ export default function TrackingScreen({ navigation, route }) {
                         </View>
                         <View style={styles.mapWrapper}>
                             <LiveTrackingMap 
-                                bookingId={booking.id} 
+                                bookingId={booking.id}
+                                sessionId={booking.sessionProgress.activeSession.id}
+                                onSessionUpdate={handleSessionUpdate}
                                 initialLocation={{
                                     latitude: parseFloat(booking.latitude) || 28.7041,
                                     longitude: parseFloat(booking.longitude) || 77.1025
@@ -155,6 +196,7 @@ const styles = StyleSheet.create({
     backBtn: { marginRight: 15 },
     headerTitle: { fontSize: 20, },
     scrollContent: { padding: 20 },
+    centerState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     summaryCard: {
         backgroundColor: '#FFF',
         padding: 20,

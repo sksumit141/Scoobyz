@@ -24,7 +24,7 @@ const safeLayoutAnimation = () => {
     if (Platform.OS !== 'android') {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }
-  } catch (e) {}
+  } catch (e) { }
 };
 
 function getServiceApi(serviceType) {
@@ -73,7 +73,7 @@ function buildPayload(params, paymentDetails) {
     return { ...base, visitType: visitType || consultType || 'Clinic Visit' };
   } else {
     const mainPackage = cart?.[0] || {};
-    return { ...base, serviceId: mainPackage?.id, visitType: visitType === 'Home Service' ? 'home_visit' : 'studio' };
+    return { ...base, serviceId: mainPackage.serviceId, visitType: visitType === 'Home Service' ? 'home_visit' : 'studio' };
   }
 }
 
@@ -133,6 +133,8 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   const [isPaymentModalVisible, setPaymentModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  // Grooming uses a fixed ₹99 slot booking charge; other services use full/partial
+  const GROOMING_SLOT_FEE = 0;
   const [paymentType, setPaymentType] = useState((isWalking || isGrooming) ? 'full' : null);
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'info' });
   const [validationMsg, setValidationMsg] = useState('');
@@ -197,7 +199,9 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
       const qty = quantities[addonKey] || 0;
       for (let i = 0; i < qty; i++) {
         arr.push({
+          id: a.id,
           name: a.addonName || a.addon_name || a.name || a.title || 'Add-on',
+          description: a.description || a.subtitle,
           price: a.addonPrice || a.price || 0
         });
       }
@@ -206,8 +210,16 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   }, [localAddons, quantities]);
 
   const discountedTotal = calculateDiscountedPrice(dynamicTotal, serviceType);
-  const amountPaid = (paymentType === 'partial' ? dynamicTotal * 0.3 : dynamicTotal);
-  const remainingAmount = dynamicTotal - amountPaid;
+  // For grooming: ₹99 flat slot booking fee charged upfront; rest paid after service
+  const groomingAmountPaid = isGrooming ? GROOMING_SLOT_FEE : null;
+  const groomingRemainingAmount = isGrooming ? Math.max(0, dynamicTotal - GROOMING_SLOT_FEE) : null;
+
+  const amountPaid = isGrooming
+    ? GROOMING_SLOT_FEE
+    : (paymentType === 'partial' ? dynamicTotal * 0.3 : dynamicTotal);
+  const remainingAmount = isGrooming
+    ? Math.max(0, dynamicTotal - GROOMING_SLOT_FEE)
+    : dynamicTotal - amountPaid;
   const discountedAmountPaid = calculateDiscountedPrice(amountPaid, serviceType);
   const discountedRemainingAmount = calculateDiscountedPrice(remainingAmount, serviceType);
 
@@ -295,17 +307,22 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
     try {
       const apiCall = getServiceApi(serviceType);
       let finalPaymentReferenceId = null;
-      if (!params.isDemo && amountPaid > 0) {
+      // For grooming, always charge the ₹99 slot booking fee upfront.
+      // For other services, charge the selected amount (full or partial).
+      const chargeAmount = isGrooming ? GROOMING_SLOT_FEE : amountPaid;
+      if (!params.isDemo && chargeAmount > 0) {
         try {
           const orderRes = await fetch(`${BASE_URL}/payment/create-order-direct`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await require('@react-native-async-storage/async-storage').default.getItem('authToken')}` },
-            body: JSON.stringify({ amount: amountPaid }),
+            body: JSON.stringify({ amount: chargeAmount }),
           });
           const orderData = await orderRes.json();
           if (orderData.error) throw new Error(orderData.error);
           const options = {
-            description: `Payment for ${serviceType}`,
+            description: isGrooming
+              ? `Slot Booking Charge for Grooming (₹${GROOMING_SLOT_FEE} — adjusted in final invoice)`
+              : `Payment for ${serviceType}`,
             image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
             currency: orderData.currency,
             key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T3ueH6b31wuS9u',
@@ -339,14 +356,23 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
         }
       }
       const originalNotes = params.notes || '';
-      
+      const paymentTypeForPayload = isGrooming ? 'slot_booking' : paymentType;
       const payload = {
-        ...buildPayload(params, { paymentType, amountPaid: amountPaid, remainingAmount: remainingAmount, totalCost: dynamicTotal }),
+        ...buildPayload(params, { paymentType: paymentTypeForPayload, amountPaid: amountPaid, remainingAmount: remainingAmount, totalCost: dynamicTotal }),
         addressId: selectedAddress?.id, requiresAdminAssignment: isScoobyzMatch,
         isDemo: params.isDemo || false, paymentReferenceId: finalPaymentReferenceId,
         notes: `_OP:${dynamicTotal}_ ${originalNotes}`.trim(),
         selectedSubServices: expandedAddons,
-        packageName: cart[0]?.title || cart[0]?.name || 'Grooming Package'
+        packageId: mainPackage.packageId || mainPackage.id,
+        packageName: mainPackage.title || mainPackage.name || 'Grooming Package',
+        packageDetails: {
+          id: mainPackage.packageId || mainPackage.id,
+          name: mainPackage.title || mainPackage.name || 'Grooming Package',
+          subtitle: mainPackage.subtitle,
+          duration: mainPackage.duration,
+          features: Array.isArray(mainPackage.features) ? mainPackage.features : [],
+        },
+        slotBookingFee: isGrooming ? GROOMING_SLOT_FEE : undefined,
       };
       const result = await apiCall(payload);
       const bookingId = result?.bookingId || result?.id;
@@ -516,7 +542,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
         {/* NEW "Add Services" Dropdown */}
         {availableAddons.length > 0 && (
           <View style={{ marginTop: localAddons.length > 0 ? 16 : 8, paddingTop: localAddons.length > 0 ? 16 : 0, borderTopWidth: localAddons.length > 0 ? 1 : 0, borderTopColor: '#f0f0f0' }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.sectionHeader, { justifyContent: 'space-between', marginBottom: 0 }]}
               onPress={() => {
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -539,7 +565,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                   return k1 && k2 && k1 === k2;
                 })).map((addon, idx) => {
                   return (
-                    <View key={'avail-'+idx} style={[styles.serviceRow, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }]}>
+                    <View key={'avail-' + idx} style={[styles.serviceRow, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }]}>
                       <MaterialCommunityIcons name={addon.icon || 'paw'} size={20} color="#526D82" style={{ marginRight: 16 }} />
                       <View style={styles.serviceInfo}>
                         <AppText style={styles.serviceName} weight="bold">
@@ -547,7 +573,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                         </AppText>
                         <AppText style={styles.servicePrice} weight="bold">₹{addon.addonPrice || addon.price}</AppText>
                       </View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[styles.qtyBtn, { width: 32, height: 32, backgroundColor: theme.colors.primaryDark, borderColor: theme.colors.primaryDark }]}
                         onPress={() => {
                           const addonKey = addon.id || addon.name || addon.addonName || addon.title;
@@ -565,8 +591,8 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                   const k2 = a.id || a.name || a.addonName || a.title;
                   return k1 && k2 && k1 === k2;
                 })).length === 0 && (
-                  <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 8 }}>All available services added.</AppText>
-                )}
+                    <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingVertical: 8 }}>All available services added.</AppText>
+                  )}
               </View>
             )}
           </View>
@@ -749,16 +775,32 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           <View style={styles.toPayTopRow}>
             <MaterialCommunityIcons name="receipt-outline" size={24} color="#526D82" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
-              <AppText style={styles.mainValue} weight="bold">To Pay</AppText>
+              <AppText style={styles.mainValue} weight="bold">
+                {isGrooming ? 'Slot Booking Charge' : 'To Pay'}
+              </AppText>
               <TouchableOpacity style={styles.viewDetailBtn} onPress={() => setPaymentModalVisible(true)}>
                 <AppText style={styles.viewDetailText}>VIEW DETAIL</AppText>
                 <MaterialCommunityIcons name="chevron-right" size={14} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <AppText style={styles.toPayTotal} weight="bold">
-              ₹ {paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal}
+              ₹ {isGrooming ? GROOMING_SLOT_FEE : (paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal)}
             </AppText>
           </View>
+
+          {/* Grooming Slot Booking Info Banner */}
+          {isGrooming && (
+            <View style={styles.slotBookingBanner}>
+              <MaterialCommunityIcons name="information-outline" size={16} color="#7B1FA2" style={{ marginTop: 2 }} />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <AppText style={styles.slotBookingText}>
+                  <AppText weight="bold">₹{GROOMING_SLOT_FEE} slot booking charge</AppText> is collected now to confirm your appointment.{' '}
+                  The remaining <AppText weight="bold">₹{remainingAmount}</AppText> will be adjusted in the final invoice, paid after the service is completed.
+                </AppText>
+              </View>
+            </View>
+          )}
+
           <View style={styles.cancellationBox}>
             <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.textBlack} style={{ marginTop: 2 }} />
             <AppText style={styles.cancellationText}>
@@ -771,13 +813,20 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
       {/* Sticky Footer */}
       <View style={styles.footer}>
         <View style={styles.footerLeft}>
-          <AppText style={styles.footerTotalLabel}>{paymentType === 'partial' ? 'Pay Now' : 'Total'}</AppText>
-          <AppText style={styles.footerTotalValue} weight="bold">
-            ₹ {paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal}
+          <AppText style={styles.footerTotalLabel}>
+            {isGrooming ? 'Pay Now (Slot Booking)' : (paymentType === 'partial' ? 'Pay Now' : 'Total')}
           </AppText>
+          <AppText style={styles.footerTotalValue} weight="bold">
+            ₹ {isGrooming ? GROOMING_SLOT_FEE : (paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal)}
+          </AppText>
+          {isGrooming && dynamicTotal > GROOMING_SLOT_FEE && (
+            <AppText style={{ fontSize: 10, color: theme.colors.textSecondary }}>
+              ₹{remainingAmount} due after service
+            </AppText>
+          )}
         </View>
         <TouchableOpacity style={styles.payBtn} activeOpacity={0.8} onPress={handleConfirmBooking} disabled={loading}>
-          {loading ? <ActivityIndicator color={theme.colors.white} /> : <AppText style={styles.payBtnText}>{isScoobyzMatch ? 'Request Match' : 'Pay Now'}</AppText>}
+          {loading ? <ActivityIndicator color={theme.colors.white} /> : <AppText style={styles.payBtnText}>{isScoobyzMatch ? 'Request Match' : 'Pay ₹' + (isGrooming ? GROOMING_SLOT_FEE : (paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal))}</AppText>}
         </TouchableOpacity>
       </View>
 
@@ -786,6 +835,9 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
         cart={cart} total={dynamicTotal} room={selectedRoom} meal={selectedMeal} nights={nights}
         frequency={frequency} isAggressive={isAggressive} aggressiveFee={aggressiveFee} timesPerDay={timesPerDay}
         addons={expandedAddons}
+        amountPaid={isGrooming ? GROOMING_SLOT_FEE : null}
+        remainingAmount={isGrooming ? remainingAmount : null}
+        isSlotBooking={isGrooming}
       />
       <CustomAlert
         visible={alertConfig.visible} title={alertConfig.title}
@@ -901,6 +953,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start',
   },
   cancellationText: { flex: 1, fontSize: 12, color: theme.colors.textSecondary, marginLeft: 8, lineHeight: 18 },
+  slotBookingBanner: {
+    backgroundColor: '#F3E8FF', borderRadius: 12, padding: 12,
+    flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12,
+    borderWidth: 1, borderColor: '#CE93D8',
+  },
+  slotBookingText: { fontSize: 12, color: '#4A148C', lineHeight: 18 },
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: '#fff',

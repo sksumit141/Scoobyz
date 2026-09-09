@@ -10,7 +10,6 @@ import {
     SafeAreaView,
     StatusBar,
     Dimensions,
-    Linking,
     Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +21,7 @@ import { getNotifications, markAsRead, markAllAsRead } from '../services/api';
 import { getSocket } from '../lib/socket';
 import { formatISTDate } from '../utils/date_utils';
 import PawLoader from '../components/PawLoader';
+import { navigateFromCustomerNotification } from '../utils/notificationNavigation';
 
 const { width } = Dimensions.get('window');
 
@@ -156,28 +156,12 @@ const NotificationsScreen = () => {
             }
         }
 
-        if (item.actionUrl) {
-            // Check if it's a deep link for the app
-            if (item.actionUrl.startsWith('scoobyz://')) {
-                const route = item.actionUrl.replace('scoobyz://', '');
-                if (route.startsWith('booking/')) {
-                    const bookingId = route.split('/')[1];
-                    navigation.navigate('MyBookings', { bookingId });
-                    return;
-                }
-            } else {
-                // External link
-                Linking.openURL(item.actionUrl).catch(err => console.error("Couldn't load page", err));
-            }
-        }
-
-        if (item.type === 'booking_request' || item.type === 'booking_update') {
-            if (item.metadata?.bookingId) {
-                navigation.navigate('MyBookings', { bookingId: item.metadata.bookingId });
-            } else {
-                navigation.navigate('MyBookings');
-            }
-        }
+        navigateFromCustomerNotification({
+            ...(item.metadata || {}),
+            type: item.type,
+            actionUrl: item.actionUrl,
+            notificationId: item.id,
+        });
     };
 
     const handleMarkAllRead = async () => {

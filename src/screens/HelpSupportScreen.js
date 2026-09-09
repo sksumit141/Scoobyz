@@ -8,6 +8,7 @@ import AppText from '../components/AppText';
 import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { BASE_URL } from '../services/api';
+import { unregisterPushToken } from '../components/PushNotificationManager';
 
 const { width } = Dimensions.get('window');
 
@@ -79,6 +80,7 @@ export default function HelpSupportScreen({ navigation }) {
           [{
             text: 'OK',
             onPress: async () => {
+              await unregisterPushToken();
               await AsyncStorage.removeItem('authToken');
               await AsyncStorage.removeItem('userId');
               navigation.reset({

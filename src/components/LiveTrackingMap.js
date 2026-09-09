@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Platform, Text, Animated } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { socket } from '../services/socket';
+import { connectTrackingSocket, socket } from '../services/socket';
 import { theme } from '../styles/theme';
 
 // Only import maps on native platforms to prevent web crashes
@@ -14,8 +14,9 @@ if (Platform.OS !== 'web') {
     PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
 }
 
-export default function LiveTrackingMap({ bookingId, initialLocation }) {
+export default function LiveTrackingMap({ bookingId, sessionId, initialLocation, onSessionUpdate }) {
     const mapRef = useRef(null);
+    const joinedSocketIdRef = useRef(null);
 
     // Fallback for Web
     if (Platform.OS === 'web') {
@@ -44,10 +45,12 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
         })
     );
     const [heading, setHeading] = useState(0);
+    const [connectionState, setConnectionState] = useState('connecting');
+    const [hasLiveLocation, setHasLiveLocation] = useState(false);
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
-        Animated.loop(
+        const animation = Animated.loop(
             Animated.sequence([
                 Animated.timing(pulseAnim, {
                     toValue: 1.5,
@@ -60,20 +63,36 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
                     useNativeDriver: true,
                 })
             ])
-        ).start();
+        );
+        animation.start();
+        return () => animation.stop();
     }, []);
 
     useEffect(() => {
-        if (!bookingId) return;
+        if (!bookingId || !sessionId) return undefined;
 
-        socket.emit('track_walk', { bookingId });
+        const joinWalk = async () => {
+            const connected = await connectTrackingSocket();
+            if (!connected) {
+                setConnectionState('disconnected');
+                return;
+            }
+            if (joinedSocketIdRef.current === socket.id) return;
+            joinedSocketIdRef.current = socket.id;
+            socket.timeout(6000).emit('track_walk', { bookingId, sessionId }, (error, response) => {
+                if (error || !response?.success) joinedSocketIdRef.current = null;
+                setConnectionState(!error && response?.success ? 'connected' : 'disconnected');
+            });
+        };
 
         const handleLocationUpdate = (data) => {
-            if (!data || !data.latitude || !data.longitude) return;
+            if (Number(data?.sessionId) !== Number(sessionId)) return;
 
             const newLat = parseFloat(data.latitude);
             const newLng = parseFloat(data.longitude);
+            if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) return;
             const newHeading = parseFloat(data.heading) || 0;
+            setHasLiveLocation(true);
 
             coordinate.timing({
                 latitude: newLat,
@@ -91,9 +110,22 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
             }, { duration: 1000 });
         };
 
+        const handleSessionUpdate = event => {
+            if (Number(event?.bookingId) !== Number(bookingId)) return;
+            onSessionUpdate?.(event);
+        };
+
+        socket.on('connect', joinWalk);
         socket.on('live_location', handleLocationUpdate);
-        return () => socket.off('live_location', handleLocationUpdate);
-    }, [bookingId]);
+        socket.on('walking_session_updated', handleSessionUpdate);
+        joinWalk();
+        return () => {
+            joinedSocketIdRef.current = null;
+            socket.off('connect', joinWalk);
+            socket.off('live_location', handleLocationUpdate);
+            socket.off('walking_session_updated', handleSessionUpdate);
+        };
+    }, [bookingId, sessionId, onSessionUpdate]);
 
     return (
         <View style={styles.container}>
@@ -108,7 +140,7 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
                     longitudeDelta: 0.005,
                 }}
             >
-                <Marker.Animated coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }}>
+                {hasLiveLocation && <Marker.Animated coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }}>
                     <View style={styles.markerWrapper}>
                         {/* Pulsing ring */}
                         <Animated.View style={[
@@ -126,8 +158,19 @@ export default function LiveTrackingMap({ bookingId, initialLocation }) {
                             <Ionicons name="paw" size={30} color={theme.colors.accent} />
                         </View>
                     </View>
-                </Marker.Animated>
+                </Marker.Animated>}
             </MapView>
+            {(connectionState !== 'connected' || !hasLiveLocation) && (
+                <View style={styles.connectionBanner}>
+                    <Text style={styles.connectionText}>
+                        {connectionState === 'connecting'
+                            ? 'Connecting to live walk…'
+                            : connectionState === 'disconnected'
+                                ? 'Reconnecting to live walk…'
+                                : 'Waiting for the walker’s location…'}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 }
@@ -157,6 +200,16 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%'
     },
+    connectionBanner: {
+        position: 'absolute',
+        top: 10,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(20, 25, 20, 0.82)',
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 14,
+    },
+    connectionText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
     markerWrapper: {
         alignItems: 'center',
         justifyContent: 'center',

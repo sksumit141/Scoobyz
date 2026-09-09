@@ -95,10 +95,20 @@ function buildPayload(params, paymentDetails) {
     } else {
         // grooming (default)
         const mainPackage = cart?.[0] || {};
+        const packageId = mainPackage.packageId || mainPackage.id;
+        const packageName = mainPackage.title || mainPackage.name || 'Grooming Package';
         return {
             ...base,
-            serviceId: mainPackage?.id,
-            packageName: mainPackage?.title,
+            serviceId: mainPackage.serviceId,
+            packageId,
+            packageName,
+            packageDetails: {
+                id: packageId,
+                name: packageName,
+                subtitle: mainPackage.subtitle,
+                duration: mainPackage.duration,
+                features: Array.isArray(mainPackage.features) ? mainPackage.features : [],
+            },
             selectedSubServices: mainPackage?.addons || [],
             visitType: visitType === 'Home Visit' || visitType === 'Home Service' ? 'home_visit' : 'studio',
         };

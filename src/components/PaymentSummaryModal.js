@@ -8,7 +8,7 @@ export default function PaymentSummaryModal({
   visible, onClose, cart = [], total = 0, room = null, meal = null,
   frequency = '1x', nights = 1, isAggressive = false, aggressiveFee = 0,
   timesPerDay = 1, amountPaid = null, remainingAmount = null,
-  addons: passedAddons = []
+  addons: passedAddons = [], isSlotBooking = false
 }) {
   const mainPackage = cart[0] || {};
   const addons = (passedAddons.length > 0 ? passedAddons : (mainPackage.addons || [])).map(a => ({
@@ -108,13 +108,25 @@ export default function PaymentSummaryModal({
 
           <View style={styles.totalRow}>
             <View>
-              <AppText style={styles.totalLabel} weight="bold">To Pay</AppText>
+              <AppText style={styles.totalLabel} weight="bold">Total (After Service)</AppText>
               <AppText style={styles.inclusiveText}>Incl. all fee</AppText>
             </View>
             <AppText style={styles.totalValue} weight="bold">₹ {total}</AppText>
           </View>
 
-          {amountPaid !== null && remainingAmount !== null && (
+          {isSlotBooking ? (
+            <>
+              <View style={[styles.divider, { marginTop: 16, marginBottom: 16 }]} />
+              <View style={[styles.itemRow, { backgroundColor: '#F3E8FF', borderRadius: 10, padding: 12, marginBottom: 8 }]}>
+                <AppText style={[styles.itemLabel, { color: '#4A148C' }]}>₹99 Slot Booking (Paid Now)</AppText>
+                <AppText style={[styles.itemValue, { color: '#4A148C' }]} weight="bold">₹ {amountPaid}</AppText>
+              </View>
+              <View style={[styles.itemRow, { paddingHorizontal: 4 }]}>
+                <AppText style={styles.itemLabel}>Remaining (Paid After Service)</AppText>
+                <AppText style={[styles.itemValue, { color: '#7B1FA2' }]} weight="bold">₹ {remainingAmount}</AppText>
+              </View>
+            </>
+          ) : amountPaid !== null && remainingAmount !== null ? (
             <>
               <View style={[styles.divider, { marginTop: 16, marginBottom: 16 }]} />
               <View style={styles.itemRow}>
@@ -130,7 +142,7 @@ export default function PaymentSummaryModal({
                 </AppText>
               </View>
             </>
-          )}
+          ) : null}
         </View>
       </View>
     </Modal>

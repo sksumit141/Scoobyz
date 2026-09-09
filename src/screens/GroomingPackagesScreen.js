@@ -7,68 +7,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-const PACKAGES = [
-  {
-    id: 'fresh_clean',
-    title: 'Fresh & Clean',
-    subtitle: 'Basic Grooming',
-    image: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=600&q=80',
-    features: [
-      'Bath and Blow Dry',
-      'Brushing',
-      'Ear Cleaning',
-      'Nail Clipping',
-      'Deodorizing Spray'
-    ],
-    pricing: {
-      Small: { regular: 799, launch: 699 },
-      Medium: { regular: 899, launch: 799 },
-      Large: { regular: 999, launch: 899 },
-    }
-  },
-  {
-    id: 'signature_style',
-    title: 'Signature Style',
-    subtitle: 'Premium Grooming',
-    image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600&q=80',
-    features: [
-      'Everything in Fresh & Clean, plus:',
-      'Hygiene Trim',
-      'Paw Care',
-      'Face Trim',
-      'Salon Finish'
-    ],
-    pricing: {
-      Small: { regular: 1499, launch: 1299 },
-      Medium: { regular: 1699, launch: 1499 },
-      Large: { regular: 1899, launch: 1699 },
-    }
-  },
-  {
-    id: 'royal_pamper',
-    title: 'Royal Pamper',
-    subtitle: 'Full Grooming',
-    image: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&q=80',
-    features: [
-      'Everything in Signature Style, plus:',
-      'Full Breed Haircut',
-      'Premium Shampoo',
-      'Premium Conditioner',
-      'Paw Butter',
-      'Luxury Finish'
-    ],
-    pricing: {
-      Small: { regular: 1799, launch: 1499 },
-      Medium: { regular: 1999, launch: 1699 },
-      Large: { regular: 2299, launch: 1899 },
-    }
-  }
-];
+import { discoverApi } from '../services/api';
 
 export default function GroomingPackagesScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { pet, ...otherParams } = route.params || {};
   const petSize = pet?.size || 'Medium';
+
+  const [packages, setPackages] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const response = await discoverApi.scoobyzPackages();
+        if (response.data && response.data.packages) {
+          setPackages(response.data.packages);
+        }
+      } catch (error) {
+        console.error('Failed to fetch grooming packages:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPackages();
+  }, []);
 
   const handleSelectPackage = (pkg) => {
     // Navigate to ExplorePackagesScreen in "Standard Grooming" mode
@@ -99,45 +62,51 @@ export default function GroomingPackagesScreen({ route, navigation }) {
         </AppText>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {PACKAGES.map((pkg) => {
-          const prices = pkg.pricing[petSize] || pkg.pricing.Medium;
-          return (
-            <TouchableOpacity 
-              key={pkg.id} 
-              style={styles.card}
-              activeOpacity={0.9}
-              onPress={() => handleSelectPackage(pkg)}
-            >
-              <Image source={{ uri: pkg.image }} style={styles.cardImage} />
-              <View style={styles.cardContent}>
-                <View style={styles.cardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <AppText style={styles.cardTitle} weight="bold">{pkg.title}</AppText>
-                    <AppText style={styles.cardSubtitle}>{pkg.subtitle}</AppText>
-                  </View>
-                  <View style={styles.priceContainer}>
-                    <AppText style={styles.regularPrice}>₹{prices.regular}</AppText>
-                    <AppText style={styles.launchPrice} weight="bold">₹{prices.launch}</AppText>
-                  </View>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.featuresList}>
-                  {pkg.features.map((feature, idx) => (
-                    <View key={idx} style={styles.featureItem}>
-                      <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primaryDark} style={{ marginTop: 2 }} />
-                      <AppText style={styles.featureText}>{feature}</AppText>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <AppText>Loading packages...</AppText>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {packages.map((pkg) => {
+            const prices = pkg.pricing[petSize] || pkg.pricing.Medium;
+            return (
+              <TouchableOpacity 
+                key={pkg.id} 
+                style={styles.card}
+                activeOpacity={0.9}
+                onPress={() => handleSelectPackage(pkg)}
+              >
+                <Image source={{ uri: pkg.image }} style={styles.cardImage} />
+                <View style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <AppText style={styles.cardTitle} weight="bold">{pkg.title}</AppText>
+                      <AppText style={styles.cardSubtitle}>{pkg.subtitle}</AppText>
                     </View>
-                  ))}
+                    <View style={styles.priceContainer}>
+                      <AppText style={styles.regularPrice}>₹{prices.regular}</AppText>
+                      <AppText style={styles.launchPrice} weight="bold">₹{prices.launch}</AppText>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.featuresList}>
+                    {pkg.features.map((feature, idx) => (
+                      <View key={idx} style={styles.featureItem}>
+                        <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primaryDark} style={{ marginTop: 2 }} />
+                        <AppText style={styles.featureText}>{feature}</AppText>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.selectBtn}>
+                    <AppText style={styles.selectBtnText} weight="bold">View & Select</AppText>
+                  </View>
                 </View>
-                <View style={styles.selectBtn}>
-                  <AppText style={styles.selectBtnText} weight="bold">View & Select</AppText>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

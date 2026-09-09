@@ -10,7 +10,7 @@ import { bookingsApi } from '../services/api';
 import { formatISTDate } from '../utils/date_utils';
 
 export default function WalkingReviewScreen({ navigation, route }) {
-  const { expert, pet, service, date, time, total, frequency, duration, recurringDays } = route.params || {};
+  const { expert, pet, service, date, time, total, frequency, duration, recurringDays, timesPerDay = 1 } = route.params || {};
   const [isPaymentModalVisible, setPaymentModalVisible] = React.useState(false);
   const [quote, setQuote] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
@@ -24,7 +24,7 @@ export default function WalkingReviewScreen({ navigation, route }) {
           vendorUserId: expert?.userId || expert?.id,
           duration: duration || service || '45 min',
           frequency: frequency || 'One-time',
-          timesPerDay: route.params?.timesPerDay || 1
+          timesPerDay
         });
         if (response.success) {
           setQuote(response);
@@ -36,13 +36,13 @@ export default function WalkingReviewScreen({ navigation, route }) {
       }
     }
     fetchQuote();
-  }, [expert, duration, frequency, service]);
+  }, [expert, duration, frequency, service, timesPerDay]);
 
-  let displayTotal = quote?.total || total || 450;
+  let displayTotal = quote?.total ?? total ?? 450;
   
   // If frequency is Monthly, rely on the exact total calculated in WalkingServiceScreen
   if (frequency === 'Monthly') {
-    displayTotal = total || quote?.total || 2799;
+    displayTotal = total || quote?.total || 4299;
   }
   const displayPet = pet || { name: "Bruno", breed: "Dog", id: 1 };
 
@@ -154,9 +154,9 @@ export default function WalkingReviewScreen({ navigation, route }) {
         total={displayTotal}
         cart={[{
           serviceName: 'Walking',
-          basePrice: quote?.basePrice || 300,
-          multiplier: quote?.multiplier || 1,
-          timesPerDay: quote?.timesPerDay || 1,
+          basePrice: quote?.basePrice ?? displayTotal,
+          multiplier: quote?.multiplier ?? 1,
+          timesPerDay: quote?.timesPerDay ?? timesPerDay,
           frequency: frequency || 'One-time',
           duration: duration || '45 min'
         }]}

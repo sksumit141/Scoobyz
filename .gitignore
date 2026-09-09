@@ -8,6 +8,8 @@ node_modules/
 .expo/
 dist/
 web-build/
+.codex-check/
+codex-check/
 expo-env.d.ts
 
 # Native
@@ -44,4 +46,6 @@ yarn-error.*
 # Firebase
 google-services.json
 *firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
 *scoobyz-816f1-7dbfe11276a1.json

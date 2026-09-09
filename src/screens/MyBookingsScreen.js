@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, StatusBar, SafeAreaView, ScrollView, Modal, Alert, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, StatusBar, SafeAreaView, ScrollView, Modal, Alert, Image, DeviceEventEmitter } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
@@ -9,13 +9,15 @@ import { bookingsApi, BASE_URL } from '../services/api';
 import { useIsFocused } from '@react-navigation/native';
 import InvoiceComponent from '../components/InvoiceComponent';
 import PawLoader from '../components/PawLoader';
+import { payBookingBalance } from '../services/bookingPayment';
 
-export default function MyBookingsScreen({ navigation }) {
+export default function MyBookingsScreen({ navigation, route }) {
     const [allBookings, setAllBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'past', 'cancelled'
     const [invoiceVisible, setInvoiceVisible] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
+    const [payingBookingId, setPayingBookingId] = useState(null);
     const isFocused = useIsFocused();
 
     const fetchBookings = useCallback(async () => {
@@ -26,7 +28,15 @@ export default function MyBookingsScreen({ navigation }) {
             setAllBookings(data);
 
             // Auto-popup payment screen if there's a pending order waiting for payment
-            const pendingPayment = data.find(b => b.isAdminAssigned && b.status === 'pending' && b.paymentStatus === 'awaiting_payment');
+            const requestedBookingId = Number(route?.params?.bookingId);
+            const requestedPayment = data.find(b =>
+                Number(b.id) === requestedBookingId
+                && b.paymentStatus === 'awaiting_payment'
+                && Number(b.remainingAmount) > 0
+            );
+            const pendingPayment = requestedPayment || data.find(b =>
+                b.paymentStatus === 'awaiting_payment' && Number(b.remainingAmount) > 0
+            );
             if (pendingPayment) {
                 setSelectedBooking(pendingPayment);
                 setInvoiceVisible(true);
@@ -36,39 +46,31 @@ export default function MyBookingsScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [route?.params?.bookingId]);
 
     useEffect(() => {
         if (isFocused) fetchBookings();
     }, [isFocused, fetchBookings]);
 
-    const handlePayBalance = (booking) => {
-        Alert.alert(
-            'Pay Balance',
-            `Complete payment of ₹${booking.remainingAmount} for ${booking.serviceName || 'this service'}?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Pay Now',
-                    onPress: async () => {
-                        try {
-                            setLoading(true);
-                            await bookingsApi.payRemaining(booking.id, {
-                                amountPaid: booking.remainingAmount,
-                                paymentReferenceId: 'MOCK_REF_' + Date.now()
-                            });
-                            setInvoiceVisible(false);
-                            Alert.alert('Success', 'Payment completed successfully!');
-                            fetchBookings();
-                        } catch (err) {
-                            Alert.alert('Payment Failed', err.message);
-                        } finally {
-                            setLoading(false);
-                        }
-                    }
-                }
-            ]
-        );
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('refresh_customer_bookings', fetchBookings);
+        return () => subscription.remove();
+    }, [fetchBookings]);
+
+    const handlePayBalance = async (booking) => {
+        if (!booking?.id || payingBookingId) return;
+
+        try {
+            setPayingBookingId(booking.id);
+            await payBookingBalance(booking);
+            setInvoiceVisible(false);
+            Alert.alert('Success', 'Payment completed successfully!');
+            await fetchBookings();
+        } catch (err) {
+            Alert.alert('Payment Not Completed', err.message || 'Unable to open Razorpay. Please try again.');
+        } finally {
+            setPayingBookingId(null);
+        }
     };
 
     const getFilteredBookings = useCallback(() => {
@@ -265,7 +267,7 @@ export default function MyBookingsScreen({ navigation }) {
                                     </TouchableOpacity>
 
                                     {/* Track Button (only for walking/boarding in progress) */}
-                                    {['confirmed', 'in_progress'].includes(item.status) && (
+                                    {item.bookingType === 'walking' && ['confirmed', 'in_progress'].includes(item.status) && (
                                         <TouchableOpacity
                                             style={[styles.actionBtn, { backgroundColor: theme.colors.primaryDark }]}
                                             onPress={() => navigation.navigate('TrackingScreen', { booking: item })}
@@ -393,6 +395,7 @@ export default function MyBookingsScreen({ navigation }) {
                                 <InvoiceComponent
                                     booking={selectedBooking}
                                     onPayBalance={() => handlePayBalance(selectedBooking)}
+                                    paying={payingBookingId === selectedBooking?.id}
                                 />
                             </View>
                         </View>

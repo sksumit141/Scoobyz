@@ -16,6 +16,7 @@ import { bookingsApi } from '../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatISTDate } from '../utils/date_utils';
 import InvoiceComponent from '../components/InvoiceComponent';
+import { payBookingBalance } from '../services/bookingPayment';
 import PawLoader from '../components/PawLoader';
 
 const POLL_INTERVAL_MS = 3000;
@@ -162,7 +163,7 @@ export default function BookingPendingScreen({ navigation, route }) {
         if (!bookingData) return;
         setPaying(true);
         try {
-            await bookingsApi.payRemaining(bookingData.id, { amountPaid: bookingData.remainingAmount });
+            await payBookingBalance(bookingData);
             setInvoiceVisible(false);
             const updatedData = await bookingsApi.getStatus(bookingData.id);
             handleAccepted(updatedData);

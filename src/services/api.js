@@ -174,7 +174,6 @@ export const bookingsApi = {
     cancel: (id, data) => api.put(`/customer/bookings/${id}/cancel`, data),
     reschedule: (id, data) => api.put(`/customer/bookings/${id}/reschedule`, data),
     submitReview: (id, data) => api.post(`/customer/bookings/${id}/review`, data),
-    payRemaining: (id, data) => api.post(`/customer/bookings/${id}/pay-remaining`, data),
 };
 
 // ── Boarding Meals ──

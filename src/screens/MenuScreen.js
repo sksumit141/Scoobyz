@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppText from '../components/AppText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { unregisterPushToken } from '../components/PushNotificationManager';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ export default function MenuScreen({ navigation }) {
   };
 
   const handleLogout = async () => {
+    await unregisterPushToken();
     await AsyncStorage.removeItem('authToken');
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };

@@ -3,9 +3,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import { DiscountProvider } from './src/contexts/DiscountContext';
 import { LoadingProvider } from './src/contexts/LoadingContext';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import PersonalizedAlertHost, { installPersonalizedAlerts } from './src/components/PersonalizedAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SplashScreen from 'expo-splash-screen';
@@ -49,7 +50,7 @@ import AddressBookScreen from './src/screens/AddressBookScreen';
 import BookingStatusOverlay from './src/components/BookingStatusOverlay';
 import CartBanner from './src/components/CartBanner';
 import { CartProvider } from './src/contexts/CartContext';
-import { registerAndSendPushToken, sendLocalWelcomeNotification } from './src/components/PushNotificationManager';
+import { registerAndSendPushToken } from './src/components/PushNotificationManager';
 
 import BoardingServiceScreen from './src/screens/BoardingServiceScreen';
 import BoardingLocationScreen from './src/screens/BoardingLocationScreen';
@@ -85,13 +86,14 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import { theme } from './src/styles/theme';
 
 import PushNotificationManager from './src/components/PushNotificationManager';
+import { navigationRef } from './src/utils/navigationRef';
 
 const Stack = createNativeStackNavigator();
 
+installPersonalizedAlerts();
+
 // Keep the splash screen visible while we fetch resources 
 SplashScreen.preventAutoHideAsync();
-
-export const navigationRef = createNavigationContainerRef();
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -125,7 +127,6 @@ export default function App() {
               if (isOnboarded === 'true') {
                 setInitialRoute('LandingScreen');
                 registerAndSendPushToken().catch(console.error);
-                sendLocalWelcomeNotification().catch(console.error);
               } else {
                 // Stale token from partial onboarding or backup restore. Clear it and start fresh.
                 await AsyncStorage.removeItem('authToken');
@@ -253,6 +254,7 @@ export default function App() {
         <BookingStatusOverlay />
         <PushNotificationManager />
         <Toast />
+        <PersonalizedAlertHost />
         </SafeAreaProvider>
       </GestureHandlerRootView>
       </DiscountProvider>

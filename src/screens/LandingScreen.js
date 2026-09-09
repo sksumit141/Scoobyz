@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, BackHandler, Alert, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, BackHandler, Alert, DeviceEventEmitter, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { petsApi, customerApi, bookingsApi, BASE_URL } from '../services/api';
 import AddressHeader from '../components/AddressHeader';
 import BookingStatusBanner from '../components/BookingStatusBanner';
 import AutoScrollBanners from '../components/AutoScrollBanners';
+import { payBookingBalance } from '../services/bookingPayment';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +30,15 @@ const LandingScreen = ({ navigation }) => {
   const [userName, setUserName] = useState(null);
   const [hasUsedFreeDemo, setHasUsedFreeDemo] = useState(false);
   const [activeBooking, setActiveBooking] = useState(null);
+  const [payingBookingId, setPayingBookingId] = useState(null);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      'refresh_customer_bookings',
+      () => fetchActiveBookings(),
+    );
+    return () => subscription.remove();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -117,8 +127,14 @@ const LandingScreen = ({ navigation }) => {
       const pending = await bookingsApi.list({ status: 'pending' });
       const confirmed = await bookingsApi.list({ status: 'confirmed' });
       const inProgress = await bookingsApi.list({ status: 'in_progress' });
+      const completed = await bookingsApi.list({ status: 'completed' });
 
-      const allActive = [...(pending || []), ...(inProgress || []), ...(confirmed || [])];
+      const completedPaymentDue = (completed || []).filter(booking =>
+        booking.bookingType === 'grooming'
+        && booking.paymentStatus === 'awaiting_payment'
+        && Number(booking.remainingAmount) > 0
+      );
+      const allActive = [...completedPaymentDue, ...(pending || []), ...(inProgress || []), ...(confirmed || [])];
       if (allActive.length > 0) {
         // Show the most recent or upcoming one
         setActiveBooking(allActive[0]);
@@ -127,6 +143,21 @@ const LandingScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Fetch bookings error:', error);
+    }
+  };
+
+  const handlePayBooking = async (booking) => {
+    try {
+      setPayingBookingId(booking.id);
+      await payBookingBalance(booking);
+      Alert.alert('Payment Successful', 'Your Grooming balance has been paid successfully.');
+      await fetchActiveBookings();
+    } catch (error) {
+      if (error?.message !== 'Payment cancelled') {
+        Alert.alert('Payment Failed', error?.message || 'Unable to complete payment. Please try again.');
+      }
+    } finally {
+      setPayingBookingId(null);
     }
   };
 
@@ -214,6 +245,8 @@ const LandingScreen = ({ navigation }) => {
               <BookingStatusBanner
                 booking={activeBooking}
                 onPress={() => navigation.navigate('MyBookings')}
+                onPay={handlePayBooking}
+                paying={payingBookingId === activeBooking.id}
               />
             )}
 
