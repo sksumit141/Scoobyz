@@ -1,18 +1,19 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AppHeader from '../components/AppHeader';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { theme } from '../styles/theme';
 
-export default function ComingSoonScreen({ navigation }) {
+export default function ComingSoonScreen() {
+  const { handleBack } = useBackHandler({ fallbackScreen: 'LandingScreen' });
+
   return (
-    <AppScreen padding={false} backgroundColor={theme.colors.background}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-          <Ionicons name="close" size={28} color={theme.colors.textBlack} />
-        </TouchableOpacity>
-      </View>
+    <AppScreen safeAreaTop={true} padding={false} backgroundColor={theme.colors.background}>
+      <AppHeader title="Coming Soon" onBackPress={handleBack} />
+
       <View style={styles.content}>
         <Ionicons name="construct-outline" size={64} color={theme.colors.primaryDark} style={{ marginBottom: 24 }} />
         <AppText type="heading" weight="bold" style={styles.title}>Coming Soon!</AppText>
@@ -25,24 +26,12 @@ export default function ComingSoonScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
-    zIndex: 10,
-    elevation: 10,
-  },
-  closeBtn: {
-    padding: 8,
-    marginLeft: -8,
-  },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    marginTop: -80, // Offset to visually center better
+    paddingBottom: 60,
   },
   title: {
     fontSize: 28,
