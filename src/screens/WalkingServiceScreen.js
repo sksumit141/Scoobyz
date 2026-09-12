@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import CustomCalendar from '../components/CustomCalendar';
@@ -89,7 +89,6 @@ export default function WalkingServiceScreen({ navigation }) {
   const [customSlot, setCustomSlot] = useState(null);
 
   const [endDate, setEndDate] = useState(null);
-  const [validationMsg, setValidationMsg] = useState('');
   const [pricingData, setPricingData] = useState(null);
 
   useEffect(() => {
@@ -234,7 +233,12 @@ export default function WalkingServiceScreen({ navigation }) {
 
   const handleContinue = () => {
     if (!selectedSlots || selectedSlots.length !== timesPerDay) {
-      alert(`Please select exactly ${timesPerDay} time slot(s).`);
+      Alert.alert(
+        'Time Required',
+        timesPerDay === 1
+          ? 'Please select a time slot to continue.'
+          : `Please select exactly ${timesPerDay} time slots to continue.`
+      );
       return;
     }
     if (isDemo) {
@@ -265,13 +269,6 @@ export default function WalkingServiceScreen({ navigation }) {
       <ServiceHeader title="Dog Walking" showAddress={false} />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-        {validationMsg ? (
-          <View style={styles.validationBanner}>
-            <Ionicons name="alert-circle-outline" size={24} color="#D32F2F" />
-            <AppText style={styles.validationText}>{validationMsg}</AppText>
-          </View>
-        ) : null}
 
         {/* Settings Card */}
         <View style={styles.card}>
@@ -471,8 +468,12 @@ export default function WalkingServiceScreen({ navigation }) {
           activeOpacity={0.8}
           onPress={() => {
             if (!isFormValid()) {
-              setValidationMsg(`Please select exactly ${timesPerDay} time slot(s) for your walks.`);
-              setTimeout(() => setValidationMsg(''), 3000);
+              Alert.alert(
+                'Time Required',
+                timesPerDay === 1
+                  ? 'Please select a time slot to continue.'
+                  : `Please select exactly ${timesPerDay} time slots to continue.`
+              );
               return;
             }
             const currentParams = route?.params || {};
@@ -512,22 +513,6 @@ const styles = StyleSheet.create({
     paddingRight: 24,
     paddingTop: 10,
     paddingBottom: 10,
-  },
-  validationBanner: {
-    backgroundColor: '#FFEBEE',
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 0,
-    marginTop: 0,
-    marginBottom: 16,
-    borderRadius: 8,
-  },
-  validationText: {
-    marginLeft: 10,
-    color: '#D32F2F',
-    fontSize: 14,
-    flex: 1,
   },
   backButton: {
     marginRight: 16,

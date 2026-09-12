@@ -15,7 +15,7 @@ const CustomAlert = ({
   onConfirm,
   iconName = 'alert-circle-outline',
   iconColor = theme.colors.primaryDark,
-  buttonText = 'Okay',
+  buttonText = 'Cancel',
   confirmText = 'Confirm',
   type = 'info' // info, success, warning, error
 }) => {
@@ -58,18 +58,18 @@ const CustomAlert = ({
             <AppText style={styles.message}>{message}</AppText>
           </View>
 
-          <View style={onConfirm ? styles.buttonRow : styles.singleButtonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, onConfirm ? styles.cancelButton : [styles.primaryButton, { backgroundColor: colors.icon }]]} 
-              onPress={onClose} 
-              activeOpacity={0.8}
-            >
-              <AppText style={[styles.buttonText, onConfirm ? styles.cancelButtonText : [styles.primaryButtonText, { color: theme.colors.white }]]} weight="bold">
-                {buttonText}
-              </AppText>
-            </TouchableOpacity>
+          {onConfirm && (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
+                <AppText style={[styles.buttonText, styles.cancelButtonText]} weight="bold">
+                  {buttonText}
+                </AppText>
+              </TouchableOpacity>
 
-            {onConfirm && (
               <TouchableOpacity 
                 style={[styles.button, styles.confirmButton, { backgroundColor: colors.icon }]} 
                 onPress={onConfirm} 
@@ -77,8 +77,8 @@ const CustomAlert = ({
               >
                 <AppText style={[styles.primaryButtonText, { color: theme.colors.white }]} weight="bold">{confirmText}</AppText>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
 
         </View>
       </View>
@@ -157,22 +157,17 @@ const getStyles = (insets) => StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     width: '100%',
-    paddingHorizontal: 8,
-  },
-  singleButtonContainer: {
-    width: '100%',
-    paddingHorizontal: 8,
+    alignSelf: 'stretch',
   },
   button: {
     minHeight: 50,
+    minWidth: 0,
     borderRadius: 14,
     flex: 1,
+    flexShrink: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: 'transparent',
-    // Removed shadows for transparent style
+    paddingHorizontal: 12,
   },
   primaryButtonText: {
     color: theme.colors.primaryDark,
@@ -188,6 +183,7 @@ const getStyles = (insets) => StyleSheet.create({
   cancelButtonText: {
     color: theme.colors.textSecondary,
     fontSize: 16,
+    textAlign: 'center',
   },
   confirmButton: {
     backgroundColor: 'transparent',

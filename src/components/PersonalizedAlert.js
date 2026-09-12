@@ -98,7 +98,7 @@ export default function PersonalizedAlertHost() {
                 onPress={() => pressButton(button)}
                 style={[styles.actionButton, isCancel && styles.cancelButton, isDestructive && styles.destructiveButton, !isCancel && !isDestructive && { backgroundColor: palette.color }]}
               >
-                <Text style={[styles.actionText, isCancel && styles.cancelText]}>{button.text || 'Okay'}</Text>
+                <Text style={[styles.actionText, isCancel && styles.cancelText]}>{button.text || 'Continue'}</Text>
               </TouchableOpacity>
             );
           })}
@@ -125,10 +125,10 @@ const styles = StyleSheet.create({
   title: { color: '#2D3748', fontSize: 16, lineHeight: 22, fontFamily: 'Manrope_700Bold' },
   message: { color: '#5F5965', fontSize: 13, lineHeight: 19, marginTop: 3, fontFamily: 'Manrope_400Regular' },
   closeButton: { padding: 6, marginRight: -6 },
-  actions: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
-  actionButton: { minWidth: 100, minHeight: 46, flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  actions: { width: '100%', alignSelf: 'stretch', flexDirection: 'row', gap: 10, marginTop: 18 },
+  actionButton: { minWidth: 0, minHeight: 46, flex: 1, flexShrink: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   cancelButton: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DED6E8' },
   destructiveButton: { backgroundColor: '#B74848' },
-  actionText: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Manrope_700Bold' },
+  actionText: { color: '#FFFFFF', fontSize: 14, textAlign: 'center', fontFamily: 'Manrope_700Bold' },
   cancelText: { color: '#3D2A5E' },
 });

@@ -17,9 +17,9 @@ const PhoneLoginScreen = ({ navigation, route }) => {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', icon: 'alert-circle-outline', onConfirm: null, buttonText: 'Okay', confirmText: 'Confirm' });
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', icon: 'alert-circle-outline', onConfirm: null, buttonText: 'Cancel', confirmText: 'Confirm' });
 
-  const showAlert = (title, message, icon = 'alert-circle-outline', onConfirm = null, buttonText = 'Okay', confirmText = 'Confirm') => {
+  const showAlert = (title, message, icon = 'alert-circle-outline', onConfirm = null, buttonText = 'Cancel', confirmText = 'Confirm') => {
     setAlertConfig({ visible: true, title, message, icon, onConfirm, buttonText, confirmText });
   };
 

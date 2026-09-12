@@ -51,6 +51,13 @@ const BookingStatusOverlay = () => {
             <View style={styles.overlay}>
                 <View style={styles.card}>
                     <View style={[styles.statusLine, { backgroundColor: isDeclined ? '#D32F2F' : isConfirmed ? '#2E7D32' : theme.colors.primaryDark }]} />
+                    <TouchableOpacity
+                        style={styles.closeBtn}
+                        onPress={handleDismiss}
+                        accessibilityLabel="Dismiss booking update"
+                    >
+                        <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
                     
                     <View style={styles.content}>
                         <View style={styles.iconCircle}>
@@ -64,9 +71,6 @@ const BookingStatusOverlay = () => {
                         <AppText style={styles.title} weight="bold">{current.title}</AppText>
                         <AppText style={styles.message}>{current.message}</AppText>
                         
-                        <TouchableOpacity style={styles.btn} onPress={handleDismiss}>
-                            <AppText style={{ color: '#FFF' }} weight="bold">Okay, Got it!</AppText>
-                        </TouchableOpacity>
                     </View>
                 </View>
             </View>
@@ -79,14 +83,14 @@ const styles = StyleSheet.create({
         flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 25
     },
     card: {
-        backgroundColor: '#FFF', borderRadius: 24, width: '100%', overflow: 'hidden', elevation: 20
+        backgroundColor: '#FFF', borderRadius: 24, width: '100%', overflow: 'hidden', elevation: 20, position: 'relative'
     },
+    closeBtn: { position: 'absolute', top: 16, right: 16, padding: 6, zIndex: 2 },
     statusLine: { height: 6, width: '100%' },
     content: { padding: 30, alignItems: 'center' },
     iconCircle: { marginBottom: 20 },
     title: { fontSize: 22, color: theme.colors.textBlack, marginBottom: 10, textAlign: 'center' },
-    message: { fontSize: 15, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 25, lineHeight: 22 },
-    btn: { backgroundColor: theme.colors.primaryDark, paddingHorizontal: 40, paddingVertical: 15, borderRadius: 20, width: '100%', alignItems: 'center' }
+    message: { fontSize: 15, color: theme.colors.textSecondary, textAlign: 'center', lineHeight: 22 }
 });
 
 export default BookingStatusOverlay;

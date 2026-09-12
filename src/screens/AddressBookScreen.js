@@ -34,7 +34,7 @@ const AddressBookScreen = ({ navigation, route }) => {
   const [saving, setSaving] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false); // guard against double-taps
   const [modalVisible, setModalVisible] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', iconName: 'alert-circle-outline', onConfirm: null, buttonText: 'Okay', confirmText: 'Confirm', type: 'info' });
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', iconName: 'alert-circle-outline', onConfirm: null, buttonText: 'Cancel', confirmText: 'Confirm', type: 'info' });
   const [locating, setLocating] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
 
@@ -319,7 +319,7 @@ const AddressBookScreen = ({ navigation, route }) => {
 
 
 
-  const showAlert = (title, message, iconName = 'alert-circle-outline', onConfirm = null, buttonText = 'Okay', confirmText = 'Confirm', type = 'info') => {
+  const showAlert = (title, message, iconName = 'alert-circle-outline', onConfirm = null, buttonText = 'Cancel', confirmText = 'Confirm', type = 'info') => {
     setAlertConfig({ visible: true, title, message, iconName, onConfirm, buttonText, confirmText, type });
   };
 

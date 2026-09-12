@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, SafeAreaView, Modal } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, SafeAreaView, Modal, Alert } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
 import AppScreen from '../components/AppScreen';

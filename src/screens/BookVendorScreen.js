@@ -601,7 +601,7 @@ export default function BookVendorScreen({ navigation, route }) {
                 type={alertConfig.type}
                 onClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
                 onConfirm={alertConfig.onConfirm}
-                buttonText={alertConfig.buttonText || 'Okay'}
+                buttonText={alertConfig.buttonText || 'Cancel'}
                 confirmText={alertConfig.confirmText || 'Confirm'}
             />
         </AppScreen>
