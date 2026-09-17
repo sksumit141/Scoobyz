@@ -76,17 +76,6 @@ export default function ExploreScreen({ navigation }) {
             title="Explore"
             headerTheme="dark"
             style={{ paddingHorizontal: 0 }}
-            rightComponent={
-              <TouchableOpacity
-                style={styles.notificationBtn}
-                onPress={() => navigation.navigate('Notifications')}
-              >
-                <View style={styles.notificationIconWrapper}>
-                  <Ionicons name="notifications-outline" size={20} color="#4A6B4B" />
-                  <View style={styles.notificationBadge} />
-                </View>
-              </TouchableOpacity>
-            }
           />
 
           {/* <View style={styles.searchContainer}>
@@ -215,28 +204,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: theme.colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationIconWrapper: {
-    position: 'relative',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF4B4B',
-    borderWidth: 1,
-    borderColor: '#FFF',
   },
   searchContainer: {
     flexDirection: 'row',
