@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppText from '../components/AppText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -37,6 +38,11 @@ export default function MenuScreen({ navigation }) {
 
   return (
     <View style={styles.overlay}>
+      {Platform.OS === 'ios' ? (
+        <BlurView intensity={45} tint="dark" style={styles.backdropBlur} />
+      ) : (
+        <View pointerEvents="none" style={[styles.backdropBlur, styles.androidBackdropFallback]} />
+      )}
       <TouchableOpacity
         style={styles.backdrop}
         activeOpacity={1}
@@ -112,12 +118,18 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(12, 18, 22, 0.18)',
+  },
+  backdropBlur: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  androidBackdropFallback: {
+    backgroundColor: 'rgba(12, 18, 22, 0.2)',
   },
   container: {
     width: width * 0.72,
     height: '100%',
-    backgroundColor: '#F4F5F7',
+    backgroundColor: 'rgba(244, 245, 247, 0.96)',
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 0 },

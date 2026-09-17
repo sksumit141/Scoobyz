@@ -53,12 +53,22 @@ const CustomCalendar = ({
   };
 
   const changeMonth = (offset) => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
+    const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
+    const todayMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    if (disablePastDates && nextMonth < todayMonth) return;
+    setCurrentMonth(nextMonth);
   };
 
   const changeYear = (offset) => {
-    setCurrentMonth(new Date(currentMonth.getFullYear() + offset, currentMonth.getMonth(), 1));
+    const nextYear = new Date(currentMonth.getFullYear() + offset, currentMonth.getMonth(), 1);
+    const todayMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    if (disablePastDates && nextYear < todayMonth) return;
+    setCurrentMonth(nextYear);
   };
+
+  const todayMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const canNavigateBack = !disablePastDates
+    || new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1) > todayMonth;
 
   const isSameDay = (d1, d2) => {
     if (!d1 || !d2) return false;
@@ -133,10 +143,10 @@ const CustomCalendar = ({
           {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </AppText>
         <View style={styles.headerBtns}>
-          <TouchableOpacity onPress={() => changeYear(-1)} style={styles.navBtn}>
+          <TouchableOpacity disabled={!canNavigateBack} onPress={() => changeYear(-1)} style={[styles.navBtn, !canNavigateBack && { opacity: 0.3 }]}>
             <MaterialCommunityIcons name="chevron-double-left" size={20} color={theme.colors.primaryDark} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.navBtn}>
+          <TouchableOpacity disabled={!canNavigateBack} onPress={() => changeMonth(-1)} style={[styles.navBtn, !canNavigateBack && { opacity: 0.3 }]}>
             <MaterialCommunityIcons name="chevron-left" size={20} color={theme.colors.primaryDark} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => changeMonth(1)} style={styles.navBtn}>

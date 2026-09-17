@@ -8,6 +8,7 @@ import CustomCalendar from '../components/CustomCalendar';
 import { theme } from '../styles/theme';
 import { bookingsApi, BASE_URL } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { isServiceTimeAllowed, SERVICE_TIME_NOTICE } from '../utils/serviceTime';
 
 const { width } = Dimensions.get('window');
 
@@ -84,7 +85,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.slotsHorizontalScroll}
             >
-                {slots.map((slot, index) => {
+                {slots.filter(slot => isServiceTimeAllowed(selectedDate, slot)).map((slot, index) => {
                     const isSelected = selectedSlot === slot;
                     return (
                         <TouchableOpacity
@@ -177,6 +178,10 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
     const handleRescheduleConfirm = async () => {
         if (!selectedSlot) {
             Alert.alert('Select a slot', 'Please select a time slot to reschedule.');
+            return;
+        }
+        if (!isServiceTimeAllowed(selectedDate, selectedSlot)) {
+            Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
             return;
         }
         try {

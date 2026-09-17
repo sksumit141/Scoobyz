@@ -10,6 +10,7 @@ import CustomTimePicker from '../components/CustomTimePicker';
 import SelectionChoiceModal from '../components/SelectionChoiceModal';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
+import { canNavigateToPreviousServiceMonth, getAvailableServiceSlots, isServiceTimeAllowed, SERVICE_TIME_NOTICE } from '../utils/serviceTime';
 import { discoverApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
@@ -106,11 +107,13 @@ export default function WalkingServiceScreen({ navigation }) {
   }, []);
 
   const handlePrevMonth = () => {
+    if (!canNavigateToPreviousServiceMonth(monthDate)) return;
     const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
     const newDates = generateDates(prev);
     setMonthDate(prev);
     setSelectedDate(newDates[0]?.fullDate);
   };
+  const canGoToPreviousMonth = canNavigateToPreviousServiceMonth(monthDate);
 
   const handleNextMonth = () => {
     const next = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
@@ -145,48 +148,7 @@ export default function WalkingServiceScreen({ navigation }) {
   };
 
   const getFilteredSlots = () => {
-    try {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric', month: 'numeric', day: 'numeric',
-        hour: 'numeric', minute: 'numeric', second: 'numeric',
-        hour12: false
-      });
-
-      const parts = formatter.formatToParts(new Date());
-      const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
-
-      const nowIST = new Date(
-        getPart('year'), getPart('month') - 1, getPart('day'),
-        getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
-      );
-
-      const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
-      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
-
-      if (!isToday) return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
-
-      const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
-      const nineAmIST = new Date(nowIST);
-      nineAmIST.setHours(9, 0, 0, 0);
-
-      return ALL_SLOTS.filter(slot => {
-        const [time, period] = slot.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-
-        const slotTimeIST = new Date(nowIST);
-        slotTimeIST.setHours(hours, minutes, 0, 0);
-
-        return slotTimeIST > oneHourFromNowIST && slotTimeIST >= nineAmIST;
-      }).slice(0, 9);
-    } catch (e) {
-      console.warn('getFilteredSlots fallback:', e);
-      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
-      return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
-    }
+    return getAvailableServiceSlots(selectedDate, ALL_SLOTS);
   };
 
   const availableSlots = getFilteredSlots();
@@ -239,6 +201,10 @@ export default function WalkingServiceScreen({ navigation }) {
           ? 'Please select a time slot to continue.'
           : `Please select exactly ${timesPerDay} time slots to continue.`
       );
+      return;
+    }
+    if (selectedSlots.some(slot => !isServiceTimeAllowed(selectedDate, slot))) {
+      Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
       return;
     }
     if (isDemo) {
@@ -333,7 +299,7 @@ export default function WalkingServiceScreen({ navigation }) {
             {frequency === 'One-time' ? 'Select Date' : 'Start Date'}
           </AppText>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <TouchableOpacity onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity disabled={!canGoToPreviousMonth} onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={!canGoToPreviousMonth && { opacity: 0.3 }}>
               <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.primaryDark} />
             </TouchableOpacity>
             <AppText style={styles.monthText}>{formatISTDate(monthDate, { month: 'long', year: 'numeric' })}</AppText>
@@ -444,6 +410,10 @@ export default function WalkingServiceScreen({ navigation }) {
           visible={timePickerVisible}
           initialTime={customSlot || '09:00 AM'}
           onConfirm={(time) => {
+            if (!isServiceTimeAllowed(selectedDate, time)) {
+              Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
+              return;
+            }
             setCustomSlot(time);
             toggleSlot(time);
           }}
@@ -474,6 +444,10 @@ export default function WalkingServiceScreen({ navigation }) {
                   ? 'Please select a time slot to continue.'
                   : `Please select exactly ${timesPerDay} time slots to continue.`
               );
+              return;
+            }
+            if (selectedSlots.some(slot => !isServiceTimeAllowed(selectedDate, slot))) {
+              Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
               return;
             }
             const currentParams = route?.params || {};

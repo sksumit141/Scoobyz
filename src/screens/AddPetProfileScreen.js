@@ -8,7 +8,6 @@ import {
   ScrollView,
   PanResponder,
   Image,
-  Platform,
   ActivityIndicator,
   Modal
 } from 'react-native';
@@ -23,6 +22,7 @@ import AppScreen from '../components/AppScreen';
 import CustomAlert from '../components/CustomAlert';
 import { petsApi, BASE_URL } from '../services/api';
 import CustomCalendar from '../components/CustomCalendar';
+import { appendImageToFormData } from '../utils/formDataFile';
 import PawLoader from '../components/PawLoader';
 import BreedPickerModal from '../components/BreedPickerModal';
 
@@ -155,16 +155,9 @@ const AddPetProfileScreen = ({ navigation, route }) => {
       formData.append('medicalNotes', medicalConditions);
 
       if (imageUri && !imageUri.startsWith('http')) {
-        if (Platform.OS === 'web') {
-          const response = await fetch(imageUri);
-          const blob = await response.blob();
-          formData.append('photo', blob, 'pet-photo.jpg');
-        } else {
-          const filename = imageUri.split('/').pop();
-          const match = /\.(\w+)$/.exec(filename);
-          const type = match ? `image/${match[1]}` : `image`;
-          formData.append('photo', { uri: imageUri, name: filename, type });
-        }
+        await appendImageToFormData(formData, 'photo', imageUri, {
+          fallbackName: 'pet-photo.jpg',
+        });
       }
 
       if (activePet) {
@@ -183,7 +176,10 @@ const AddPetProfileScreen = ({ navigation, route }) => {
         onClose: () => {
           setAlertConfig(prev => ({ ...prev, visible: false }));
           if (!activePet) {
-            navigation.navigate('LandingScreen');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'LandingScreen' }],
+            });
           } else {
             fetchPets(); // Refresh list
           }
@@ -200,6 +196,43 @@ const AddPetProfileScreen = ({ navigation, route }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const confirmRemovePet = () => {
+    if (!activePet) return;
+
+    setAlertConfig({
+      visible: true,
+      title: `Remove ${activePet.name}?`,
+      message: `We’re sad to see ${activePet.name} go. Are you sure you want to remove this pet profile? This action cannot be undone.`,
+      iconName: 'emoticon-sad-outline',
+      type: 'error',
+      buttonText: 'Keep Pet',
+      confirmText: 'Remove',
+      onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+      onConfirm: async () => {
+        const petId = activePet.id;
+        setAlertConfig(prev => ({ ...prev, visible: false }));
+        setSaving(true);
+
+        try {
+          await petsApi.delete(petId);
+          await fetchPets();
+        } catch (error) {
+          console.error('Delete pet error:', error);
+          setAlertConfig({
+            visible: true,
+            title: 'Could Not Remove Pet',
+            message: error.message || 'Failed to remove the pet profile. Please try again.',
+            iconName: 'alert-circle-outline',
+            type: 'error',
+            onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+          });
+        } finally {
+          setSaving(false);
+        }
+      },
+    });
   };
 
   const panResponder = useRef(
@@ -296,7 +329,19 @@ const AddPetProfileScreen = ({ navigation, route }) => {
 
           {/* MAIN FORM CARD */}
           <View style={styles.formContainer}>
-            <AppText style={styles.sectionTitle} weight="bold">{activePet ? 'Edit Profile' : 'New Profile'}</AppText>
+            <View style={styles.sectionTitleRow}>
+              <AppText style={styles.sectionTitle} weight="bold">{activePet ? 'Edit Profile' : 'New Profile'}</AppText>
+              {activePet && (
+                <TouchableOpacity
+                  style={styles.removePetButton}
+                  onPress={confirmRemovePet}
+                  disabled={saving}
+                  activeOpacity={0.7}
+                >
+                  <AppText style={styles.removePetText} weight="bold">Remove</AppText>
+                </TouchableOpacity>
+              )}
+            </View>
 
             <View style={styles.card}>
               {/* HERO PHOTO UPLOAD */}
@@ -518,8 +563,11 @@ const AddPetProfileScreen = ({ navigation, route }) => {
         title={alertConfig.title}
         message={alertConfig.message}
         onClose={alertConfig.onClose || (() => setAlertConfig(prev => ({ ...prev, visible: false })))}
+        onConfirm={alertConfig.onConfirm}
         type={alertConfig.type}
         iconName={alertConfig.iconName}
+        buttonText={alertConfig.buttonText}
+        confirmText={alertConfig.confirmText}
       />
       <BreedPickerModal
         visible={showBreedPicker}
@@ -607,11 +655,24 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 20,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     color: '#000000ff',
     fontFamily: theme.fonts.heading,
-    marginBottom: 16,
+  },
+  removePetButton: {
+    paddingVertical: 6,
+    paddingLeft: 16,
+  },
+  removePetText: {
+    fontSize: 14,
+    color: '#D64545',
   },
   card: {
     backgroundColor: '#FFFFFF',

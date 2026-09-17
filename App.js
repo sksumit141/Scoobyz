@@ -181,7 +181,15 @@ export default function App() {
             <Stack.Screen name="RegisterName" component={RegisterNameScreen} />
             <Stack.Screen name="AddPetProfile" component={AddPetProfileScreen} />
             <Stack.Screen name="LandingScreen" component={LandingScreen} />
-            <Stack.Screen name="Menu" component={MenuScreen} />
+            <Stack.Screen
+              name="Menu"
+              component={MenuScreen}
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
             <Stack.Screen name="Explore" component={ExploreScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
             

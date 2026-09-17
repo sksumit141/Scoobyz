@@ -8,6 +8,7 @@ import AppHeader from '../components/AppHeader';
 import { theme } from '../styles/theme';
 import { customerApi, BASE_URL } from '../services/api';
 import PawLoader from '../components/PawLoader';
+import { appendImageToFormData } from '../utils/formDataFile';
 
 const { width } = Dimensions.get('window');
 
@@ -64,16 +65,11 @@ const EditProfileScreen = ({ navigation }) => {
         const selectedImage = result.assets[0];
 
         const formData = new FormData();
-        if (Platform.OS === 'web') {
-          const response = await fetch(selectedImage.uri);
-          const blob = await response.blob();
-          formData.append('photo', blob, 'profile_photo.jpg');
-        } else {
-          const filename = selectedImage.uri.split('/').pop();
-          const match = /\.(\w+)$/.exec(filename);
-          const type = match ? `image/${match[1]}` : `image`;
-          formData.append('photo', { uri: selectedImage.uri, name: filename, type });
-        }
+        await appendImageToFormData(formData, 'photo', selectedImage.uri, {
+          fileName: selectedImage.fileName,
+          mimeType: selectedImage.mimeType,
+          fallbackName: 'profile_photo.jpg',
+        });
 
         const uploadRes = await customerApi.uploadPhoto(formData);
         if (uploadRes.success) {

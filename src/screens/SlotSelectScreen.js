@@ -10,6 +10,7 @@ import SelectionChoiceModal from '../components/SelectionChoiceModal';
 import { theme } from '../styles/theme';
 import { useRoute } from '@react-navigation/native';
 import { formatISTDate } from '../utils/date_utils';
+import { canNavigateToPreviousServiceMonth, getAvailableServiceSlots, isServiceTimeAllowed, SERVICE_TIME_NOTICE } from '../utils/serviceTime';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ export default function SlotSelectScreen({ navigation }) {
   const [choiceModalVisible, setChoiceModalVisible] = useState(false);
 
   const handlePrevMonth = () => {
+    if (!canNavigateToPreviousServiceMonth(monthDate)) return;
     const prev = new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1);
     const newDates = generateDates(prev);
     setMonthDate(prev);
@@ -91,72 +93,37 @@ export default function SlotSelectScreen({ navigation }) {
     : 'Select a time';
 
   const handleSuggestionPress = (label) => {
-    if (label === 'Evening') {
-      setSuggestionOverlay({
-        visible: true,
-        title: 'Select Evening Slot',
-        options: ['04:00 PM', '05:30 PM', '06:30 PM'],
-        targetDateStr: selectedDate
-      });
-    } else if (label === 'Morning') {
-      setSuggestionOverlay({
-        visible: true,
-        title: 'Select Morning Slot',
-        options: ['09:00 AM', '10:00 AM', '11:00 AM'],
-        targetDateStr: selectedDate
-      });
+    const options = label === 'Evening'
+      ? ['04:00 PM', '05:30 PM', '06:30 PM']
+      : ['09:00 AM', '10:00 AM', '11:00 AM'];
+    const availableOptions = options.filter(slot => isServiceTimeAllowed(selectedDate, slot));
+
+    if (availableOptions.length === 0) {
+      Alert.alert('No Suggested Times', SERVICE_TIME_NOTICE);
+      return;
     }
+
+    setSuggestionOverlay({
+      visible: true,
+      title: `Select ${label} Slot`,
+      options: availableOptions,
+      targetDateStr: selectedDate,
+    });
   };
+  const canGoToPreviousMonth = canNavigateToPreviousServiceMonth(monthDate);
 
   const handleSuggestionSelect = (slot) => {
+    if (!isServiceTimeAllowed(suggestionOverlay.targetDateStr, slot)) {
+      Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
+      return;
+    }
     setSelectedDate(suggestionOverlay.targetDateStr);
     setSelectedSlot(slot);
     setSuggestionOverlay({ ...suggestionOverlay, visible: false });
   };
 
   const getFilteredSlots = () => {
-    try {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric', month: 'numeric', day: 'numeric',
-        hour: 'numeric', minute: 'numeric', second: 'numeric',
-        hour12: false
-      });
-
-      const parts = formatter.formatToParts(new Date());
-      const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
-
-      const nowIST = new Date(
-        getPart('year'), getPart('month') - 1, getPart('day'),
-        getPart('hour') === 24 ? 0 : getPart('hour'), getPart('minute'), getPart('second')
-      );
-
-      const isToday = selectedDate && new Date(selectedDate).toDateString() === nowIST.toDateString();
-      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
-
-      if (!isToday) return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
-
-      const oneHourFromNowIST = new Date(nowIST.getTime() + 60 * 60 * 1000);
-      const nineAmIST = new Date(nowIST);
-      nineAmIST.setHours(9, 0, 0, 0);
-
-      return ALL_SLOTS.filter(slot => {
-        const [time, period] = slot.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-
-        const slotTimeIST = new Date(nowIST);
-        slotTimeIST.setHours(hours, minutes, 0, 0);
-
-        return slotTimeIST > oneHourFromNowIST && slotTimeIST >= nineAmIST;
-      }).slice(0, 9);
-    } catch (e) {
-      console.warn('getFilteredSlots fallback:', e);
-      const nineAmIndex = ALL_SLOTS.indexOf('09:00 AM');
-      return ALL_SLOTS.slice(nineAmIndex, nineAmIndex + 9);
-    }
+    return getAvailableServiceSlots(selectedDate, ALL_SLOTS);
   };
 
   const availableSlots = getFilteredSlots();
@@ -193,7 +160,7 @@ export default function SlotSelectScreen({ navigation }) {
         <View style={[styles.sectionHeader, { marginBottom: 5 }]}>
           <AppText style={[styles.sectionTitle, { fontFamily: theme.fonts.heading }]} weight="bold">Select Date</AppText>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <TouchableOpacity onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+            <TouchableOpacity disabled={!canGoToPreviousMonth} onPress={handlePrevMonth} activeOpacity={0.7} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}} style={!canGoToPreviousMonth && { opacity: 0.3 }}>
               <MaterialCommunityIcons name="chevron-left" size={22} color={theme.colors.primaryDark} />
             </TouchableOpacity>
             <AppText style={styles.monthText}>{formatISTDate(monthDate, { month: 'long', year: 'numeric' })}</AppText>
@@ -294,7 +261,13 @@ export default function SlotSelectScreen({ navigation }) {
         <CustomTimePicker
           visible={timePickerVisible}
           initialTime={selectedSlot || '09:00 AM'}
-          onConfirm={(time) => setSelectedSlot(time)}
+          onConfirm={(time) => {
+            if (!isServiceTimeAllowed(selectedDate, time)) {
+              Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
+              return;
+            }
+            setSelectedSlot(time);
+          }}
           onClose={() => setTimePickerVisible(false)}
         />
 
@@ -333,6 +306,10 @@ export default function SlotSelectScreen({ navigation }) {
           onPress={() => {
             if (!selectedSlot) {
               Alert.alert('Time Required', 'Please select a time slot to continue.');
+              return;
+            }
+            if (!isServiceTimeAllowed(selectedDate, selectedSlot)) {
+              Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
               return;
             }
             if (visitType === 'Home Visit') {

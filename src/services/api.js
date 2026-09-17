@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appendImageToFormData } from '../utils/formDataFile';
 
 export const BASE_URL = 'https://scoobyz-backend.onrender.com';
 // export const BASE_URL = 'http://192.168.1.33:8000';
@@ -197,11 +198,9 @@ export const reviewsApi = {
         formData.append('rating', String(rating));
         if (comment) formData.append('comment', comment);
         if (photoUri) {
-            // React Native FormData accepts { uri, name, type }
-            const filename = photoUri.split('/').pop() || `review_${Date.now()}.jpg`;
-            const ext = filename.split('.').pop()?.toLowerCase();
-            const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-            formData.append('photo', { uri: photoUri, name: filename, type: mimeType });
+            await appendImageToFormData(formData, 'photo', photoUri, {
+                fallbackName: `review_${Date.now()}.jpg`,
+            });
         }
         return api.upload('/customer/reviews', formData);
     },
