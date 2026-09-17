@@ -14,7 +14,7 @@ if (Platform.OS !== 'web') {
     PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
 }
 
-export default function LiveTrackingMap({ bookingId, sessionId, initialLocation, onSessionUpdate }) {
+export default function LiveTrackingMap({ bookingId, sessionId, initialLocation, initialDistanceMeters = 0, onSessionUpdate }) {
     const mapRef = useRef(null);
     const joinedSocketIdRef = useRef(null);
 
@@ -45,9 +45,14 @@ export default function LiveTrackingMap({ bookingId, sessionId, initialLocation,
         })
     );
     const [heading, setHeading] = useState(0);
+    const [distanceMeters, setDistanceMeters] = useState(Math.max(0, Number(initialDistanceMeters) || 0));
     const [connectionState, setConnectionState] = useState('connecting');
     const [hasLiveLocation, setHasLiveLocation] = useState(false);
     const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        setDistanceMeters(Math.max(0, Number(initialDistanceMeters) || 0));
+    }, [initialDistanceMeters, sessionId]);
 
     useEffect(() => {
         const animation = Animated.loop(
@@ -92,7 +97,9 @@ export default function LiveTrackingMap({ bookingId, sessionId, initialLocation,
             const newLng = parseFloat(data.longitude);
             if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) return;
             const newHeading = parseFloat(data.heading) || 0;
+            const nextDistanceMeters = Number(data.distanceMeters);
             setHasLiveLocation(true);
+            if (Number.isFinite(nextDistanceMeters)) setDistanceMeters(Math.max(0, nextDistanceMeters));
 
             coordinate.timing({
                 latitude: newLat,
@@ -171,6 +178,13 @@ export default function LiveTrackingMap({ bookingId, sessionId, initialLocation,
                     </Text>
                 </View>
             )}
+            <View style={styles.distanceBadge}>
+                <Ionicons name="walk-outline" size={17} color="#FFF" />
+                <View style={styles.distanceTextGroup}>
+                    <Text style={styles.distanceLabel}>DISTANCE</Text>
+                    <Text style={styles.distanceValue}>{(distanceMeters / 1000).toFixed(2)} km</Text>
+                </View>
+            </View>
         </View>
     );
 }
@@ -210,6 +224,32 @@ const styles = StyleSheet.create({
         borderRadius: 14,
     },
     connectionText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+    distanceBadge: {
+        position: 'absolute',
+        left: 12,
+        bottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: 'rgba(61, 42, 94, 0.9)',
+    },
+    distanceTextGroup: {
+        alignItems: 'flex-start',
+    },
+    distanceLabel: {
+        color: 'rgba(255,255,255,0.75)',
+        fontSize: 8,
+        fontWeight: '700',
+        letterSpacing: 0.8,
+    },
+    distanceValue: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: '700',
+    },
     markerWrapper: {
         alignItems: 'center',
         justifyContent: 'center',

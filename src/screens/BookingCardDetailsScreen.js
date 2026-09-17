@@ -20,6 +20,8 @@ const formatPrice = (value) => {
     return Number.isFinite(amount) ? `₹${amount.toFixed(2)}` : '';
 };
 
+const formatDistance = value => `${(Math.max(0, Number(value) || 0) / 1000).toFixed(2)} km`;
+
 const ServiceSummaryRow = ({ icon, label, value }) => value ? (
     <View style={styles.serviceSummaryRow}>
         <MaterialCommunityIcons name={icon} size={18} color={theme.colors.primaryDark} />
@@ -261,6 +263,10 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
     const additionalCharges = (serviceDetails.addons || []).filter(item => item.category === 'additional_charge');
     const walkProgress = booking.bookingType === 'walking' ? booking.sessionProgress : null;
     const currentWalk = walkProgress?.activeSession || walkProgress?.nextSession;
+    const totalWalkDistanceMeters = walkProgress?.sessions?.reduce(
+        (total, session) => total + (Number(session.distanceMeters) || 0),
+        0,
+    ) || 0;
 
     // Resolve service tasks / details
     let serviceTasks = booking.notes || '';
@@ -374,6 +380,9 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                             <ServiceSummaryRow icon="counter" label="Walks per day" value={serviceDetails.timesPerDay ? String(serviceDetails.timesPerDay) : null} />
                             <ServiceSummaryRow icon="calendar-week" label="Recurring days" value={serviceDetails.recurringDays?.join(', ')} />
                             <ServiceSummaryRow icon="clock-check-outline" label="Selected slot(s)" value={booking.timeSlot} />
+                            {walkProgress?.totalSessions > 0 && (
+                                <ServiceSummaryRow icon="map-marker-distance" label="Total distance" value={formatDistance(totalWalkDistanceMeters)} />
+                            )}
 
                             {walkProgress?.totalSessions > 0 && (
                                 <View style={styles.walkProgressBlock}>
@@ -400,6 +409,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                                                 </AppText>
                                                 <AppText style={styles.currentWalkMeta}>
                                                     {formatBookingDate(currentWalk.serviceDate)} • {currentWalk.timeSlot}
+                                                    {currentWalk.status === 'in_progress' ? ` • ${formatDistance(currentWalk.distanceMeters)}` : ''}
                                                 </AppText>
                                             </View>
                                             {currentWalk.otp && (
@@ -431,6 +441,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                                                 />
                                                 <AppText style={styles.walkSessionText}>
                                                     Walk #{session.sessionNumber} • {formatBookingDate(session.serviceDate)} • {session.timeSlot}
+                                                    {session.status !== 'scheduled' ? ` • Distance ${formatDistance(session.distanceMeters)}` : ''}
                                                 </AppText>
                                                 <AppText style={styles.walkSessionStatus} weight="bold">{humanize(session.status)}</AppText>
                                             </View>

@@ -131,6 +131,7 @@ export default function TrackingScreen({ navigation, route }) {
                             <LiveTrackingMap 
                                 bookingId={booking.id}
                                 sessionId={booking.sessionProgress.activeSession.id}
+                                initialDistanceMeters={booking.sessionProgress.activeSession.distanceMeters}
                                 onSessionUpdate={handleSessionUpdate}
                                 initialLocation={{
                                     latitude: parseFloat(booking.latitude) || 28.7041,

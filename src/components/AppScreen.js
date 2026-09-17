@@ -15,13 +15,13 @@ const { width } = Dimensions.get('window');
 
 const AppScreen = ({
   children,
-  header,               // pass <Header /> here instead of putting it inside children
-  footer,                // pass sticky bottom CTA here
+  header,               
+  footer,               
   style,
   scrollable = false,
   padding = true,
   safeAreaTop = true,
-  safeAreaBottom = true, // NEW: apply bottom inset when there's no footer eating it
+  safeAreaBottom = true,
   keyboardAvoiding = true,
   backgroundColor = theme.colors.background,
   statusBarStyle = 'dark-content',
