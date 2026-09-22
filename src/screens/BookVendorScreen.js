@@ -225,6 +225,7 @@ export default function BookVendorScreen({ navigation, route }) {
         try {
             const apiCall = getServiceApi(serviceType);
             let finalPaymentReferenceId = null;
+            let finalPaymentVerification = null;
 
             // Call Razorpay FIRST if not Scoobyz match and not a demo
             if (!isScoobyzMatch && !isDemo && discountedAmountPaid > 0) {
@@ -241,12 +242,13 @@ export default function BookVendorScreen({ navigation, route }) {
                     const orderData = await orderRes.json();
                     
                     if (orderData.error) throw new Error(orderData.error);
+                    if (!orderData.keyId) throw new Error('Payment gateway key is missing');
 
                     const options = {
                         description: `Payment for ${serviceType}`,
                         image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
                         currency: orderData.currency,
-                        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T3ueH6b31wuS9u', // Replace with real key id in production
+                        key: orderData.keyId,
                         amount: orderData.amount,
                         name: 'Scoobyz',
                         order_id: orderData.orderId,
@@ -288,6 +290,11 @@ export default function BookVendorScreen({ navigation, route }) {
 
                     console.log('Payment Success:', paymentData);
                     finalPaymentReferenceId = paymentData.razorpay_payment_id;
+                    finalPaymentVerification = {
+                        razorpay_order_id: paymentData.razorpay_order_id,
+                        razorpay_payment_id: paymentData.razorpay_payment_id,
+                        razorpay_signature: paymentData.razorpay_signature,
+                    };
                 } catch (paymentError) {
                     console.error('Payment Error:', paymentError);
                     setAlertConfig({
@@ -307,6 +314,7 @@ export default function BookVendorScreen({ navigation, route }) {
                 requiresAdminAssignment: isScoobyzMatch,
                 isDemo: isDemo || false,
                 paymentReferenceId: finalPaymentReferenceId,
+                paymentVerification: finalPaymentVerification,
                 notes: `_OP:${total}_ ${originalNotes}`.trim()
             };
             const result = await apiCall(payload);

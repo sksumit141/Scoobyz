@@ -8,15 +8,10 @@
       "com.googleusercontent.apps.1013005276460-pvst0rk84acjh4cldopluoue688jsp55",
       "com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1"
     ],
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/scoobyz_logo-removebg-preview.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F7F6F2"
-    },
     "ios": {
       "bundleIdentifier": "com.scobys.scoooobys",
       "supportsTablet": true,
@@ -33,7 +28,6 @@
     "android": {
       "package": "com.scobys.scoooobys",
       "googleServicesFile": "./google-services.json",
-      "useNextNotificationsApi": true,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "android.permission.CAMERA",
@@ -91,6 +85,14 @@
           "ios": {
             "enableSceneSupport": true
           }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/scoobyz_logo-removebg-preview.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F6F2"
         }
       ]
     ],

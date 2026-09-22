@@ -307,6 +307,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
     try {
       const apiCall = getServiceApi(serviceType);
       let finalPaymentReferenceId = null;
+      let finalPaymentVerification = null;
       // For grooming, always charge the ₹199 slot booking fee upfront.
       // For other services, charge the selected amount (full or partial).
       const chargeAmount = isGrooming ? GROOMING_SLOT_FEE : amountPaid;
@@ -319,13 +320,14 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           });
           const orderData = await orderRes.json();
           if (orderData.error) throw new Error(orderData.error);
+          if (!orderData.keyId) throw new Error('Payment gateway key is missing');
           const options = {
             description: isGrooming
               ? `Slot Booking Charge for Grooming (₹${GROOMING_SLOT_FEE} — adjusted in final invoice)`
               : `Payment for ${serviceType}`,
             image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
             currency: orderData.currency,
-            key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T3ueH6b31wuS9u',
+            key: orderData.keyId,
             amount: orderData.amount, name: 'Scoobyz', order_id: orderData.orderId,
             theme: { color: '#3d2a5e' },
           };
@@ -350,6 +352,11 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
             }
           });
           finalPaymentReferenceId = paymentData.razorpay_payment_id;
+          finalPaymentVerification = {
+            razorpay_order_id: paymentData.razorpay_order_id,
+            razorpay_payment_id: paymentData.razorpay_payment_id,
+            razorpay_signature: paymentData.razorpay_signature,
+          };
         } catch (paymentError) {
           setAlertConfig({ visible: true, title: 'Payment Failed', message: 'Payment was cancelled or failed.', type: 'error' });
           setLoading(false); return;
@@ -360,7 +367,9 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
       const payload = {
         ...buildPayload(params, { paymentType: paymentTypeForPayload, amountPaid: amountPaid, remainingAmount: remainingAmount, totalCost: dynamicTotal }),
         addressId: selectedAddress?.id, requiresAdminAssignment: isScoobyzMatch,
-        isDemo: params.isDemo || false, paymentReferenceId: finalPaymentReferenceId,
+        isDemo: params.isDemo || false,
+        paymentReferenceId: finalPaymentReferenceId,
+        paymentVerification: finalPaymentVerification,
         notes: `_OP:${dynamicTotal}_ ${originalNotes}`.trim(),
         selectedSubServices: expandedAddons,
         packageId: mainPackage.packageId || mainPackage.id,

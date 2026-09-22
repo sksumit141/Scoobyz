@@ -34,12 +34,49 @@ const openCheckout = async (options) => {
   });
 };
 
+const requireCheckoutKey = (order) => {
+  if (!order?.keyId) {
+    throw new Error('Payment gateway key is missing from the server response');
+  }
+  return order.keyId;
+};
+
+const requirePaymentVerification = (payment) => {
+  if (!payment?.razorpay_order_id || !payment?.razorpay_payment_id || !payment?.razorpay_signature) {
+    throw new Error('Razorpay did not return complete payment verification details');
+  }
+  return {
+    razorpay_order_id: payment.razorpay_order_id,
+    razorpay_payment_id: payment.razorpay_payment_id,
+    razorpay_signature: payment.razorpay_signature,
+  };
+};
+
+export const payDirectBooking = async ({ amount, description }) => {
+  const order = await api.post('/payment/create-order-direct', { amount });
+  const payment = await openCheckout({
+    key: requireCheckoutKey(order),
+    amount: order.amount,
+    currency: order.currency || 'INR',
+    order_id: order.orderId,
+    name: 'Scoobyz',
+    description,
+    image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
+    theme: { color: '#3d2a5e' },
+  });
+  const paymentVerification = requirePaymentVerification(payment);
+  return {
+    paymentReferenceId: paymentVerification.razorpay_payment_id,
+    paymentVerification,
+  };
+};
+
 export const payBookingBalance = async (booking) => {
   if (!booking?.id) throw new Error('Booking information is missing');
 
   const order = await api.post('/payment/create-order', { bookingId: booking.id });
   const payment = await openCheckout({
-    key: order.keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T3ueH6b31wuS9u',
+    key: requireCheckoutKey(order),
     amount: order.amount,
     currency: order.currency || 'INR',
     order_id: order.orderId,
@@ -49,10 +86,9 @@ export const payBookingBalance = async (booking) => {
     theme: { color: '#3d2a5e' },
   });
 
+  const paymentVerification = requirePaymentVerification(payment);
   return api.post('/payment/verify-booking-payment', {
     bookingId: booking.id,
-    razorpay_order_id: payment.razorpay_order_id,
-    razorpay_payment_id: payment.razorpay_payment_id,
-    razorpay_signature: payment.razorpay_signature,
+    ...paymentVerification,
   });
 };
