@@ -26,7 +26,10 @@ export default function MenuScreen({ navigation }) {
     if (routeName === 'LandingScreen') {
       navigation.goBack();
     } else {
-      navigation.navigate(routeName);
+      // Remove the transparent drawer modal before opening its destination.
+      // Keeping Menu in the stack makes iOS present the next screen as another
+      // modal, leaving the previous page visible above it and breaking Back.
+      navigation.replace(routeName);
     }
   };
 

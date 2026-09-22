@@ -137,9 +137,25 @@ export default function PushNotificationManager() {
       }
     });
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
-    Notifications.getLastNotificationResponseAsync().then(response => {
-      if (response) handleResponse(response);
-    });
+
+    // SDK 57 exposes the latest response synchronously. Keep the async fallback
+    // for older native builds and handle native-module mismatches without
+    // producing an unhandled rejection during app startup.
+    try {
+      const lastResponse = typeof Notifications.getLastNotificationResponse === 'function'
+        ? Notifications.getLastNotificationResponse()
+        : Notifications.getLastNotificationResponseAsync?.();
+
+      Promise.resolve(lastResponse)
+        .then(response => {
+          if (response) handleResponse(response);
+        })
+        .catch(error => {
+          console.warn('Unable to read the last notification response:', error);
+        });
+    } catch (error) {
+      console.warn('Unable to read the last notification response:', error);
+    }
 
     return () => {
       receivedSubscription.remove();
