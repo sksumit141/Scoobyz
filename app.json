@@ -8,10 +8,11 @@
       "com.googleusercontent.apps.1013005276460-pvst0rk84acjh4cldopluoue688jsp55",
       "com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1"
     ],
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+
     "ios": {
       "bundleIdentifier": "com.scobys.scoooobys",
       "supportsTablet": true,
@@ -25,6 +26,7 @@
       },
       "bitcode": false
     },
+
     "android": {
       "package": "com.scobys.scoooobys",
       "googleServicesFile": "./google-services.json",
@@ -53,9 +55,11 @@
         }
       }
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "plugins": [
       [
         "@config-plugins/react-native-webrtc",
@@ -64,6 +68,7 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
         }
       ],
+
       "expo-sharing",
       "expo-web-browser",
       "expo-location",
@@ -72,6 +77,7 @@
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
       "@react-native-community/datetimepicker",
+
       [
         "expo-notifications",
         {
@@ -79,14 +85,27 @@
           "color": "#F7F6F2"
         }
       ],
+
       [
         "expo-build-properties",
         {
           "ios": {
-            "enableSceneSupport": true
+            "useFrameworks": "static",
+            "enableSceneSupport": true,
+            "extraPods": [
+              {
+                "name": "GoogleUtilities",
+                "modular_headers": true
+              },
+              {
+                "name": "RecaptchaInterop",
+                "modular_headers": true
+              }
+            ]
           }
         }
       ],
+
       [
         "expo-splash-screen",
         {
@@ -96,12 +115,15 @@
         }
       ]
     ],
+
     "runtimeVersion": {
       "policy": "appVersion"
     },
+
     "updates": {
       "url": "https://u.expo.dev/f964d43a-732c-4ca7-b5b0-6f1a00ccebc1"
     },
+
     "extra": {
       "eas": {
         "projectId": "f964d43a-732c-4ca7-b5b0-6f1a00ccebc1"
