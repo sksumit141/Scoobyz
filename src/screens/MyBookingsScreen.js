@@ -62,9 +62,11 @@ export default function MyBookingsScreen({ navigation, route }) {
 
         try {
             setPayingBookingId(booking.id);
-            await payBookingBalance(booking);
+            const paymentResult = await payBookingBalance(booking);
             setInvoiceVisible(false);
-            Alert.alert('Success', 'Payment completed successfully!');
+            Alert.alert('Payment Successful', paymentResult?.completionOtpReady
+                ? 'Your completion OTP is now ready. Share it with the groomer after checking the service.'
+                : 'Payment completed successfully!');
             await fetchBookings();
         } catch (err) {
             Alert.alert('Payment Not Completed', err.message || 'Unable to open Razorpay. Please try again.');

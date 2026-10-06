@@ -29,6 +29,7 @@ const throwApiError = async (res, fallbackMessage = 'Request failed') => {
     const error = new Error(isExpiredSession ? 'Your session has expired. Please sign in again.' : message);
     error.status = res.status;
     error.data = details;
+    if (isExpiredSession) error.code = 'SESSION_EXPIRED';
     throw error;
 };
 
