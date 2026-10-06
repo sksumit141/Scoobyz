@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appendImageToFormData } from '../utils/formDataFile';
+import { navigationRef } from '../utils/navigationRef';
 
 export const BASE_URL = 'https://scoobyz-backend.onrender.com';
 // export const BASE_URL = 'http://192.168.1.33:8000';
@@ -10,6 +11,25 @@ const getHeaders = async () => {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+};
+
+const throwApiError = async (res, fallbackMessage = 'Request failed') => {
+    const details = await res.json().catch(() => ({ error: fallbackMessage }));
+    const message = details.message || details.error || `HTTP ${res.status}`;
+    const isExpiredSession = res.status === 401
+        && ['Invalid or expired token', 'No token provided'].includes(message);
+
+    if (isExpiredSession) {
+        await AsyncStorage.multiRemove(['authToken', 'userId', 'isOnboarded']);
+        if (navigationRef.isReady()) {
+            navigationRef.resetRoot({ index: 0, routes: [{ name: 'Welcome' }] });
+        }
+    }
+
+    const error = new Error(isExpiredSession ? 'Your session has expired. Please sign in again.' : message);
+    error.status = res.status;
+    error.data = details;
+    throw error;
 };
 
 const buildQuery = (params) => {
@@ -28,12 +48,7 @@ export const api = {
     get: async (endpoint) => {
         const headers = await getHeaders();
         const res = await fetch(`${BASE_URL}${endpoint}`, { headers });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Request failed' }));
-            const error = new Error(err.message || err.error || `HTTP ${res.status}`);
-            error.data = err;
-            throw error;
-        }
+        if (!res.ok) await throwApiError(res);
         return res.json();
     },
 
@@ -44,12 +59,7 @@ export const api = {
             headers,
             body: JSON.stringify(body),
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Request failed' }));
-            const error = new Error(err.message || err.error || `HTTP ${res.status}`);
-            error.data = err;
-            throw error;
-        }
+        if (!res.ok) await throwApiError(res);
         return res.json();
     },
 
@@ -60,10 +70,7 @@ export const api = {
             headers,
             body: JSON.stringify(body),
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(err.error || `HTTP ${res.status}`);
-        }
+        if (!res.ok) await throwApiError(res);
         return res.json();
     },
 
@@ -74,10 +81,7 @@ export const api = {
             headers,
             body: body ? JSON.stringify(body) : undefined,
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(err.error || `HTTP ${res.status}`);
-        }
+        if (!res.ok) await throwApiError(res);
         return res.json();
     },
 
@@ -87,10 +91,7 @@ export const api = {
             method: 'DELETE',
             headers,
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(err.error || `HTTP ${res.status}`);
-        }
+        if (!res.ok) await throwApiError(res);
         return res.json();
     },
 
@@ -105,12 +106,13 @@ export const api = {
             },
             body: formData,
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-            throw new Error(err.error || `HTTP ${res.status}`);
-        }
+        if (!res.ok) await throwApiError(res, 'Upload failed');
         return res.json();
     },
+};
+
+export const appVersionApi = {
+    getPolicy: () => api.get('/api/public/app-version'),
 };
 
 // ══════════════════════════════════════
@@ -147,6 +149,14 @@ export const addressApi = {
     delete: (id) => api.delete(`/customer/address/${id}`),
 };
 
+// Google Places and Geocoding are proxied by the backend so the server key is
+// never embedded in JavaScript or sent to third-party browser proxies.
+export const mapsApi = {
+    reverseGeocode: (lat, lng) => api.get(`/api/maps/reverse-geocode${buildQuery({ lat, lng })}`),
+    autocomplete: (input) => api.get(`/api/maps/places/autocomplete${buildQuery({ input })}`),
+    placeDetails: (placeId) => api.get(`/api/maps/places/details${buildQuery({ placeId })}`),
+};
+
 // ── Discovery ──
 export const discoverApi = {
     groomers: (params) => api.get(`/discover/groomers${buildQuery(params)}`),
@@ -160,6 +170,8 @@ export const discoverApi = {
     companies: () => api.get('/discover/companies'),
     byService: (serviceName, params) => api.get(`/discover/by-service/${encodeURIComponent(serviceName)}${buildQuery(params)}`),
     scoobyzPackages: () => api.get('/discover/scoobyz/packages'),
+    walkingPackages: () => api.get('/discover/walking/packages'),
+    landingBanners: () => api.get('/discover/landing-banners'),
 };
 
 // ── Bookings ──

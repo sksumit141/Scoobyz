@@ -15,10 +15,10 @@ export default function PackageCard({ pkg, onAdd, isAdded, isSelected }) {
         </View>
       )}
 
-      {/* Launch Price Strip */}
+      {/* Discount strip */}
       {pkg.originalPrice && (
         <View style={styles.launchStrip}>
-          <AppText style={styles.launchStripText} weight="bold">LAUNCH PRICE</AppText>
+          <AppText style={styles.launchStripText} weight="bold">OFFER PRICE</AppText>
         </View>
       )}
       

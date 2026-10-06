@@ -62,9 +62,14 @@ export const isServiceTimeAllowed = (selectedDate, timeSlot, now = new Date()) =
   return serviceTimeIST.getTime() >= earliestAllowedIST.getTime();
 };
 
-export const getAvailableServiceSlots = (selectedDate, slots, maxSlots = 9) => {
-  const nineAmIndex = slots.indexOf('09:00 AM');
-  const daytimeSlots = nineAmIndex >= 0 ? slots.slice(nineAmIndex) : slots;
+export const getAvailableServiceSlots = (
+  selectedDate,
+  slots,
+  maxSlots = 9,
+  earliestSlot = '09:00 AM'
+) => {
+  const firstSlotIndex = slots.indexOf(earliestSlot);
+  const daytimeSlots = firstSlotIndex >= 0 ? slots.slice(firstSlotIndex) : slots;
   return daytimeSlots
     .filter(slot => isServiceTimeAllowed(selectedDate, slot))
     .slice(0, maxSlots);

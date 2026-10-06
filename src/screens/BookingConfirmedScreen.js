@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Animated, Easing, Modal, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Animated, Easing, Modal, LayoutAnimation, Platform, UIManager, Linking, Alert } from 'react-native';
 
 // Note: setLayoutAnimationEnabledExperimental causes black screens on some Android devices
 // when used alongside Animated with useNativeDriver. Keeping it off here.
@@ -18,6 +18,7 @@ import { BASE_URL, bookingsApi, discoverApi } from '../services/api';
 import PaymentSummaryModal from '../components/PaymentSummaryModal';
 import { formatISTDate } from '../utils/date_utils';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { logContact } from '../services/metaEvents';
 
 const { width } = Dimensions.get('window');
 
@@ -66,6 +67,21 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
   const togglePackageAccordion = () => {
     safeLayoutAnimation();
     setIsPackageExpanded(!isPackageExpanded);
+  };
+
+  const handleContactSupport = async () => {
+    const subject = encodeURIComponent(`Scoobyz booking support - #${bookingId || 'unknown'}`);
+    const emailUrl = `mailto:contact@scoobyz.com?subject=${subject}`;
+
+    try {
+      await Linking.openURL(emailUrl);
+      logContact({ userId: bookingId, channel: 'booking_support_email' });
+    } catch (error) {
+      Alert.alert(
+        'Unable to open email',
+        'Please email us directly at contact@scoobyz.com.'
+      );
+    }
   };
 
   useEffect(() => {
@@ -401,7 +417,7 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        <TouchableOpacity style={styles.supportLink}>
+        <TouchableOpacity style={styles.supportLink} onPress={handleContactSupport}>
           <AppText style={styles.supportText}>Need help ? <AppText weight="bold" style={{ textDecorationLine: 'underline' }}>Contact Support</AppText></AppText>
         </TouchableOpacity>
 

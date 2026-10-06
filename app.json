@@ -8,11 +8,10 @@
       "com.googleusercontent.apps.1013005276460-pvst0rk84acjh4cldopluoue688jsp55",
       "com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1"
     ],
-    "version": "1.0.9",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-
     "ios": {
       "bundleIdentifier": "com.scobys.scoooobys",
       "supportsTablet": true,
@@ -26,7 +25,6 @@
       },
       "bitcode": false
     },
-
     "android": {
       "package": "com.scobys.scoooobys",
       "googleServicesFile": "./google-services.json",
@@ -49,17 +47,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyASsU2xX0A0bCMvOOf0BOFb-CJECBoqnmc"
-        }
-      }
+      "config": {}
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       [
         "@config-plugins/react-native-webrtc",
@@ -68,7 +60,6 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone"
         }
       ],
-
       "expo-sharing",
       "expo-web-browser",
       "expo-location",
@@ -77,7 +68,6 @@
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
       "@react-native-community/datetimepicker",
-
       [
         "expo-notifications",
         {
@@ -85,27 +75,14 @@
           "color": "#F7F6F2"
         }
       ],
-
       [
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static",
-            "enableSceneSupport": true,
-            "extraPods": [
-              {
-                "name": "GoogleUtilities",
-                "modular_headers": true
-              },
-              {
-                "name": "RecaptchaInterop",
-                "modular_headers": true
-              }
-            ]
+            "enableSceneSupport": true
           }
         }
       ],
-
       [
         "expo-splash-screen",
         {
@@ -113,17 +90,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#F7F6F2"
         }
-      ]
+      ],
+      "expo-tracking-transparency"
     ],
-
     "runtimeVersion": {
       "policy": "appVersion"
     },
-
     "updates": {
       "url": "https://u.expo.dev/f964d43a-732c-4ca7-b5b0-6f1a00ccebc1"
     },
-
     "extra": {
       "eas": {
         "projectId": "f964d43a-732c-4ca7-b5b0-6f1a00ccebc1"

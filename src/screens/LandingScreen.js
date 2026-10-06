@@ -7,7 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
-import { petsApi, customerApi, bookingsApi, BASE_URL } from '../services/api';
+import { petsApi, customerApi, bookingsApi, discoverApi, BASE_URL } from '../services/api';
 import AddressHeader from '../components/AddressHeader';
 import BookingStatusBanner from '../components/BookingStatusBanner';
 import AutoScrollBanners from '../components/AutoScrollBanners';
@@ -31,6 +31,7 @@ const LandingScreen = ({ navigation }) => {
   const [hasUsedFreeDemo, setHasUsedFreeDemo] = useState(false);
   const [activeBooking, setActiveBooking] = useState(null);
   const [payingBookingId, setPayingBookingId] = useState(null);
+  const [promoBanners, setPromoBanners] = useState([]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener(
@@ -66,7 +67,8 @@ const LandingScreen = ({ navigation }) => {
         Promise.all([
           fetchPets(),
           fetchProfile(),
-          fetchActiveBookings()
+          fetchActiveBookings(),
+          fetchLandingBanners()
         ]);
       };
 
@@ -102,8 +104,10 @@ const LandingScreen = ({ navigation }) => {
         setSelectedPet(null);
       }
       await AsyncStorage.setItem('cached_pets', JSON.stringify(data));
+      return data;
     } catch (error) {
       console.error('Fetch pets error:', error);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -124,17 +128,26 @@ const LandingScreen = ({ navigation }) => {
 
   const fetchActiveBookings = async () => {
     try {
-      const pending = await bookingsApi.list({ status: 'pending' });
-      const confirmed = await bookingsApi.list({ status: 'confirmed' });
-      const inProgress = await bookingsApi.list({ status: 'in_progress' });
-      const completed = await bookingsApi.list({ status: 'completed' });
+      const [pending, awaitingVendor, confirmed, inProgress, completed] = await Promise.all([
+        bookingsApi.list({ status: 'pending' }),
+        bookingsApi.list({ status: 'awaiting_vendor' }),
+        bookingsApi.list({ status: 'confirmed' }),
+        bookingsApi.list({ status: 'in_progress' }),
+        bookingsApi.list({ status: 'completed' }),
+      ]);
 
       const completedPaymentDue = (completed || []).filter(booking =>
         booking.bookingType === 'grooming'
         && booking.paymentStatus === 'awaiting_payment'
         && Number(booking.remainingAmount) > 0
       );
-      const allActive = [...completedPaymentDue, ...(pending || []), ...(inProgress || []), ...(confirmed || [])];
+      const allActive = [
+        ...completedPaymentDue,
+        ...(awaitingVendor || []),
+        ...(pending || []),
+        ...(inProgress || []),
+        ...(confirmed || []),
+      ];
       if (allActive.length > 0) {
         // Show the most recent or upcoming one
         setActiveBooking(allActive[0]);
@@ -144,6 +157,22 @@ const LandingScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Fetch bookings error:', error);
     }
+  };
+
+  const fetchLandingBanners = async () => {
+    try {
+      const data = await discoverApi.landingBanners();
+      setPromoBanners(Array.isArray(data?.banners) ? data.banners : []);
+    } catch (error) {
+      console.error('Fetch landing banners error:', error);
+      setPromoBanners([]);
+    }
+  };
+
+  const handleBannerPress = (banner) => {
+    if (banner.ctaTarget === 'grooming') navigateToService({ title: 'Grooming' });
+    else if (banner.ctaTarget === 'walking') navigateToService({ title: 'Walking' });
+    else if (banner.ctaTarget === 'bookings') navigation.navigate('MyBookings');
   };
 
   const handlePayBooking = async (booking) => {
@@ -161,8 +190,28 @@ const LandingScreen = ({ navigation }) => {
     }
   };
 
-  const navigateToService = (service) => {
-    const params = { serviceName: service.title, pet: selectedPet };
+  const navigateToService = async (service) => {
+    const availablePets = Array.isArray(pets) ? pets : await fetchPets();
+    const activePet = selectedPet || availablePets?.[0];
+
+    if (!Array.isArray(availablePets)) {
+      Alert.alert('Unable to Check Pets', 'Please check your connection and try again.');
+      return;
+    }
+
+    if (availablePets.length === 0 || !activePet) {
+      Alert.alert(
+        'Add a Pet First',
+        'Please create a pet profile before booking a service.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Add Pet', onPress: () => navigation.navigate('AddPetProfile') },
+        ],
+      );
+      return;
+    }
+
+    const params = { serviceName: service.title, pet: activePet };
     if (service.title === 'Boarding' || service.title === 'Vaccination') {
       navigation.navigate('ComingSoon', params);
     } else if (service.title === 'Walking') {
@@ -244,14 +293,33 @@ const LandingScreen = ({ navigation }) => {
             {activeBooking && (
               <BookingStatusBanner
                 booking={activeBooking}
-                onPress={() => navigation.navigate('MyBookings')}
+                onPress={() => navigation.navigate('BookingCardDetails', { bookingId: activeBooking.id })}
                 onPay={handlePayBooking}
                 paying={payingBookingId === activeBooking.id}
               />
             )}
 
-            {/* Promo Banner */}
-            <View style={[styles.banner, { backgroundColor: '#E3F2FD' }]}>
+            {promoBanners.map((banner) => (
+              <TouchableOpacity
+                key={banner.id}
+                activeOpacity={banner.ctaTarget ? 0.88 : 1}
+                disabled={!banner.ctaTarget}
+                onPress={() => handleBannerPress(banner)}
+                style={[styles.banner, styles.dynamicBanner, { backgroundColor: banner.backgroundColor || '#E3F2FD' }]}
+              >
+                <Image source={{ uri: banner.imageUrl }} style={styles.dynamicBannerImage} resizeMode="cover" />
+                {(banner.title || banner.subtitle || banner.ctaLabel) && (
+                  <View style={styles.dynamicBannerOverlay}>
+                    {banner.title && <AppText style={styles.dynamicBannerTitle} weight="bold">{banner.title}</AppText>}
+                    {banner.subtitle && <AppText style={styles.dynamicBannerSubtitle}>{banner.subtitle}</AppText>}
+                    {banner.ctaLabel && <AppText style={styles.dynamicBannerCta} weight="bold">{banner.ctaLabel}</AppText>}
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {/* Built-in fallback banners */}
+            {promoBanners.length === 0 && <View style={[styles.banner, { backgroundColor: '#E3F2FD' }]}>
               <View style={styles.bannerTextContainer}>
                 <AppText style={{ color: theme.colors.textBlack, fontWeight: '900', fontSize: width < 360 ? 12 : 14, marginBottom: 4 }}>
                   WELCOME TO{'\n'}MY DOGGIE DEALS
@@ -263,16 +331,15 @@ const LandingScreen = ({ navigation }) => {
                 style={styles.bannerImage}
                 resizeMode="cover"
               />
-            </View>
+            </View>}
 
-            {/* Promo Banner 2 */}
-            <View style={[styles.banner, { paddingLeft: 0, backgroundColor: 'transparent' }]}>
+            {promoBanners.length === 0 && <View style={[styles.banner, { paddingLeft: 0, backgroundColor: 'transparent' }]}>
               <Image
                 source={require('../../assets/AppHomepage.png')}
                 style={{ width: '100%', height: '100%', borderRadius: 16 }}
                 resizeMode="cover"
               />
-            </View>
+            </View>}
           </AutoScrollBanners>
 
           {/* My Pets Section */}
@@ -484,6 +551,44 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderTopRightRadius: 16,
     borderBottomRightRadius: 16,
+  },
+  dynamicBanner: {
+    paddingLeft: 0,
+    overflow: 'hidden',
+  },
+  dynamicBannerImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  dynamicBannerOverlay: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    width: '64%',
+    height: '100%',
+    paddingHorizontal: 18,
+    backgroundColor: 'rgba(20, 31, 43, 0.58)',
+  },
+  dynamicBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: width < 360 ? 15 : 18,
+    lineHeight: width < 360 ? 19 : 22,
+  },
+  dynamicBannerSubtitle: {
+    marginTop: 4,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: width < 360 ? 9 : 11,
+    lineHeight: 15,
+  },
+  dynamicBannerCta: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    color: theme.colors.primaryDark,
+    backgroundColor: '#FFFFFF',
+    fontSize: 10,
   },
   sectionHeader: {
     flexDirection: 'row',

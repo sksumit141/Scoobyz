@@ -41,12 +41,13 @@ const requireCheckoutKey = (order) => {
   return order.keyId;
 };
 
-const requirePaymentVerification = (payment) => {
-  if (!payment?.razorpay_order_id || !payment?.razorpay_payment_id || !payment?.razorpay_signature) {
+const requirePaymentVerification = (payment, serverOrderId) => {
+  if (!serverOrderId || !payment?.razorpay_payment_id || !payment?.razorpay_signature) {
     throw new Error('Razorpay did not return complete payment verification details');
   }
   return {
-    razorpay_order_id: payment.razorpay_order_id,
+    // Razorpay requires the order ID created by the server for signature verification.
+    razorpay_order_id: serverOrderId,
     razorpay_payment_id: payment.razorpay_payment_id,
     razorpay_signature: payment.razorpay_signature,
   };
@@ -64,7 +65,7 @@ export const payDirectBooking = async ({ amount, description }) => {
     image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
     theme: { color: '#3d2a5e' },
   });
-  const paymentVerification = requirePaymentVerification(payment);
+  const paymentVerification = requirePaymentVerification(payment, order.orderId);
   return {
     paymentReferenceId: paymentVerification.razorpay_payment_id,
     paymentVerification,
@@ -86,7 +87,7 @@ export const payBookingBalance = async (booking) => {
     theme: { color: '#3d2a5e' },
   });
 
-  const paymentVerification = requirePaymentVerification(payment);
+  const paymentVerification = requirePaymentVerification(payment, order.orderId);
   return api.post('/payment/verify-booking-payment', {
     bookingId: booking.id,
     ...paymentVerification,

@@ -321,6 +321,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           const orderData = await orderRes.json();
           if (orderData.error) throw new Error(orderData.error);
           if (!orderData.keyId) throw new Error('Payment gateway key is missing');
+          if (!orderData.orderId) throw new Error('Payment order ID is missing');
           const options = {
             description: isGrooming
               ? `Slot Booking Charge for Grooming (₹${GROOMING_SLOT_FEE} — adjusted in final invoice)`
@@ -353,7 +354,8 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           });
           finalPaymentReferenceId = paymentData.razorpay_payment_id;
           finalPaymentVerification = {
-            razorpay_order_id: paymentData.razorpay_order_id,
+            // Verify against the order created by our backend, not callback data.
+            razorpay_order_id: orderData.orderId,
             razorpay_payment_id: paymentData.razorpay_payment_id,
             razorpay_signature: paymentData.razorpay_signature,
           };

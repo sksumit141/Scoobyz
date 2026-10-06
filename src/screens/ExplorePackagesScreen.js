@@ -8,6 +8,7 @@ import PackageCard from '../components/PackageCard';
 import AddonsModal from '../components/AddonsModal';
 import { discoverApi, petsApi } from '../services/api';
 import { theme } from '../styles/theme';
+import { logViewContent } from '../services/metaEvents';
 
 export default function ExplorePackagesScreen({ route, navigation }) {
   const { expert, serviceName = 'Grooming', isScoobyzGrooming, pet: petParam } = route.params || {};
@@ -181,55 +182,15 @@ export default function ExplorePackagesScreen({ route, navigation }) {
 
         {packages.map(pkg => {
           const isAdded = serviceName !== 'Boarding' && cart.some(item => item.packageId === pkg.id);
-          let displayPrice = pkg.price;
-          if (isScoobyzGrooming && pkg.pricing) {
-            displayPrice = pkg.pricing[petSize]?.launch || pkg.pricing.Medium.launch;
-          }
-
           // Normalize petSize to ensure it matches our keys exactly (e.g. 'Large' instead of 'large')
           const cleanSize = petSize ? petSize.trim() : 'Medium';
           const normalizedSize = cleanSize.charAt(0).toUpperCase() + cleanSize.slice(1).toLowerCase();
-
-          let originalPrice = null;
-
-          // ==========================================================
-          // CUSTOM PRICING CONFIGURATION
-          // You can input the regular (original) and discounted (launch)
-          // prices for all 3 types of services here!
-          // ==========================================================
-          const customPricing = {
-            'basic': {
-              Small: { original: 799, launch: 699 },
-              Medium: { original: 899, launch: 799 },
-              Large: { original: 999, launch: 899 }
-            },
-            'fresh': {
-              Small: { original: 799, launch: 699 },
-              Medium: { original: 899, launch: 799 },
-              Large: { original: 999, launch: 899 }
-            },
-            'signature': {
-              Small: { original: 1499, launch: 1299 }, // Replace these numbers!
-              Medium: { original: 1699, launch: 1499 }, // Replace these numbers!
-              Large: { original: 1899, launch: 1699 } // Replace these numbers!
-            },
-            'royal': {
-              Small: { original: 1799, launch: 1499 }, // Replace these numbers!
-              Medium: { original: 1999, launch: 1699 }, // Replace these numbers!
-              Large: { original: 2299, launch: 1899 } // Replace these numbers!
-            }
-          };
-
-          const titleLower = (pkg.title || pkg.name || '').toLowerCase();
-          const customKey = Object.keys(customPricing).find(k => titleLower.includes(k));
-
-          if (customKey) {
-            const sizePricing = customPricing[customKey][normalizedSize];
-            if (sizePricing) {
-              originalPrice = sizePricing.original;
-              displayPrice = sizePricing.launch;
-            }
-          }
+          const sizePricing = pkg.pricing?.[normalizedSize] || pkg.pricing?.Medium;
+          const discountEnabled = pkg.pricing?.discountEnabled === true;
+          const regularPrice = Number(sizePricing?.regular ?? sizePricing?.original ?? sizePricing?.price ?? pkg.price) || 0;
+          const discountedPrice = Number(sizePricing?.launch ?? sizePricing?.discounted) || 0;
+          const displayPrice = discountEnabled && discountedPrice > 0 ? discountedPrice : regularPrice;
+          const originalPrice = discountEnabled && regularPrice > displayPrice ? regularPrice : null;
 
           return (
             <PackageCard
@@ -239,6 +200,11 @@ export default function ExplorePackagesScreen({ route, navigation }) {
               isAdded={isAdded}
               onAdd={() => {
                 const packageWithUpdatedPrice = { ...pkg, price: displayPrice, originalPrice: originalPrice };
+                logViewContent({
+                  contentId: pkg.id,
+                  contentType: serviceName.toLowerCase(),
+                  amount: displayPrice,
+                });
                 if (serviceName === 'Boarding') {
                   setSelectedRoom(packageWithUpdatedPrice);
                 } else {
