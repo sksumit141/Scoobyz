@@ -13,6 +13,9 @@ const BookingStatusBanner = ({ booking, onPress, onPay, paying = false }) => {
     && booking.status === 'completed'
     && booking.paymentStatus === 'awaiting_payment'
     && payableAmount > 0;
+  const normalizedStatus = (booking.status || '').toLowerCase();
+  const isAssigning = normalizedStatus === 'awaiting_vendor'
+    || (normalizedStatus === 'pending' && booking.isAdminAssigned === false && !booking.vendorName);
   const walkProgress = booking.bookingType === 'walking' ? booking.sessionProgress : null;
   const currentWalk = walkProgress?.activeSession || walkProgress?.nextSession;
   const bookingDate = formatISTDate(currentWalk?.serviceDate || booking.serviceDate, {
@@ -47,6 +50,26 @@ const BookingStatusBanner = ({ booking, onPress, onPay, paying = false }) => {
               <AppText style={styles.payNowText} weight="bold">{paying ? 'OPENING...' : 'PAY NOW'}</AppText>
             </TouchableOpacity>
           </View>
+        </View>
+      ) : isAssigning ? (
+        <View style={styles.assigningContent}>
+          <View style={styles.assigningIcon}>
+            <MaterialCommunityIcons name="account-search-outline" size={29} color={theme.colors.primaryDark} />
+          </View>
+          <View style={styles.assigningTextContainer}>
+            <AppText style={styles.assigningTitle} weight="bold">Finding the best fit</AppText>
+            <AppText style={styles.assigningSubtitle} numberOfLines={1}>
+              We're matching {booking.petName || 'your pet'} with the right Scoober.
+            </AppText>
+            <View style={styles.assigningDetailsRow}>
+              <AppText style={styles.assigningDetail} weight="bold">
+                #{booking.id} · {(booking.bookingType || 'Service').toUpperCase()}
+              </AppText>
+              <View style={styles.assigningDot} />
+              <AppText style={styles.assigningDetail}>{bookingDate}</AppText>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={23} color={theme.colors.textSecondary} />
         </View>
       ) : (
         <View style={styles.compactContent}>
@@ -89,6 +112,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     borderRadius: 12,
     paddingHorizontal: 18,
+  },
+  assigningContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F0FA',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+  },
+  assigningIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8DFF3',
+    marginRight: 12,
+  },
+  assigningTextContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  assigningTitle: {
+    color: theme.colors.primaryDark,
+    fontSize: 16,
+    marginBottom: 3,
+  },
+  assigningSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  assigningDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  assigningDetail: {
+    color: theme.colors.textSecondary,
+    fontSize: 10,
+  },
+  assigningDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: theme.colors.textSecondary,
+    marginHorizontal: 7,
   },
   compactItem: {
     flex: 1,

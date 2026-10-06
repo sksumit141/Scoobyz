@@ -21,8 +21,8 @@ export default function GroomingPackagesScreen({ route, navigation }) {
     const fetchPackages = async () => {
       try {
         const response = await discoverApi.scoobyzPackages();
-        if (response.data && response.data.packages) {
-          setPackages(response.data.packages);
+        if (response?.packages) {
+          setPackages(response.packages);
         }
       } catch (error) {
         console.error('Failed to fetch grooming packages:', error);
@@ -70,6 +70,10 @@ export default function GroomingPackagesScreen({ route, navigation }) {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {packages.map((pkg) => {
             const prices = pkg.pricing[petSize] || pkg.pricing.Medium;
+            const discountEnabled = pkg.pricing?.discountEnabled === true;
+            const regularPrice = Number(prices?.regular ?? prices?.original ?? prices?.price) || 0;
+            const discountedPrice = Number(prices?.launch ?? prices?.discounted) || 0;
+            const displayPrice = discountEnabled && discountedPrice > 0 ? discountedPrice : regularPrice;
             return (
               <TouchableOpacity 
                 key={pkg.id} 
@@ -85,8 +89,8 @@ export default function GroomingPackagesScreen({ route, navigation }) {
                       <AppText style={styles.cardSubtitle}>{pkg.subtitle}</AppText>
                     </View>
                     <View style={styles.priceContainer}>
-                      <AppText style={styles.regularPrice}>₹{prices.regular}</AppText>
-                      <AppText style={styles.launchPrice} weight="bold">₹{prices.launch}</AppText>
+                      {discountEnabled && regularPrice > displayPrice && <AppText style={styles.regularPrice}>₹{regularPrice}</AppText>}
+                      <AppText style={styles.launchPrice} weight="bold">₹{displayPrice}</AppText>
                     </View>
                   </View>
                   <View style={styles.divider} />

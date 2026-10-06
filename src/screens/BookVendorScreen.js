@@ -23,6 +23,12 @@ import { useDiscount } from '../contexts/DiscountContext';
 import { useCart } from '../contexts/CartContext';
 import { formatISTDate, getISTDateString } from '../utils/date_utils';
 import RazorpayCheckout from 'react-native-razorpay';
+import {
+    logBookingCompleted,
+    logBookingStarted,
+    logPurchase,
+    logSchedule,
+} from '../services/metaEvents';
 
 const { width } = Dimensions.get('window');
 
@@ -145,6 +151,7 @@ export default function BookVendorScreen({ navigation, route }) {
     const [loading, setLoading] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [isPaymentModalVisible, setPaymentModalVisible] = useState(false);
+    const bookingStartedLoggedRef = React.useRef(false);
     const isWalking = (serviceType || '').toLowerCase() === 'walking';
     const [paymentType, setPaymentType] = useState(isWalking ? 'full' : null);
     const [alertConfig, setAlertConfig] = useState({
@@ -183,6 +190,8 @@ export default function BookVendorScreen({ navigation, route }) {
     };
     const colors = SERVICE_COLORS[serviceType] || SERVICE_COLORS.default;
     const mainItem = selectedRoom || cart?.[0] || {};
+    const metaContentId = mainItem.packageId || mainItem.id || serviceType || 'service';
+    const metaContentType = (serviceType || 'service').toLowerCase();
     const displayDate = formatISTDate(date);
 
     const handleBook = async () => {
@@ -221,6 +230,15 @@ export default function BookVendorScreen({ navigation, route }) {
             return;
         }
 
+        if (!bookingStartedLoggedRef.current) {
+            logBookingStarted({
+                contentId: metaContentId,
+                contentType: metaContentType,
+                amount: discountedTotal,
+            });
+            bookingStartedLoggedRef.current = true;
+        }
+
         setLoading(true);
         try {
             const apiCall = getServiceApi(serviceType);
@@ -243,6 +261,7 @@ export default function BookVendorScreen({ navigation, route }) {
                     
                     if (orderData.error) throw new Error(orderData.error);
                     if (!orderData.keyId) throw new Error('Payment gateway key is missing');
+                    if (!orderData.orderId) throw new Error('Payment order ID is missing');
 
                     const options = {
                         description: `Payment for ${serviceType}`,
@@ -291,7 +310,8 @@ export default function BookVendorScreen({ navigation, route }) {
                     console.log('Payment Success:', paymentData);
                     finalPaymentReferenceId = paymentData.razorpay_payment_id;
                     finalPaymentVerification = {
-                        razorpay_order_id: paymentData.razorpay_order_id,
+                        // Verify against the order created by our backend, not callback data.
+                        razorpay_order_id: orderData.orderId,
                         razorpay_payment_id: paymentData.razorpay_payment_id,
                         razorpay_signature: paymentData.razorpay_signature,
                     };
@@ -321,6 +341,22 @@ export default function BookVendorScreen({ navigation, route }) {
             const bookingId = result?.bookingId || result?.id;
 
             if (!bookingId) throw new Error('Booking created but no ID returned.');
+
+            logBookingCompleted({ bookingId, serviceType, amount: discountedTotal });
+            logSchedule({
+                bookingId,
+                contentId: metaContentId,
+                contentType: metaContentType,
+                amount: discountedTotal,
+            });
+            if (finalPaymentVerification) {
+                logPurchase({
+                    bookingId,
+                    contentId: metaContentId,
+                    contentType: metaContentType,
+                    amount: discountedAmountPaid,
+                });
+            }
 
             clearCart();
 

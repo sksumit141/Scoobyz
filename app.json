@@ -8,7 +8,7 @@
       "com.googleusercontent.apps.1013005276460-pvst0rk84acjh4cldopluoue688jsp55",
       "com.googleusercontent.apps.1013005276460-3fmu10p69uoso192g9rs5ub2ppflfag1"
     ],
-    "version": "1.0.8",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -47,11 +47,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyASsU2xX0A0bCMvOOf0BOFb-CJECBoqnmc"
-        }
-      }
+      "config": {}
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -94,7 +90,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#F7F6F2"
         }
-      ]
+      ],
+      "expo-tracking-transparency"
     ],
     "runtimeVersion": {
       "policy": "appVersion"

@@ -11,6 +11,7 @@ import CustomAlert from '../components/CustomAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { unregisterPushToken } from '../components/PushNotificationManager';
 import { appendImageToFormData } from '../utils/formDataFile';
+import * as Application from 'expo-application';
 
 const { width } = Dimensions.get('window');
 
@@ -344,7 +345,7 @@ const ProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <AppText style={styles.versionText}>Version 1.0.0 • Scoobyz</AppText>
+          <AppText style={styles.versionText}>Version {Application.nativeApplicationVersion || '1.0.8'} • Scoobyz</AppText>
         </View>
       </View>
 

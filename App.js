@@ -87,6 +87,8 @@ import { theme } from './src/styles/theme';
 
 import PushNotificationManager from './src/components/PushNotificationManager';
 import { navigationRef } from './src/utils/navigationRef';
+import { initializeMetaSdk } from './src/services/metaEvents';
+import AppUpdateGate from './src/components/AppUpdateGate';
 
 const Stack = createNativeStackNavigator();
 
@@ -101,6 +103,8 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState();
 
   useEffect(() => {
+    initializeMetaSdk();
+
     async function prepare() {
       try {
         // Minimum wait for branding
@@ -263,6 +267,7 @@ export default function App() {
         <PushNotificationManager />
         <Toast />
         <PersonalizedAlertHost />
+        <AppUpdateGate />
         </SafeAreaProvider>
       </GestureHandlerRootView>
       </DiscountProvider>

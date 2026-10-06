@@ -24,6 +24,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { configureGoogleAuth, signInWithGoogle } from '../utils/GoogleAuth';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { logCompletedRegistration } from '../services/metaEvents';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../services/api';
@@ -161,6 +162,9 @@ const WelcomeScreen = ({ navigation }) => {
         await AsyncStorage.setItem('authToken', data.token);
         await AsyncStorage.setItem('userId', String(data.userId));
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
+        if (selectedMode === 'signup' && data.isExistingUser !== true) {
+          await logCompletedRegistration({ method: 'google', userId: data.userId });
+        }
         if (data.isOnboarded) {
           navigation.replace('LandingScreen');
         } else {
@@ -260,6 +264,9 @@ const WelcomeScreen = ({ navigation }) => {
         await AsyncStorage.setItem('authToken', data.token);
         await AsyncStorage.setItem('userId', String(data.userId));
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
+        if (selectedMode === 'signup' && data.isExistingUser !== true) {
+          await logCompletedRegistration({ method: 'apple', userId: data.userId });
+        }
         if (data.isOnboarded) {
           navigation.replace('LandingScreen');
         } else {

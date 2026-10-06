@@ -10,6 +10,7 @@ import { authApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PawLoader from '../components/PawLoader';
 import { registerAndSendPushToken } from '../components/PushNotificationManager';
+import { logCompletedRegistration } from '../services/metaEvents';
 
 const { width } = Dimensions.get('window');
 
@@ -80,6 +81,10 @@ const OtpScreen = ({ navigation, route }) => {
         await AsyncStorage.setItem('authToken', data.token);
         await AsyncStorage.setItem('userId', String(data.userId));
         await AsyncStorage.setItem('isOnboarded', String(data.isOnboarded));
+
+        if (mode === 'signup' && !data.isOnboarded) {
+          await logCompletedRegistration({ method: 'phone', userId: data.userId });
+        }
 
         registerAndSendPushToken();
 

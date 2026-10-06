@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Alert, Modal } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppScreen from '../components/AppScreen';
@@ -10,7 +10,7 @@ import CustomTimePicker from '../components/CustomTimePicker';
 import SelectionChoiceModal from '../components/SelectionChoiceModal';
 import { theme } from '../styles/theme';
 import { formatISTDate } from '../utils/date_utils';
-import { canNavigateToPreviousServiceMonth, getAvailableServiceSlots, isServiceTimeAllowed, SERVICE_TIME_NOTICE } from '../utils/serviceTime';
+import { canNavigateToPreviousServiceMonth, isServiceTimeAllowed, SERVICE_TIME_NOTICE } from '../utils/serviceTime';
 import { discoverApi } from '../services/api';
 
 const { width } = Dimensions.get('window');
@@ -18,10 +18,47 @@ const { width } = Dimensions.get('window');
 const DURATIONS = ['30 min', '45 min', '1 hr'];
 const FREQUENCIES = ['One-time', 'Monthly'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MORNING_SLOTS = ['06:00 AM', '06:30 AM', '07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM'];
-const NOON_SLOTS = ['12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'];
-const NIGHT_SLOTS = ['05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM', '10:00 PM'];
-const ALL_SLOTS = [...MORNING_SLOTS, ...NOON_SLOTS, ...NIGHT_SLOTS];
+const MORNING_SLOTS = ['05:00 AM', '05:30 AM', '06:00 AM', '06:30 AM', '07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM'];
+const AFTERNOON_SLOTS = ['12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'];
+const EVENING_SLOTS = ['05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM', '09:30 PM', '10:00 PM', '10:30 PM', '11:00 PM', '11:30 PM', '12:00 AM'];
+const ALL_SLOTS = [...MORNING_SLOTS, ...AFTERNOON_SLOTS, ...EVENING_SLOTS];
+
+const getSlotMinutes = (slot) => {
+  const match = String(slot || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = match[3].toUpperCase();
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (period === 'AM' && hour === 12) hour = 0;
+  const minutes = hour * 60 + minute;
+  return minutes === 0 ? 24 * 60 : minutes;
+};
+
+const WALK_PERIODS = {
+  morning: { name: 'morning', title: 'Morning', label: '5:00 AM – 11:30 AM', start: 5 * 60, end: 12 * 60 },
+  afternoon: { name: 'afternoon', title: 'Afternoon', label: '12:00 PM – 4:30 PM', start: 12 * 60, end: 17 * 60 },
+  evening: { name: 'evening/night', title: 'Evening/Night', label: '5:00 PM – 12:00 AM', start: 17 * 60, end: 24 * 60 + 1 },
+};
+const isSlotInWalkPeriod = (slot, periodKey) => {
+  const minutes = getSlotMinutes(slot);
+  const period = WALK_PERIODS[periodKey];
+  return period && minutes >= period.start && minutes < period.end;
+};
+const isWithinWalkingHours = (slot) => {
+  const minutes = getSlotMinutes(slot);
+  return minutes >= 5 * 60 && minutes <= 24 * 60;
+};
+
+const isWalkingTimeAllowed = (selectedDate, slot) => {
+  if (slot !== '12:00 AM') return isServiceTimeAllowed(selectedDate, slot);
+
+  // Midnight is the end of the selected service day, not its beginning.
+  const nextDay = new Date(selectedDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  return isServiceTimeAllowed(nextDay, slot);
+};
 
 const generateDates = (monthDate) => {
   const datesArr = [];
@@ -85,9 +122,11 @@ export default function WalkingServiceScreen({ navigation }) {
   const generatedDates = generateDates(monthDate);
   const [selectedDate, setSelectedDate] = useState(generatedDates[0]?.fullDate);
   const [selectedSlots, setSelectedSlots] = useState([]);
+  const [selectedWalkPeriods, setSelectedWalkPeriods] = useState([null]);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [choiceModalVisible, setChoiceModalVisible] = useState(false);
   const [customSlot, setCustomSlot] = useState(null);
+  const [unavailableSlotInfo, setUnavailableSlotInfo] = useState(null);
 
   const [endDate, setEndDate] = useState(null);
   const [pricingData, setPricingData] = useState(null);
@@ -112,6 +151,9 @@ export default function WalkingServiceScreen({ navigation }) {
     const newDates = generateDates(prev);
     setMonthDate(prev);
     setSelectedDate(newDates[0]?.fullDate);
+    setSelectedSlots([]);
+    setSelectedWalkPeriods([timesPerDay > 1 ? 'morning' : null]);
+    setCustomSlot(null);
   };
   const canGoToPreviousMonth = canNavigateToPreviousServiceMonth(monthDate);
 
@@ -120,6 +162,9 @@ export default function WalkingServiceScreen({ navigation }) {
     const newDates = generateDates(next);
     setMonthDate(next);
     setSelectedDate(newDates[0]?.fullDate);
+    setSelectedSlots([]);
+    setSelectedWalkPeriods([timesPerDay > 1 ? 'morning' : null]);
+    setCustomSlot(null);
   };
 
   useEffect(() => {
@@ -134,24 +179,123 @@ export default function WalkingServiceScreen({ navigation }) {
     }
   }, [selectedDate, frequency]);
 
-  const toggleSlot = (slot) => {
-    if (selectedSlots.includes(slot)) {
-      setSelectedSlots(selectedSlots.filter(s => s !== slot));
-    } else if (selectedSlots.length < timesPerDay) {
-      setSelectedSlots([...selectedSlots, slot].sort((a, b) => {
-        return ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b);
-      }));
-    } else {
-      const newSlots = [...selectedSlots.slice(1), slot].sort((a, b) => ALL_SLOTS.indexOf(a) - ALL_SLOTS.indexOf(b));
-      setSelectedSlots(newSlots);
+  const selectSlot = (slot) => {
+    if (timesPerDay === 1) {
+      const periodKey = selectedWalkPeriods[0];
+      if (!periodKey) {
+        Alert.alert('Choose a Time Period', 'Select Morning, Afternoon, or Evening/Night first.');
+        return;
+      }
+      if (!isSlotInWalkPeriod(slot, periodKey)) return;
+      setSelectedSlots(selectedSlots.includes(slot) ? [] : [slot]);
+      return;
     }
+
+    if (selectedSlots.length >= timesPerDay) return;
+    const currentIndex = selectedSlots.length;
+    const periodKey = currentIndex === 0 ? 'morning' : selectedWalkPeriods[currentIndex];
+    const requiredPeriod = WALK_PERIODS[periodKey];
+    if (!requiredPeriod) {
+      Alert.alert('Choose a Time Period', `Select Afternoon or Evening/Night for Walk ${currentIndex + 1}.`);
+      return;
+    }
+    if (!isSlotInWalkPeriod(slot, periodKey)) {
+      Alert.alert(
+        `${requiredPeriod.name.charAt(0).toUpperCase()}${requiredPeriod.name.slice(1)} Walk Required`,
+        `Please choose Walk ${currentIndex + 1} during the ${requiredPeriod.name} period.`,
+      );
+      return;
+    }
+
+    const previousSlot = selectedSlots[selectedSlots.length - 1];
+    if (previousSlot && getSlotMinutes(slot) <= getSlotMinutes(previousSlot)) {
+      Alert.alert('Choose a Later Time', 'Each walk must be scheduled after the previous walk.');
+      return;
+    }
+
+    setSelectedSlots([...selectedSlots, slot]);
+    setCustomSlot(null);
   };
 
-  const getFilteredSlots = () => {
-    return getAvailableServiceSlots(selectedDate, ALL_SLOTS);
+  const selectMorningSlotOnNextDay = (slot) => {
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    setMonthDate(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+    setSelectedDate(nextDate.toDateString());
+    setSelectedSlots([slot]);
+    setSelectedWalkPeriods(['morning']);
+    setCustomSlot(ALL_SLOTS.includes(slot) ? null : slot);
   };
 
-  const availableSlots = getFilteredSlots();
+  const explainUnavailableSlot = (slot) => {
+    const isMorningSlot = isSlotInWalkPeriod(slot, 'morning');
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const canUseSameTimeNextDay = isMorningSlot
+      && isWalkingTimeAllowed(nextDate.toDateString(), slot);
+
+    setTimePickerVisible(false);
+    setUnavailableSlotInfo({ slot, nextDate, canUseSameTimeNextDay });
+  };
+
+  const changeWalkTime = (walkIndex) => {
+    setSelectedSlots(selectedSlots.slice(0, walkIndex));
+    setSelectedWalkPeriods(current => current.slice(0, walkIndex + 1));
+    setCustomSlot(null);
+  };
+
+  const selectWalkPeriod = (periodKey) => {
+    const targetWalkIndex = timesPerDay === 1 ? 0 : currentWalkIndex;
+    setSelectedWalkPeriods(current => {
+      const next = current.slice(0, targetWalkIndex);
+      next[targetWalkIndex] = periodKey;
+      return next;
+    });
+    if (timesPerDay === 1) setSelectedSlots([]);
+    setCustomSlot(null);
+  };
+
+  // Keep the complete daily schedule visible. Slots inside the three-hour
+  // booking window are rendered disabled instead of being removed from view.
+  const availableSlots = ALL_SLOTS;
+  const currentWalkIndex = timesPerDay === 1 ? 0 : selectedSlots.length;
+  const previousSelectedSlot = selectedSlots[currentWalkIndex - 1];
+  const currentPeriodKey = timesPerDay === 1
+    ? selectedWalkPeriods[0]
+    : currentWalkIndex === 0
+      ? 'morning'
+      : selectedWalkPeriods[currentWalkIndex];
+  const periodChoices = timesPerDay === 1
+    ? ['morning', 'afternoon', 'evening']
+    : previousSelectedSlot && getSlotMinutes(previousSelectedSlot) >= WALK_PERIODS.evening.start
+      ? ['evening']
+      : ['afternoon', 'evening'];
+  const currentWalkSlots = availableSlots.filter(slot => {
+      if (timesPerDay > 1 && selectedSlots.includes(slot)) return false;
+      if (!currentPeriodKey || !isSlotInWalkPeriod(slot, currentPeriodKey)) return false;
+      return !previousSelectedSlot || getSlotMinutes(slot) > getSlotMinutes(previousSelectedSlot);
+    });
+
+  const getSelectionError = () => {
+    if (!selectedSlots || selectedSlots.length !== timesPerDay) {
+      return timesPerDay === 1
+        ? 'Please select a time slot to continue.'
+        : `Please select exactly ${timesPerDay} time slots to continue.`;
+    }
+    if (timesPerDay > 1 && !isSlotInWalkPeriod(selectedSlots[0], 'morning')) {
+      return 'Walk 1 must be scheduled in the morning.';
+    }
+    if (timesPerDay > 1 && selectedSlots.slice(1).some(slot => (
+      !isSlotInWalkPeriod(slot, 'afternoon') && !isSlotInWalkPeriod(slot, 'evening')
+    ))) {
+      return 'Later walks must be scheduled in the afternoon or evening/night.';
+    }
+    if (selectedSlots.some(slot => !isWalkingTimeAllowed(selectedDate, slot))) {
+      return SERVICE_TIME_NOTICE;
+    }
+    return null;
+  };
 
   let calculatedPrice = 0;
   if (pricingData && pricingData[frequency]) {
@@ -194,17 +338,9 @@ export default function WalkingServiceScreen({ navigation }) {
   const totalPrice = calculatedPrice;
 
   const handleContinue = () => {
-    if (!selectedSlots || selectedSlots.length !== timesPerDay) {
-      Alert.alert(
-        'Time Required',
-        timesPerDay === 1
-          ? 'Please select a time slot to continue.'
-          : `Please select exactly ${timesPerDay} time slots to continue.`
-      );
-      return;
-    }
-    if (selectedSlots.some(slot => !isServiceTimeAllowed(selectedDate, slot))) {
-      Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
+    const selectionError = getSelectionError();
+    if (selectionError) {
+      Alert.alert('Time Selection Required', selectionError);
       return;
     }
     if (isDemo) {
@@ -227,7 +363,7 @@ export default function WalkingServiceScreen({ navigation }) {
   };
 
   const isFormValid = () => {
-    return selectedDate && selectedSlots.length === timesPerDay;
+    return Boolean(selectedDate) && !getSelectionError();
   };
 
   return (
@@ -279,10 +415,11 @@ export default function WalkingServiceScreen({ navigation }) {
                 key={times}
                 style={[styles.chip, timesPerDay === times && styles.chipActive]}
                 onPress={() => {
+                  if (times === timesPerDay) return;
                   setTimesPerDay(times);
-                  if (selectedSlots.length > times) {
-                    setSelectedSlots(selectedSlots.slice(0, times));
-                  }
+                  setSelectedSlots([]);
+                  setSelectedWalkPeriods([times === 1 ? null : 'morning']);
+                  setCustomSlot(null);
                 }}
               >
                 <AppText style={[styles.chipText, timesPerDay === times && styles.chipTextActive]}>
@@ -332,7 +469,12 @@ export default function WalkingServiceScreen({ navigation }) {
                   isActive && styles.dateCardActive,
                   index === generatedDates.length - 1 && { marginRight: 0 } // Remove margin from last item
                 ]}
-                onPress={() => setSelectedDate(d.fullDate)}
+                onPress={() => {
+                  setSelectedDate(d.fullDate);
+                  setSelectedSlots([]);
+                  setSelectedWalkPeriods(['morning']);
+                  setCustomSlot(null);
+                }}
                 activeOpacity={0.8}
               >
                 <AppText style={[styles.dateDay, isActive && styles.chipTextActive]}>{d.day}</AppText>
@@ -353,69 +495,146 @@ export default function WalkingServiceScreen({ navigation }) {
         )}
 
         <View style={[styles.sectionHeader, { marginTop: -30 }]}>
-          <AppText style={styles.sectionTitle} weight="bold">
-            {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
-          </AppText>
-        </View>
-
-        <View style={styles.slotsGrid}>
-          {availableSlots.length > 0 ? (
-            availableSlots.map((slot, index) => {
-              const isActive = selectedSlots.includes(slot);
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.slotItem, isActive && styles.slotItemActive]}
-                  onPress={() => toggleSlot(slot)}
-                  activeOpacity={0.8}
-                >
-                  <AppText style={[styles.slotText, isActive && styles.slotTextActive]}>{slot}</AppText>
-                </TouchableOpacity>
-              )
-            })
-          ) : (
-            <AppText style={{ color: theme.colors.textSecondary, fontStyle: 'italic', paddingBottom: 10, marginTop: -8 }}>
-              No slots available for today. Please select a future date.
+          <View>
+            <AppText style={styles.sectionTitle} weight="bold">
+              {frequency === 'One-time' ? 'Time Slot' : 'Session Time'}
             </AppText>
-          )}
+            {timesPerDay > 1 && (
+              <AppText style={styles.slotRuleText}>
+                Walk 1 starts from 5:00 AM. Choose Afternoon or Evening/Night for later walks.
+              </AppText>
+            )}
+            {timesPerDay === 1 && (
+              <AppText style={styles.slotRuleText}>
+                Choose Morning, Afternoon, or Evening/Night to see available times.
+              </AppText>
+            )}
+          </View>
         </View>
 
-        {/* Custom Slot Button */}
-        <TouchableOpacity
-          style={[
-            styles.slotItem,
-            styles.customSlotBtn,
-            customSlot && !ALL_SLOTS.includes(customSlot) && styles.slotItemActive,
-            { width: '100%', marginTop: 10, marginBottom: 24 }
-          ]}
-          onPress={() => setTimePickerVisible(true)}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons
-            name="plus"
-            size={18}
-            color={customSlot && !ALL_SLOTS.includes(customSlot) ? theme.colors.white : theme.colors.primaryDark}
-          />
-          <AppText
-            style={[
-              styles.slotText,
-              customSlot && !ALL_SLOTS.includes(customSlot) && styles.slotTextActive,
-            ]}
-          >
-            {customSlot && !ALL_SLOTS.includes(customSlot) ? `Selected: ${customSlot}` : 'Add Custom Time'}
+        {timesPerDay > 1 && selectedSlots.map((slot, index) => (
+          <View key={`${index}-${slot}`} style={styles.selectedWalkCard}>
+            <View style={styles.walkNumberBadge}>
+              <AppText style={styles.walkNumberText} weight="bold">{index + 1}</AppText>
+            </View>
+            <View style={styles.selectedWalkInfo}>
+              <AppText style={styles.selectedWalkLabel}>Walk {index + 1}</AppText>
+              <AppText style={styles.selectedWalkTime} weight="bold">{slot}</AppText>
+            </View>
+            <TouchableOpacity onPress={() => changeWalkTime(index)} style={styles.changeTimeButton}>
+              <AppText style={styles.changeTimeText} weight="bold">Change</AppText>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {(timesPerDay === 1 || selectedSlots.length < timesPerDay) && availableSlots.length > 0 ? (
+          <View style={timesPerDay > 1 ? styles.walkChoiceCard : null}>
+            {timesPerDay > 1 && (
+              <View style={styles.walkChoiceHeader}>
+                <View style={styles.walkNumberBadge}>
+                  <AppText style={styles.walkNumberText} weight="bold">{currentWalkIndex + 1}</AppText>
+                </View>
+                <View style={styles.selectedWalkInfo}>
+                  <AppText style={styles.walkChoiceTitle} weight="bold">Choose Walk {currentWalkIndex + 1}</AppText>
+                  <AppText style={styles.walkChoiceHint}>
+                    {currentWalkIndex === 0
+                      ? `${WALK_PERIODS.morning.title}: ${WALK_PERIODS.morning.label}`
+                      : currentPeriodKey
+                        ? `${WALK_PERIODS[currentPeriodKey].title}: ${WALK_PERIODS[currentPeriodKey].label}`
+                        : 'Choose Afternoon or Evening/Night'}
+                  </AppText>
+                </View>
+              </View>
+            )}
+
+            {(timesPerDay === 1 || currentWalkIndex > 0) && (
+              <View style={styles.periodChoiceRow}>
+                {periodChoices.map(periodKey => {
+                  const period = WALK_PERIODS[periodKey];
+                  const isActive = currentPeriodKey === periodKey;
+                  return (
+                    <TouchableOpacity
+                      key={periodKey}
+                      style={[styles.periodChoice, isActive && styles.periodChoiceActive]}
+                      onPress={() => selectWalkPeriod(periodKey)}
+                    >
+                      <AppText style={[styles.periodChoiceTitle, isActive && styles.periodChoiceTextActive]} weight="bold">
+                        {period.title}
+                      </AppText>
+                      <AppText style={[styles.periodChoiceTime, isActive && styles.periodChoiceTextActive]}>
+                        {period.label}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {!currentPeriodKey ? null : currentWalkSlots.length > 0 ? (
+              <View style={styles.slotsGrid}>
+                {currentWalkSlots.map(slot => {
+                  const isActive = selectedSlots.includes(slot);
+                  const isUnavailable = !isWalkingTimeAllowed(selectedDate, slot);
+                  return (
+                    <TouchableOpacity
+                      key={slot}
+                      style={[
+                        styles.slotItem,
+                        isActive && styles.slotItemActive,
+                        isUnavailable && styles.slotItemDisabled,
+                      ]}
+                      onPress={() => isUnavailable ? explainUnavailableSlot(slot) : selectSlot(slot)}
+                      accessibilityHint={isUnavailable ? 'Explains why this time is unavailable and offers the same time on the next day.' : undefined}
+                      activeOpacity={0.8}
+                    >
+                      <AppText style={[
+                        styles.slotText,
+                        isActive && styles.slotTextActive,
+                        isUnavailable && styles.slotTextDisabled,
+                      ]}>{slot}</AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <AppText style={styles.noSlotsText}>
+                {currentWalkIndex === 0
+                  ? 'No morning slots are available. Please select a future date.'
+                  : `No ${WALK_PERIODS[currentPeriodKey]?.name} slots are available. Please choose another period or date.`}
+              </AppText>
+            )}
+
+            {currentPeriodKey && (
+              <TouchableOpacity
+                style={[styles.slotItem, styles.customSlotBtn, { width: '100%', marginTop: 10 }]}
+                onPress={() => setTimePickerVisible(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="plus" size={18} color={theme.colors.primaryDark} />
+                <AppText style={styles.slotText}>Add Custom Time</AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : availableSlots.length === 0 ? (
+          <AppText style={styles.noSlotsText}>
+            No slots available for today. Please select a future date.
           </AppText>
-        </TouchableOpacity>
+        ) : null}
 
         <CustomTimePicker
           visible={timePickerVisible}
           initialTime={customSlot || '09:00 AM'}
           onConfirm={(time) => {
-            if (!isServiceTimeAllowed(selectedDate, time)) {
-              Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
+            if (!isWithinWalkingHours(time)) {
+              Alert.alert('Time Unavailable', 'Walking slots are available from 5:00 AM through 12:00 AM.');
+              return;
+            }
+            if (!isWalkingTimeAllowed(selectedDate, time)) {
+              explainUnavailableSlot(time);
               return;
             }
             setCustomSlot(time);
-            toggleSlot(time);
+            selectSlot(time);
           }}
           onClose={() => setTimePickerVisible(false)}
         />
@@ -437,17 +656,9 @@ export default function WalkingServiceScreen({ navigation }) {
           style={styles.confirmBtn}
           activeOpacity={0.8}
           onPress={() => {
-            if (!isFormValid()) {
-              Alert.alert(
-                'Time Required',
-                timesPerDay === 1
-                  ? 'Please select a time slot to continue.'
-                  : `Please select exactly ${timesPerDay} time slots to continue.`
-              );
-              return;
-            }
-            if (selectedSlots.some(slot => !isServiceTimeAllowed(selectedDate, slot))) {
-              Alert.alert('Time Unavailable', SERVICE_TIME_NOTICE);
+            const selectionError = getSelectionError();
+            if (!isFormValid() || selectionError) {
+              Alert.alert('Time Selection Required', selectionError || 'Please select a valid date and time.');
               return;
             }
             const currentParams = route?.params || {};
@@ -468,6 +679,53 @@ export default function WalkingServiceScreen({ navigation }) {
           <AppText style={styles.confirmBtnText} weight="bold">Confirm</AppText>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={Boolean(unavailableSlotInfo)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUnavailableSlotInfo(null)}
+      >
+        <View style={styles.unavailableModalOverlay}>
+          <View style={styles.unavailableModalCard}>
+            <View style={styles.unavailableModalIcon}>
+              <MaterialCommunityIcons name="clock-alert-outline" size={28} color={theme.colors.success} />
+            </View>
+            <AppText style={styles.unavailableModalTitle} type="heading" weight="bold">Time Unavailable Today</AppText>
+            <AppText style={styles.unavailableModalMessage}>
+              {unavailableSlotInfo?.canUseSameTimeNextDay
+                ? `${unavailableSlotInfo.slot} is inside today’s 3-hour advance-booking window. You can select the same morning time on ${formatISTDate(unavailableSlotInfo.nextDate, { weekday: 'short', day: 'numeric', month: 'short' })}.`
+                : `${unavailableSlotInfo?.slot} cannot be selected for the chosen date.`}
+            </AppText>
+            <View style={styles.unavailableReasonBox}>
+              <AppText style={styles.unavailableReasonTitle} weight="bold">Why is this unavailable?</AppText>
+              <AppText style={styles.unavailableReasonText}>Walking appointments must be booked at least 3 hours before they begin.</AppText>
+            </View>
+            {unavailableSlotInfo?.canUseSameTimeNextDay && (
+              <TouchableOpacity
+                style={styles.unavailablePrimaryButton}
+                onPress={() => {
+                  const slot = unavailableSlotInfo.slot;
+                  setUnavailableSlotInfo(null);
+                  selectMorningSlotOnNextDay(slot);
+                }}
+                activeOpacity={0.8}
+              >
+                <AppText style={styles.unavailablePrimaryButtonText} weight="bold">Select next day</AppText>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={unavailableSlotInfo?.canUseSameTimeNextDay ? styles.unavailableSecondaryButton : styles.unavailablePrimaryButton}
+              onPress={() => setUnavailableSlotInfo(null)}
+              activeOpacity={0.8}
+            >
+              <AppText style={unavailableSlotInfo?.canUseSameTimeNextDay ? styles.unavailableSecondaryButtonText : styles.unavailablePrimaryButtonText} weight="bold">
+                {unavailableSlotInfo?.canUseSameTimeNextDay ? 'Not now' : 'Got it'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* SelectionChoiceModal bypassed for Walking per requirement */}
       {/* 
@@ -528,6 +786,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: theme.colors.textBlack,
     fontFamily: theme.fonts.heading,
+  },
+  slotRuleText: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    marginTop: 5,
   },
   monthText: {
     fontSize: 14,
@@ -604,23 +867,104 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
   },
-  slotSection: {
-    marginBottom: 20,
-  },
-  slotSectionHeader: {
+  selectedWalkCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    backgroundColor: 'rgba(61, 42, 94, 0.05)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.white,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(61, 42, 94, 0.12)',
   },
-  slotSectionTitle: {
-    fontSize: 14,
+  walkNumberBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryDark,
+  },
+  walkNumberText: {
+    color: theme.colors.white,
+    fontSize: 15,
+  },
+  selectedWalkInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  selectedWalkLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  selectedWalkTime: {
+    fontSize: 16,
+    color: theme.colors.textBlack,
+    marginTop: 2,
+  },
+  changeTimeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  changeTimeText: {
     color: theme.colors.primaryDark,
+    fontSize: 13,
+  },
+  walkChoiceCard: {
+    backgroundColor: 'rgba(61, 42, 94, 0.05)',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 6,
+    marginBottom: 24,
+  },
+  walkChoiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  walkChoiceTitle: {
+    color: theme.colors.textBlack,
+    fontSize: 16,
+  },
+  walkChoiceHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  periodChoiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  periodChoice: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(61, 42, 94, 0.2)',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  periodChoiceActive: {
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: theme.colors.primaryDark,
+  },
+  periodChoiceTitle: {
+    color: theme.colors.primaryDark,
+    fontSize: 13,
+  },
+  periodChoiceTime: {
+    color: theme.colors.textSecondary,
+    fontSize: 10,
+    marginTop: 3,
+  },
+  periodChoiceTextActive: {
+    color: theme.colors.white,
+  },
+  noSlotsText: {
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
+    paddingBottom: 14,
   },
   slotsGrid: {
     flexDirection: 'row',
@@ -663,6 +1007,10 @@ const styles = StyleSheet.create({
   slotItemActive: {
     backgroundColor: theme.colors.primaryDark,
   },
+  slotItemDisabled: {
+    opacity: 0.4,
+    backgroundColor: '#E8E8E8',
+  },
   customSlotBtn: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -679,6 +1027,9 @@ const styles = StyleSheet.create({
   },
   slotTextActive: {
     color: theme.colors.white,
+  },
+  slotTextDisabled: {
+    color: theme.colors.textSecondary,
   },
   bottomBar: {
     position: 'absolute',
@@ -729,5 +1080,80 @@ const styles = StyleSheet.create({
   endDateText: {
     fontSize: 14,
     color: theme.colors.textPrimary,
+  },
+  unavailableModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  unavailableModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: theme.colors.white,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  unavailableModalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(78,108,72,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  unavailableModalTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 21,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  unavailableModalMessage: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  unavailableReasonBox: {
+    width: '100%',
+    backgroundColor: 'rgba(78,108,72,0.08)',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 18,
+    marginBottom: 18,
+  },
+  unavailableReasonTitle: {
+    color: theme.colors.success,
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  unavailableReasonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  unavailablePrimaryButton: {
+    width: '100%',
+    backgroundColor: theme.colors.success,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  unavailablePrimaryButtonText: {
+    color: theme.colors.white,
+    fontSize: 15,
+  },
+  unavailableSecondaryButton: {
+    width: '100%',
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  unavailableSecondaryButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
   },
 });

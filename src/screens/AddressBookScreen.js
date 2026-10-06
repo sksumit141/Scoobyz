@@ -19,7 +19,7 @@ import AppText from '../components/AppText';
 import AppHeader from '../components/AppHeader';
 import AppButton from '../components/AppButton';
 import { theme } from '../styles/theme';
-import { addressApi } from '../services/api';
+import { addressApi, mapsApi } from '../services/api';
 import CustomAlert from '../components/CustomAlert';
 import PawLoader from '../components/PawLoader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -137,13 +137,7 @@ const AddressBookScreen = ({ navigation, route }) => {
 
   const reverseGeocodeWeb = async (lat, lng) => {
     try {
-      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) throw new Error('Maps API key missing');
-
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
-      );
-      const data = await response.json();
+      const data = await mapsApi.reverseGeocode(lat, lng);
 
       if (data.status === 'OK' && data.results.length > 0) {
         const result = data.results[0];
@@ -186,16 +180,7 @@ const AddressBookScreen = ({ navigation, route }) => {
   const fetchSuggestions = async (text) => {
     try {
       setIsSearching(true);
-      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) throw new Error('Maps API key missing');
-
-      const targetUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${apiKey}&components=country:in`;
-      const url = Platform.OS === 'web'
-        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
-        : targetUrl;
-
-      const response = await fetch(url);
-      const data = await response.json();
+      const data = await mapsApi.autocomplete(text);
       if (data.status === 'OK') {
         setSuggestions(data.predictions);
       } else {
@@ -211,16 +196,7 @@ const AddressBookScreen = ({ navigation, route }) => {
   const handleSuggestionSelect = async (place_id) => {
     try {
       setIsSearching(true);
-      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) throw new Error('Maps API key missing');
-
-      const targetUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&key=${apiKey}&fields=name,geometry,address_components,formatted_address`;
-      const url = Platform.OS === 'web'
-        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
-        : targetUrl;
-
-      const response = await fetch(url);
-      const data = await response.json();
+      const data = await mapsApi.placeDetails(place_id);
 
       if (data.status === 'OK') {
         const result = data.result;
