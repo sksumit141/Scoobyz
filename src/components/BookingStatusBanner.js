@@ -10,7 +10,7 @@ const BookingStatusBanner = ({ booking, onPress, onPay, paying = false }) => {
 
   const payableAmount = Number(booking.remainingAmount || 0);
   const isGroomingPaymentDue = booking.bookingType === 'grooming'
-    && booking.status === 'completed'
+    && (booking.status === 'in_progress' || booking.status === 'completed')
     && booking.paymentStatus === 'awaiting_payment'
     && payableAmount > 0;
   const normalizedStatus = (booking.status || '').toLowerCase();
@@ -33,7 +33,7 @@ const BookingStatusBanner = ({ booking, onPress, onPay, paying = false }) => {
     >
       {isGroomingPaymentDue ? (
         <View style={[styles.paymentDueSection, styles.paymentDueContent]}>
-          <AppText style={styles.paymentDueTitle} weight="bold">Grooming completed</AppText>
+          <AppText style={styles.paymentDueTitle} weight="bold">Grooming finished - payment required</AppText>
           <View style={styles.paymentDueRow}>
             <View>
               <AppText style={styles.payableLabel}>TO BE PAID</AppText>

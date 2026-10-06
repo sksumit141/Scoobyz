@@ -22,6 +22,12 @@ const CARDS_DATA = [
   { id: '4', title: 'Vaccination', icon: 'needle' },
 ];
 
+const logUnexpectedError = (label, error) => {
+  if (error?.code !== 'SESSION_EXPIRED') {
+    console.error(label, error);
+  }
+};
+
 const LandingScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [pets, setPets] = useState(null);
@@ -106,7 +112,7 @@ const LandingScreen = ({ navigation }) => {
       await AsyncStorage.setItem('cached_pets', JSON.stringify(data));
       return data;
     } catch (error) {
-      console.error('Fetch pets error:', error);
+      logUnexpectedError('Fetch pets error:', error);
       return null;
     } finally {
       setLoading(false);
@@ -122,7 +128,7 @@ const LandingScreen = ({ navigation }) => {
       }
       await AsyncStorage.setItem('cached_profile', JSON.stringify(data));
     } catch (error) {
-      console.error('Fetch profile error:', error);
+      logUnexpectedError('Fetch profile error:', error);
     }
   };
 
@@ -136,16 +142,17 @@ const LandingScreen = ({ navigation }) => {
         bookingsApi.list({ status: 'completed' }),
       ]);
 
-      const completedPaymentDue = (completed || []).filter(booking =>
+      const groomingPaymentDue = [...(inProgress || []), ...(completed || [])].filter(booking =>
         booking.bookingType === 'grooming'
         && booking.paymentStatus === 'awaiting_payment'
         && Number(booking.remainingAmount) > 0
       );
+      const paymentDueIds = new Set(groomingPaymentDue.map(booking => booking.id));
       const allActive = [
-        ...completedPaymentDue,
+        ...groomingPaymentDue,
         ...(awaitingVendor || []),
         ...(pending || []),
-        ...(inProgress || []),
+        ...(inProgress || []).filter(booking => !paymentDueIds.has(booking.id)),
         ...(confirmed || []),
       ];
       if (allActive.length > 0) {
@@ -155,7 +162,7 @@ const LandingScreen = ({ navigation }) => {
         setActiveBooking(null);
       }
     } catch (error) {
-      console.error('Fetch bookings error:', error);
+      logUnexpectedError('Fetch bookings error:', error);
     }
   };
 
@@ -178,8 +185,13 @@ const LandingScreen = ({ navigation }) => {
   const handlePayBooking = async (booking) => {
     try {
       setPayingBookingId(booking.id);
-      await payBookingBalance(booking);
-      Alert.alert('Payment Successful', 'Your Grooming balance has been paid successfully.');
+      const paymentResult = await payBookingBalance(booking);
+      Alert.alert(
+        'Payment Successful',
+        paymentResult?.completionOtpReady
+          ? 'Your completion OTP is now ready. Share it with the groomer after checking the service.'
+          : 'Your payment was completed successfully.',
+      );
       await fetchActiveBookings();
     } catch (error) {
       if (error?.message !== 'Payment cancelled') {
