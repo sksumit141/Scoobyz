@@ -17,6 +17,8 @@ import { useDiscount } from '../contexts/DiscountContext';
 import { useCart } from '../contexts/CartContext';
 import { formatISTDate, getISTDateString } from '../utils/date_utils';
 import RazorpayCheckout from 'react-native-razorpay';
+import { formatMoney, roundMoney } from '../utils/money';
+import { getCouponPriceCategory } from '../utils/couponPricing';
 
 // Safe LayoutAnimation wrapper — avoids black screens on older Android devices
 const safeLayoutAnimation = () => {
@@ -46,7 +48,7 @@ function buildPayload(params, paymentDetails) {
   const safeTime = time || '10:30 AM';
   const base = {
     vendorUserId, petId: pet?.id,
-    totalCost: paymentDetails.totalCost || total || 0,
+    totalCost: paymentDetails.totalCost ?? total ?? 0,
     serviceDate: safeDate, serviceTimeSlot: safeTime,
     petName: pet?.name || 'Pet', petBreed: pet?.breed || 'Dog',
     notes: notes || cart?.[0]?.notes || '',
@@ -113,6 +115,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
     selectedRoom = null, selectedMeal = null,
     frequency, duration, timesPerDay, size, notes, customMealText,
     endDate, checkoutDate, isAggressive, aggressiveFee, consultType,
+    selectedCouponPreview = null,
   } = params;
 
   const total = Number(rawTotal) || 0;
@@ -139,7 +142,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'info' });
   const [validationMsg, setValidationMsg] = useState('');
 
-  const { calculateDiscountedPrice } = useDiscount();
+  const { calculateDiscountedPrice, getDiscount } = useDiscount();
   const isScoobyzMatch = expert?.id === 'scoobyz_match' || expert?.userId === 'scoobyz_match';
 
   const [quantities, setQuantities] = useState(() => {
@@ -209,19 +212,29 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
     return arr;
   }, [localAddons, quantities]);
 
-  const discountedTotal = calculateDiscountedPrice(dynamicTotal, serviceType);
-  // For grooming: ₹199 flat slot booking fee charged upfront; rest paid after service
-  const groomingAmountPaid = isGrooming ? GROOMING_SLOT_FEE : null;
-  const groomingRemainingAmount = isGrooming ? Math.max(0, dynamicTotal - GROOMING_SLOT_FEE) : null;
+  const couponBaseTotal = roundMoney(calculateDiscountedPrice(dynamicTotal, serviceType));
+  const couponBaseServiceValue = roundMoney(calculateDiscountedPrice(
+    isGrooming ? (Number(mainPackage.basePrice || mainPackage.price) || dynamicTotal) * (quantities.main || 1) : dynamicTotal,
+    serviceType,
+  ));
+  const couponPriceCategory = getCouponPriceCategory({
+    serviceDiscountPercent: getDiscount(serviceType),
+    item: isGrooming ? mainPackage : (selectedRoom || mainPackage),
+  });
+  const couponIsCurrent = selectedCouponPreview
+    && Math.abs(Number(selectedCouponPreview.originalAmount) - couponBaseTotal) < 0.01
+    && selectedCouponPreview.priceCategory === couponPriceCategory
+    && Math.abs(Number(selectedCouponPreview.baseServiceValue ?? couponBaseTotal) - couponBaseServiceValue) < 0.01;
+  const couponDiscount = roundMoney(couponIsCurrent ? Number(selectedCouponPreview.discountAmount) || 0 : 0);
+  const checkoutTotal = roundMoney(Math.max(0, couponBaseTotal - couponDiscount));
+  const groomingSlotCharge = roundMoney(Math.min(GROOMING_SLOT_FEE, checkoutTotal));
 
   const amountPaid = isGrooming
-    ? GROOMING_SLOT_FEE
-    : (paymentType === 'partial' ? dynamicTotal * 0.3 : dynamicTotal);
+    ? groomingSlotCharge
+    : roundMoney(paymentType === 'partial' ? checkoutTotal * 0.3 : checkoutTotal);
   const remainingAmount = isGrooming
-    ? Math.max(0, dynamicTotal - GROOMING_SLOT_FEE)
-    : dynamicTotal - amountPaid;
-  const discountedAmountPaid = calculateDiscountedPrice(amountPaid, serviceType);
-  const discountedRemainingAmount = calculateDiscountedPrice(remainingAmount, serviceType);
+    ? roundMoney(Math.max(0, checkoutTotal - groomingSlotCharge))
+    : roundMoney(checkoutTotal - amountPaid);
 
   const nights = (date && (endDate || checkoutDate))
     ? Math.max(1, Math.ceil((new Date(endDate || checkoutDate).getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)))
@@ -310,13 +323,18 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
       let finalPaymentVerification = null;
       // For grooming, always charge the ₹199 slot booking fee upfront.
       // For other services, charge the selected amount (full or partial).
-      const chargeAmount = isGrooming ? GROOMING_SLOT_FEE : amountPaid;
+      const chargeAmount = amountPaid;
       if (!params.isDemo && chargeAmount > 0) {
         try {
           const orderRes = await fetch(`${BASE_URL}/payment/create-order-direct`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await require('@react-native-async-storage/async-storage').default.getItem('authToken')}` },
-            body: JSON.stringify({ amount: chargeAmount }),
+            body: JSON.stringify({
+              amount: chargeAmount,
+              couponQuoteToken: couponIsCurrent ? selectedCouponPreview.quoteToken : undefined,
+              serviceType: svcType,
+              paymentType: isGrooming ? 'full' : paymentType,
+            }),
           });
           const orderData = await orderRes.json();
           if (orderData.error) throw new Error(orderData.error);
@@ -324,7 +342,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           if (!orderData.orderId) throw new Error('Payment order ID is missing');
           const options = {
             description: isGrooming
-              ? `Slot Booking Charge for Grooming (₹${GROOMING_SLOT_FEE} — adjusted in final invoice)`
+              ? `Slot Booking Charge for Grooming (₹${groomingSlotCharge} — adjusted in final invoice)`
               : `Payment for ${serviceType}`,
             image: 'https://ik.imagekit.io/bjwb4bn8bn/scoobyz_logo.png',
             currency: orderData.currency,
@@ -367,7 +385,12 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
       const originalNotes = params.notes || '';
       const paymentTypeForPayload = isGrooming ? 'slot_booking' : paymentType;
       const payload = {
-        ...buildPayload(params, { paymentType: paymentTypeForPayload, amountPaid: amountPaid, remainingAmount: remainingAmount, totalCost: dynamicTotal }),
+        ...buildPayload(params, { paymentType: paymentTypeForPayload, amountPaid, remainingAmount, totalCost: checkoutTotal }),
+        originalTotalCost: couponBaseTotal,
+        couponCode: couponIsCurrent ? selectedCouponPreview.code : undefined,
+        couponQuoteToken: couponIsCurrent ? selectedCouponPreview.quoteToken : undefined,
+        couponPriceCategory: couponIsCurrent ? couponPriceCategory : undefined,
+        couponBaseServiceValue: couponIsCurrent ? couponBaseServiceValue : undefined,
         addressId: selectedAddress?.id, requiresAdminAssignment: isScoobyzMatch,
         isDemo: params.isDemo || false,
         paymentReferenceId: finalPaymentReferenceId,
@@ -383,7 +406,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           duration: mainPackage.duration,
           features: Array.isArray(mainPackage.features) ? mainPackage.features : [],
         },
-        slotBookingFee: isGrooming ? GROOMING_SLOT_FEE : undefined,
+        slotBookingFee: isGrooming ? groomingSlotCharge : undefined,
       };
       const result = await apiCall(payload);
       const bookingId = result?.bookingId || result?.id;
@@ -393,13 +416,13 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
 
       if (isScoobyzMatch) {
         navigation.replace('BookingConfirmed', {
-          bookingId, cart: params.cart, total: dynamicTotal, expert, pet, date, time, visitType,
+          bookingId, cart: params.cart, total: checkoutTotal, expert, pet, date, time, visitType,
           address: selectedAddress ? [selectedAddress.fullAddress, selectedAddress.areaLocality, selectedAddress.city].filter(Boolean).join(', ') : address, notes: originalNotes, serviceType, isScoobyzMatch,
           amountPaid, remainingAmount, duration, frequency
         });
       } else {
         navigation.replace('BookingPending', {
-          bookingId, expert, pet, total: dynamicTotal, serviceType, date, time, visitType,
+          bookingId, expert, pet, total: checkoutTotal, serviceType, date, time, visitType,
           paymentType, amountPaid: amountPaid, remainingAmount: remainingAmount, duration, frequency
         });
       }
@@ -427,7 +450,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
             <View style={styles.serviceInfo}>
               <AppText style={styles.serviceName} weight="bold">{selectedRoom.title || selectedRoom.name}</AppText>
               <AppText style={styles.detailLabel}>{nights} night{nights !== 1 ? 's' : ''}</AppText>
-              <AppText style={styles.servicePrice} weight="bold">₹{selectedRoom.price * nights}</AppText>
+            <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(selectedRoom.price * nights)}</AppText>
             </View>
           </View>
         )}
@@ -438,7 +461,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
               <View style={styles.serviceInfo}>
                 <AppText style={styles.serviceName} weight="bold">Meal: {selectedMeal.name}</AppText>
                 {frequency && <AppText style={styles.detailLabel}>{frequency}x per day</AppText>}
-                {selectedMeal.price > 0 && <AppText style={styles.servicePrice} weight="bold">₹{selectedMeal.price}</AppText>}
+                {selectedMeal.price > 0 && <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(selectedMeal.price)}</AppText>}
               </View>
             </View></>
         )}
@@ -456,7 +479,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           <View style={styles.serviceInfo}>
             <AppText style={styles.serviceName} weight="bold">Dog Walking</AppText>
             {duration && <AppText style={styles.detailLabel}>{duration} mins / walk</AppText>}
-            <AppText style={styles.servicePrice} weight="bold">₹{total}</AppText>
+            <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(total)}</AppText>
           </View>
         </View>
         {frequency ? <DetailRow icon="repeat" label="Frequency" value={frequency} /> : null}
@@ -472,7 +495,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           <View style={styles.serviceInfo}>
             <AppText style={styles.serviceName} weight="bold">{visitType || consultType || 'Clinic Visit'}</AppText>
             <AppText style={styles.detailLabel}>Veterinary Consultation</AppText>
-            <AppText style={styles.servicePrice} weight="bold">₹{total}</AppText>
+            <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(total)}</AppText>
           </View>
         </View>
       </View>
@@ -494,7 +517,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                 <AppText style={styles.timeText}>{mainPackage.duration} mins</AppText>
               </View>
             )}
-            <AppText style={styles.servicePrice} weight="bold">₹{mainPackage.basePrice || mainPackage.price || total}</AppText>
+            <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(mainPackage.basePrice || mainPackage.price || total)}</AppText>
           </View>
         </View>
         {localAddons.length > 0 && (
@@ -514,7 +537,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                       <AppText style={styles.serviceName} weight="bold">
                         {addon.addonName || addon.addon_name || addon.name || addon.title || 'Add-on'}
                       </AppText>
-                      <AppText style={styles.servicePrice} weight="bold">₹{addon.addonPrice || addon.price}</AppText>
+                      <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(addon.addonPrice || addon.price)}</AppText>
                     </View>
                     <View style={styles.qtyContainer}>
                       <TouchableOpacity
@@ -582,7 +605,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
                         <AppText style={styles.serviceName} weight="bold">
                           {addon.addonName || addon.addon_name || addon.name || addon.title || 'Add-on'}
                         </AppText>
-                        <AppText style={styles.servicePrice} weight="bold">₹{addon.addonPrice || addon.price}</AppText>
+                        <AppText style={styles.servicePrice} weight="bold">₹{formatMoney(addon.addonPrice || addon.price)}</AppText>
                       </View>
                       <TouchableOpacity
                         style={[styles.qtyBtn, { width: 32, height: 32, backgroundColor: theme.colors.primaryDark, borderColor: theme.colors.primaryDark }]}
@@ -781,6 +804,26 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
           </View>
         */}
 
+        {/* Coupon totals come from a short-lived server-signed quote. */}
+        <TouchableOpacity
+          style={styles.couponEntry}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Coupons', { orderValue: couponBaseTotal, baseServiceValue: couponBaseServiceValue, priceCategory: couponPriceCategory, serviceType, reviewParams: route.params })}
+        >
+          <View style={styles.couponEntryIcon}>
+            <MaterialCommunityIcons name="ticket-percent-outline" size={22} color={theme.colors.primaryDark} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText style={styles.couponEntryTitle} weight="bold">{couponIsCurrent ? selectedCouponPreview.code : 'Apply a coupon'}</AppText>
+            <AppText style={[styles.couponEntrySubtitle, couponIsCurrent && { color: theme.colors.success }]}>
+              {couponIsCurrent
+                ? `Coupon applied · you save ₹${formatMoney(couponDiscount)}`
+                : 'View offers available for this booking'}
+            </AppText>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+
         {/* To Pay Summary */}
         <View style={styles.multiCard}>
           <View style={styles.toPayTopRow}>
@@ -795,7 +838,7 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
             <AppText style={styles.toPayTotal} weight="bold">
-              ₹ {isGrooming ? GROOMING_SLOT_FEE : (paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal)}
+              ₹ {formatMoney(amountPaid)}
             </AppText>
           </View>
 
@@ -805,8 +848,8 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
               <MaterialCommunityIcons name="information-outline" size={16} color="#7B1FA2" style={{ marginTop: 2 }} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <AppText style={styles.slotBookingText}>
-                  <AppText weight="bold">₹{GROOMING_SLOT_FEE} slot booking charge</AppText> is collected now to confirm your appointment.{' '}
-                  The remaining <AppText weight="bold">₹{remainingAmount}</AppText> will be adjusted in the final invoice, paid after the service is completed.
+                  <AppText weight="bold">₹{formatMoney(groomingSlotCharge)} slot booking charge</AppText> is collected now to confirm your appointment.{' '}
+                  The remaining <AppText weight="bold">₹{formatMoney(remainingAmount)}</AppText> will be paid after the service is completed.
                 </AppText>
               </View>
             </View>
@@ -828,27 +871,29 @@ const ReviewDetailsScreen = ({ navigation, route }) => {
             {isGrooming ? 'Pay Now (Slot Booking)' : (paymentType === 'partial' ? 'Pay Now' : 'Total')}
           </AppText>
           <AppText style={styles.footerTotalValue} weight="bold">
-            ₹ {isGrooming ? GROOMING_SLOT_FEE : (paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal)}
+            ₹ {formatMoney(amountPaid)}
           </AppText>
-          {isGrooming && dynamicTotal > GROOMING_SLOT_FEE && (
+          {isGrooming && checkoutTotal > groomingSlotCharge && (
             <AppText style={{ fontSize: 10, color: theme.colors.textSecondary }}>
-              ₹{remainingAmount} due after service
+              ₹{formatMoney(remainingAmount)} due after service
             </AppText>
           )}
         </View>
         <TouchableOpacity style={styles.payBtn} activeOpacity={0.8} onPress={handleConfirmBooking} disabled={loading}>
-          {loading ? <ActivityIndicator color={theme.colors.white} /> : <AppText style={styles.payBtnText}>{isScoobyzMatch ? 'Request Match' : 'Pay ₹' + (isGrooming ? GROOMING_SLOT_FEE : (paymentType === 'partial' ? amountPaid.toFixed(0) : dynamicTotal))}</AppText>}
+          {loading ? <ActivityIndicator color={theme.colors.white} /> : <AppText style={styles.payBtnText}>{isScoobyzMatch ? 'Request Match' : 'Pay ₹' + formatMoney(amountPaid)}</AppText>}
         </TouchableOpacity>
       </View>
 
       <PaymentSummaryModal
         visible={isPaymentModalVisible} onClose={() => setPaymentModalVisible(false)}
-        cart={cart} total={dynamicTotal} room={selectedRoom} meal={selectedMeal} nights={nights}
+        cart={cart} total={checkoutTotal} room={selectedRoom} meal={selectedMeal} nights={nights}
         frequency={frequency} isAggressive={isAggressive} aggressiveFee={aggressiveFee} timesPerDay={timesPerDay}
         addons={expandedAddons}
-        amountPaid={isGrooming ? GROOMING_SLOT_FEE : null}
+        amountPaid={isGrooming ? groomingSlotCharge : null}
         remainingAmount={isGrooming ? remainingAmount : null}
         isSlotBooking={isGrooming}
+        couponCode={couponIsCurrent ? selectedCouponPreview.code : null}
+        couponDiscount={couponDiscount}
       />
       <CustomAlert
         visible={alertConfig.visible} title={alertConfig.title}
@@ -872,6 +917,19 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderRadius: 16, padding: 16, marginBottom: 16,
   },
+  couponEntry: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 16, padding: 15, marginBottom: 16,
+    borderWidth: 1, borderColor: '#E3E1DC',
+  },
+  couponEntryIcon: {
+    width: 42, height: 42, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: theme.colors.surface, marginRight: 12,
+  },
+  couponEntryTitle: { color: theme.colors.textBlack, fontSize: 14 },
+  couponEntrySubtitle: { marginTop: 2, color: theme.colors.textSecondary, fontSize: 11 },
   petImage: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.surface },
   petInfo: { flex: 1, marginLeft: 12 },
   petName: { fontSize: 16, color: theme.colors.textBlack, marginBottom: 2 },

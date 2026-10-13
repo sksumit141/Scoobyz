@@ -23,6 +23,8 @@ import { useDiscount } from '../contexts/DiscountContext';
 import { useCart } from '../contexts/CartContext';
 import { formatISTDate, getISTDateString } from '../utils/date_utils';
 import RazorpayCheckout from 'react-native-razorpay';
+import { formatMoney, roundMoney } from '../utils/money';
+import { getCouponPriceCategory } from '../utils/couponPricing';
 import {
     logBookingCompleted,
     logBookingStarted,
@@ -63,7 +65,7 @@ function buildPayload(params, paymentDetails) {
     const base = {
         vendorUserId,
         petId: pet?.id,
-        totalCost: paymentDetails.totalCost || total || 0,
+        totalCost: paymentDetails.totalCost ?? total ?? 0,
         serviceDate: safeDate,
         serviceTimeSlot: safeTime,
         petName: pet?.name || 'Pet',
@@ -137,7 +139,8 @@ export default function BookVendorScreen({ navigation, route }) {
         cart = [],
         address,
         frequency,
-        isDemo
+        isDemo,
+        selectedCouponPreview = null,
     } = params;
 
     const total = Number(rawTotal);
@@ -152,8 +155,10 @@ export default function BookVendorScreen({ navigation, route }) {
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [isPaymentModalVisible, setPaymentModalVisible] = useState(false);
     const bookingStartedLoggedRef = React.useRef(false);
-    const isWalking = (serviceType || '').toLowerCase() === 'walking';
-    const [paymentType, setPaymentType] = useState(isWalking ? 'full' : null);
+    const normalizedServiceType = (serviceType || '').toLowerCase();
+    const isWalking = normalizedServiceType === 'walking';
+    const isGrooming = normalizedServiceType === 'grooming';
+    const [paymentType, setPaymentType] = useState((isWalking || isGrooming) ? 'full' : null);
     const [alertConfig, setAlertConfig] = useState({
         visible: false,
         title: '',
@@ -161,15 +166,34 @@ export default function BookVendorScreen({ navigation, route }) {
         type: 'info'
     });
 
-    const { calculateDiscountedPrice } = useDiscount();
+    const { calculateDiscountedPrice, getDiscount } = useDiscount();
     
     const isScoobyzMatch = expert?.id === 'scoobyz_match';
 
-    const discountedTotal = calculateDiscountedPrice(total || 0, serviceType || 'Grooming');
-    const amountPaid = !isScoobyzMatch ? (paymentType === 'partial' ? (total * 0.3) : total) : 0;
-    const remainingAmount = !isScoobyzMatch ? (total - amountPaid) : 0;
-    const discountedAmountPaid = calculateDiscountedPrice(amountPaid || 0, serviceType || 'Grooming');
-    const discountedRemainingAmount = calculateDiscountedPrice(remainingAmount || 0, serviceType || 'Grooming');
+    const couponBaseTotal = roundMoney(calculateDiscountedPrice(total || 0, serviceType || 'Grooming'));
+    const couponBaseServiceValue = roundMoney(calculateDiscountedPrice(
+        isGrooming ? (Number(cart?.[0]?.basePrice || cart?.[0]?.price) || total) : total,
+        serviceType,
+    ));
+    const couponPriceCategory = getCouponPriceCategory({
+        serviceDiscountPercent: getDiscount(serviceType),
+        item: selectedRoom || cart?.[0],
+    });
+    const couponIsCurrent = selectedCouponPreview
+        && Math.abs(Number(selectedCouponPreview.originalAmount) - couponBaseTotal) < 0.01
+        && selectedCouponPreview.priceCategory === couponPriceCategory
+        && Math.abs(Number(selectedCouponPreview.baseServiceValue ?? couponBaseTotal) - couponBaseServiceValue) < 0.01;
+    const couponDiscount = roundMoney(couponIsCurrent ? Number(selectedCouponPreview.discountAmount) || 0 : 0);
+    const discountedTotal = roundMoney(Math.max(0, couponBaseTotal - couponDiscount));
+    const groomingSlotCharge = roundMoney(Math.min(199, discountedTotal));
+    const amountPaid = isScoobyzMatch
+        ? 0
+        : isGrooming
+            ? groomingSlotCharge
+            : roundMoney(paymentType === 'partial' ? discountedTotal * 0.3 : discountedTotal);
+    const remainingAmount = isScoobyzMatch ? 0 : roundMoney(Math.max(0, discountedTotal - amountPaid));
+    const discountedAmountPaid = amountPaid;
+    const discountedRemainingAmount = remainingAmount;
 
     React.useEffect(() => {
         if (params.address) {
@@ -255,7 +279,12 @@ export default function BookVendorScreen({ navigation, route }) {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${await require('@react-native-async-storage/async-storage').default.getItem('authToken')}`
                         },
-                        body: JSON.stringify({ amount: discountedAmountPaid })
+                        body: JSON.stringify({
+                            amount: discountedAmountPaid,
+                            couponQuoteToken: couponIsCurrent ? selectedCouponPreview.quoteToken : undefined,
+                            serviceType: normalizedServiceType,
+                            paymentType: isGrooming ? 'full' : paymentType,
+                        })
                     });
                     const orderData = await orderRes.json();
                     
@@ -329,7 +358,17 @@ export default function BookVendorScreen({ navigation, route }) {
 
             const originalNotes = params.notes || '';
             const payload = {
-                ...buildPayload(params, { paymentType, amountPaid: discountedAmountPaid, remainingAmount: discountedRemainingAmount, totalCost: discountedTotal }),
+                ...buildPayload(params, {
+                    paymentType: isGrooming ? 'slot_booking' : paymentType,
+                    amountPaid: discountedAmountPaid,
+                    remainingAmount: discountedRemainingAmount,
+                    totalCost: discountedTotal,
+                }),
+                originalTotalCost: couponBaseTotal,
+                couponCode: couponIsCurrent ? selectedCouponPreview.code : undefined,
+                couponQuoteToken: couponIsCurrent ? selectedCouponPreview.quoteToken : undefined,
+                couponPriceCategory: couponIsCurrent ? couponPriceCategory : undefined,
+                couponBaseServiceValue: couponIsCurrent ? couponBaseServiceValue : undefined,
                 addressId: selectedAddress?.id,
                 requiresAdminAssignment: isScoobyzMatch,
                 isDemo: isDemo || false,
@@ -480,9 +519,14 @@ export default function BookVendorScreen({ navigation, route }) {
                             onPress={() => setPaymentType('full')}
                         >
                             <View style={styles.paymentOptionInfo}>
-                                <AppText style={[styles.paymentOptionTitle, paymentType === 'full' && { color: theme.colors.success }]} weight="bold">Pay 100% Now</AppText>
+                                <AppText style={[styles.paymentOptionTitle, paymentType === 'full' && { color: theme.colors.success }]} weight="bold">
+                                    {isGrooming ? 'Pay Slot Booking Charge' : 'Pay 100% Now'}
+                                </AppText>
                                 <AppText style={styles.paymentOptionSub}>
-                                    Pay the full amount <AppText style={{ textDecorationLine: 'line-through', opacity: 0.6 }}>₹{total}</AppText> <AppText weight="bold" style={{ color: theme.colors.success, fontSize: 18 }}>₹{discountedTotal}</AppText> now
+                                    {isGrooming ? 'Pay ' : 'Pay the full amount '}
+                                    {!isGrooming && <AppText style={{ textDecorationLine: 'line-through', opacity: 0.6 }}>₹{formatMoney(total)} </AppText>}
+                                    <AppText weight="bold" style={{ color: theme.colors.success, fontSize: 18 }}>₹{discountedAmountPaid.toFixed(2)}</AppText> now
+                                    {isGrooming ? ` and ₹${discountedRemainingAmount.toFixed(2)} after service` : ''}
                                 </AppText>
                             </View>
                             <View style={[styles.radioCircle, paymentType === 'full' && styles.radioCircleActive]}>
@@ -490,7 +534,7 @@ export default function BookVendorScreen({ navigation, route }) {
                             </View>
                         </TouchableOpacity>
 
-                        {!isWalking && (
+                        {!isWalking && !isGrooming && (
                             <TouchableOpacity
                                 style={[styles.paymentOptionCard, paymentType === 'partial' && styles.paymentOptionActive]}
                                 onPress={() => setPaymentType('partial')}
@@ -507,6 +551,34 @@ export default function BookVendorScreen({ navigation, route }) {
                             </TouchableOpacity>
                         )}
                     </View>
+                </View>
+                )}
+
+                {!isScoobyzMatch && (
+                <View style={styles.section}>
+                    <TouchableOpacity
+                        style={styles.couponEntry}
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate('Coupons', {
+                            orderValue: couponBaseTotal,
+                            baseServiceValue: couponBaseServiceValue,
+                            priceCategory: couponPriceCategory,
+                            serviceType,
+                            returnScreen: 'BookVendor',
+                            reviewParams: route.params,
+                        })}
+                    >
+                        <View style={styles.couponEntryIcon}>
+                            <MaterialCommunityIcons name="ticket-percent-outline" size={22} color={theme.colors.primaryDark} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <AppText style={styles.couponEntryTitle} weight="bold">{couponIsCurrent ? selectedCouponPreview.code : 'Apply a coupon'}</AppText>
+                            <AppText style={[styles.couponEntrySubtitle, couponIsCurrent && { color: theme.colors.success }]}>
+                                {couponIsCurrent ? `Coupon applied · you save ₹${formatMoney(couponDiscount)}` : 'View offers available for this booking'}
+                            </AppText>
+                        </View>
+                        <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
                 </View>
                 )}
 
@@ -556,7 +628,7 @@ export default function BookVendorScreen({ navigation, route }) {
                                 {paymentType === 'partial' ? 'Total Payable Now' : 'Grand Total'}
                             </AppText>
                             <AppText style={[styles.priceValue, { color: theme.colors.primaryDark, fontSize: 22 }]} weight="bold">
-                                ₹ {paymentType === 'partial' ? discountedAmountPaid.toFixed(2) : discountedTotal}
+                                ₹ {paymentType === 'partial' ? discountedAmountPaid.toFixed(2) : formatMoney(discountedTotal)}
                             </AppText>
                         </View>
                     </View>
@@ -628,7 +700,7 @@ export default function BookVendorScreen({ navigation, route }) {
                 visible={isPaymentModalVisible}
                 onClose={() => setPaymentModalVisible(false)}
                 cart={cart}
-                total={total}
+                total={discountedTotal}
                 room={selectedRoom}
                 meal={selectedMeal}
                 frequency={frequency}
@@ -636,6 +708,11 @@ export default function BookVendorScreen({ navigation, route }) {
                 isAggressive={params.isAggressive}
                 aggressiveFee={params.aggressiveFee}
                 timesPerDay={params.timesPerDay || 1}
+                amountPaid={isGrooming ? discountedAmountPaid : null}
+                remainingAmount={isGrooming ? discountedRemainingAmount : null}
+                isSlotBooking={isGrooming}
+                couponCode={couponIsCurrent ? selectedCouponPreview.code : null}
+                couponDiscount={couponDiscount}
             />
 
             <CustomAlert
@@ -762,6 +839,19 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 8,
     },
+    couponEntry: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: theme.colors.white,
+        borderRadius: 16, padding: 15,
+        borderWidth: 1, borderColor: '#E3E1DC',
+    },
+    couponEntryIcon: {
+        width: 42, height: 42, borderRadius: 13,
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: theme.colors.surface, marginRight: 12,
+    },
+    couponEntryTitle: { color: theme.colors.textBlack, fontSize: 14 },
+    couponEntrySubtitle: { marginTop: 2, color: theme.colors.textSecondary, fontSize: 11 },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     priceLabel: { fontSize: 14, color: theme.colors.textSecondary },
     priceValue: { fontSize: 16, color: theme.colors.textBlack },

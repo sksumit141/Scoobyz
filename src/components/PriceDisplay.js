@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import AppText from './AppText';
 import { useDiscount } from '../contexts/DiscountContext';
+import { formatMoney } from '../utils/money';
 
 const PriceDisplay = ({ originalPrice, serviceName, style, valueStyle, strikeStyle, showLabel = true }) => {
   const { getDiscount, calculateDiscountedPrice } = useDiscount();
@@ -18,36 +19,24 @@ const PriceDisplay = ({ originalPrice, serviceName, style, valueStyle, strikeSty
   }
 
   if (discountPercent > 0) {
-    const percentDiscountedPrice = numericPrice - (numericPrice * (discountPercent / 100));
-    const finalPromotionalPrice = calculateDiscountedPrice(numericPrice, serviceName);
+    const discountedPrice = calculateDiscountedPrice(numericPrice, serviceName);
     
     return (
       <View style={[styles.container, { flexWrap: 'wrap' }]}>
         <AppText style={[styles.strikeText, strikeStyle]}>
-          {showLabel ? '₹ ' : ''}{numericPrice}
-        </AppText>
-        <AppText style={[styles.strikeText, strikeStyle]}>
-          {showLabel ? '₹ ' : ''}{percentDiscountedPrice}
+          {showLabel ? '₹ ' : ''}{formatMoney(numericPrice)}
         </AppText>
         <AppText style={[styles.discountedText, valueStyle]} weight="bold">
-          {showLabel ? '₹ ' : ''}{finalPromotionalPrice}
+          {showLabel ? '₹ ' : ''}{formatMoney(discountedPrice)}
         </AppText>
       </View>
     );
   }
 
-  // If no global discount, just apply the 500 off promotional hack
-  const finalPromotionalPrice = calculateDiscountedPrice(numericPrice, serviceName);
-
   return (
-    <View style={[styles.container, { flexWrap: 'wrap' }]}>
-      <AppText style={[styles.strikeText, strikeStyle]}>
-        {showLabel ? '₹ ' : ''}{numericPrice}
-      </AppText>
-      <AppText style={[styles.discountedText, valueStyle]} weight="bold">
-        {showLabel ? '₹ ' : ''}{finalPromotionalPrice}
-      </AppText>
-    </View>
+    <AppText style={[styles.priceText, valueStyle, style]} weight="bold">
+      {showLabel ? '₹ ' : ''}{formatMoney(numericPrice)}
+    </AppText>
   );
 };
 

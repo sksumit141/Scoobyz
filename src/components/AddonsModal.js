@@ -193,6 +193,8 @@ export default function AddonsModal({ visible, packageData, onClose, onAdd }) {
                   duration: packageData.duration,
                   features: Array.isArray(packageData.features) ? packageData.features : [],
                   basePrice: basePriceOnly,
+                  originalPrice: packageData.originalPrice,
+                  pricing: packageData.pricing,
                   addons: availableAddons.filter(a => selectedAddons.includes(String(a.id))),
                   totalAddonPrice: currentAddonsTotal,
                   medicalInfo

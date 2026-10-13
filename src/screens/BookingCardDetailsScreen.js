@@ -39,6 +39,7 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
     const [loading, setLoading] = useState(true);
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const [isStartingCall, setIsStartingCall] = useState(false);
 
     // Safe back — falls back to MyBookings if there is nothing in the stack
     const { handleBack } = useBackHandler({ fallbackScreen: 'MyBookings' });
@@ -166,13 +167,38 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
         }
     };
 
+    const startCall = async () => {
+        if (isStartingCall) return;
+        try {
+            setIsStartingCall(true);
+            const session = await bookingsApi.getMaskedCallSession(bookingId);
+            const phoneNumber = session?.phoneNumber || session?.virtualNumber;
+            if (!phoneNumber) throw new Error('Phone number was not returned');
+            const url = Platform.OS === 'android'
+                ? `tel:${phoneNumber}`
+                : `telprompt:${phoneNumber}`;
+            await Linking.openURL(url);
+        } catch (error) {
+            console.error('Call error:', error);
+            Alert.alert('Call unavailable', error.message || 'Unable to start the call right now.');
+        } finally {
+            setIsStartingCall(false);
+        }
+    };
+
     const handleCall = () => {
-        const phoneNumber = booking?.vendorPhone || '9876543210';
-        const url = Platform.OS === 'android' ? `tel:${phoneNumber}` : `telprompt:${phoneNumber}`;
-        Linking.openURL(url).catch(err => {
-            console.error('Error opening dialer:', err);
-            Alert.alert('Error', 'Unable to open dialer.');
-        });
+        if (!booking?.vendorId) {
+            Alert.alert('Call unavailable', 'A service provider has not been assigned yet.');
+            return;
+        }
+        Alert.alert(
+            'Call expert',
+            'This will open your phone dialer and call the assigned expert directly.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Continue to Call', onPress: startCall },
+            ],
+        );
     };
 
     const handleRescheduleConfirm = async () => {
@@ -256,6 +282,9 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
             </AppScreen>
         );
     }
+
+    const canContactVendor = Boolean(booking.vendorId)
+        && ['confirmed', 'in_progress'].includes(booking.status);
 
     // Resolve pet photo
     const petPhoto = booking.petPhotoUrl
@@ -514,10 +543,17 @@ export default function BookingCardDetailsScreen({ route, navigation }) {
                             <AppText style={styles.infoLabel}>{booking.bookingType === 'walking' ? 'WALKER' : 'EXPERT'}</AppText>
                             <View style={styles.expertRow}>
                                 <AppText style={[styles.infoValue, { flex: 1 }]} numberOfLines={1}>{booking.vendorName || (['pending', 'awaiting_vendor'].includes(booking.status) ? 'Assigning...' : 'Unassigned')}</AppText>
-                                {(booking.status === 'confirmed' || booking.status === 'in_progress') && (
+                                {canContactVendor && (
                                     <>
-                                        <TouchableOpacity style={[styles.actionIconBtn, { width: 28, height: 28, marginLeft: 6 }]} activeOpacity={0.8} onPress={handleCall}>
-                                            <Ionicons name="call-outline" size={14} color="#FFF" />
+                                        <TouchableOpacity
+                                            style={[styles.actionIconBtn, { width: 28, height: 28, marginLeft: 6 }]}
+                                            activeOpacity={0.8}
+                                            onPress={handleCall}
+                                            disabled={isStartingCall}
+                                        >
+                                            {isStartingCall
+                                                ? <ActivityIndicator size="small" color="#FFF" />
+                                                : <Ionicons name="call-outline" size={14} color="#FFF" />}
                                         </TouchableOpacity>
                                         <TouchableOpacity style={[styles.actionIconBtn, { width: 28, height: 28, marginLeft: 6 }]} activeOpacity={0.8}>
                                             <Ionicons name="chatbubble-outline" size={14} color="#FFF" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { unregisterPushToken } from '../components/PushNotificationManager';
 import { appendImageToFormData } from '../utils/formDataFile';
 import * as Application from 'expo-application';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +20,7 @@ const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState({
     name: 'User',
     email: '',
+    phone: '',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300',
     stats: [
       { label: 'Bookings', value: '12' },
@@ -32,9 +34,11 @@ const ProfileScreen = ({ navigation }) => {
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '' });
   const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    fetchProfileAndPets();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileAndPets();
+    }, [])
+  );
 
   const fetchProfileAndPets = async () => {
     try {
@@ -47,6 +51,7 @@ const ProfileScreen = ({ navigation }) => {
       setUser({
         name: profileData.name || 'User',
         email: profileData.email || '',
+        phone: profileData.phone || '',
         avatar: (profileData.image && profileData.image !== 'null') ? (profileData.image.startsWith('http') ? profileData.image : `${BASE_URL}${profileData.image}`) : null,
         stats: [
           { label: 'Bookings', value: '12' },
@@ -225,6 +230,9 @@ const ProfileScreen = ({ navigation }) => {
               <AppText style={styles.profileName} weight="bold">{user.name}</AppText>
               {user.email ? (
                 <AppText style={styles.profileEmail}>{user.email}</AppText>
+              ) : null}
+              {user.phone ? (
+                <AppText style={styles.profilePhone}>{user.phone}</AppText>
               ) : null}
               <TouchableOpacity
                 style={styles.editProfileBtn}
@@ -412,6 +420,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   profileEmail: {
+    color: '#666666',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  profilePhone: {
     color: '#666666',
     fontSize: 14,
     marginBottom: 12,

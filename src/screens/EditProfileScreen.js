@@ -17,6 +17,8 @@ const EditProfileScreen = ({ navigation }) => {
     name: '',
     email: '',
     phone: '',
+    isEmailVerified: false,
+    isPhoneVerified: false,
     avatar: null
   });
 
@@ -36,6 +38,8 @@ const EditProfileScreen = ({ navigation }) => {
         name: profileData.name || '',
         email: profileData.email || '',
         phone: profileData.phone || '',
+        isEmailVerified: !!profileData.isEmailVerified,
+        isPhoneVerified: !!profileData.isPhoneVerified,
         avatar: (profileData.image && profileData.image !== 'null') ? (profileData.image.startsWith('http') ? profileData.image : `${BASE_URL}${profileData.image}`) : null,
       });
     } catch (error) {
@@ -92,11 +96,12 @@ const EditProfileScreen = ({ navigation }) => {
         email: user.email,
         phone: user.phone
       });
+      await fetchProfile();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error('Update error:', error);
-      alert('Failed to save profile.');
+      alert(error?.message || 'Failed to save profile.');
     } finally {
       setSaving(false);
     }
@@ -159,7 +164,7 @@ const EditProfileScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Email</AppText>
+              <AppText style={styles.label}>Email {user.isEmailVerified ? '(Verified)' : '(Verify by signing in with Google)'}</AppText>
               <TextInput
                 style={styles.input}
                 value={user.email}
@@ -172,7 +177,7 @@ const EditProfileScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Phone Number</AppText>
+              <AppText style={styles.label}>Phone Number {user.isPhoneVerified ? '(Verified)' : '(Verify on your next OTP login)'}</AppText>
               <TextInput
                 style={styles.input}
                 value={user.phone}

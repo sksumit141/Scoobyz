@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
 import AppScreen from '../components/AppScreen';
@@ -73,6 +74,9 @@ export default function ExplorePackagesScreen({ route, navigation }) {
         const mappedScoobyz = (data.packages || []).map(mapPackageImage);
         setPackages(mappedScoobyz);
         setAddons(data.addons || []);
+        // Do not carry a cart price from an older catalogue response.
+        setCart([]);
+        setActiveModalPkg(null);
         return;
       }
 
@@ -104,9 +108,13 @@ export default function ExplorePackagesScreen({ route, navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [expert]);
+  }, [expert?.id, isScoobyzGrooming, serviceName]);
 
-  useEffect(() => { fetchPackages(); }, [fetchPackages]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPackages();
+    }, [fetchPackages])
+  );
 
   const handleAddClick = (pkg) => {
     const isAdded = cart.some(item => item.packageId === pkg.id);

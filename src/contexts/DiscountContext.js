@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../services/api';
+import { api } from '../services/api';
+import { roundMoney } from '../utils/money';
 
 const DiscountContext = createContext();
 
@@ -12,9 +13,7 @@ export const DiscountProvider = ({ children }) => {
     const fetchDiscounts = async () => {
       try {
         const response = await api.get('/api/public/config');
-        if (response.data && response.data.serviceDiscounts) {
-          setDiscounts(response.data.serviceDiscounts);
-        }
+        setDiscounts(response.serviceDiscounts || {});
       } catch (err) {
         console.warn('Failed to fetch service discounts', err);
       }
@@ -37,8 +36,7 @@ export const DiscountProvider = ({ children }) => {
         return Number(value) || 0;
       }
     }
-    // Fallback to 10% base discount if not explicitly set
-    return 10;
+    return 0;
   };
 
   const calculateDiscountedPrice = (price, serviceName) => {
@@ -53,10 +51,7 @@ export const DiscountProvider = ({ children }) => {
       finalPrice = numericPrice - discountAmount;
     }
     
-    // Promotional hack: 500 off globally
-    finalPrice = Math.max(0, finalPrice - 500);
-
-    return finalPrice;
+    return roundMoney(Math.max(0, finalPrice));
   };
 
   return (
