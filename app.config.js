@@ -7,8 +7,6 @@ const LEGACY_GOOGLE_MAPS_API_KEY =
   process.env.GOOGLE_MAPS_API_KEY || process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAPS_ANDROID_API_KEY =
   process.env.GOOGLE_MAPS_ANDROID_API_KEY || LEGACY_GOOGLE_MAPS_API_KEY;
-const GOOGLE_MAPS_IOS_API_KEY =
-  process.env.GOOGLE_MAPS_IOS_API_KEY || LEGACY_GOOGLE_MAPS_API_KEY;
 
 module.exports = ({ config }) => ({
   ...config,
@@ -18,15 +16,6 @@ module.exports = ({ config }) => ({
       ...(config.android?.config || {}),
       ...(GOOGLE_MAPS_ANDROID_API_KEY
         ? { googleMaps: { apiKey: GOOGLE_MAPS_ANDROID_API_KEY } }
-        : {}),
-    },
-  },
-  ios: {
-    ...config.ios,
-    config: {
-      ...(config.ios?.config || {}),
-      ...(GOOGLE_MAPS_IOS_API_KEY
-        ? { googleMapsApiKey: GOOGLE_MAPS_IOS_API_KEY }
         : {}),
     },
   },
