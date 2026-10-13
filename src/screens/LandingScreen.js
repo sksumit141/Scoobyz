@@ -330,8 +330,8 @@ const LandingScreen = ({ navigation }) => {
               </TouchableOpacity>
             ))}
 
-            {/* Built-in fallback banners */}
-            {promoBanners.length === 0 && <View style={[styles.banner, { backgroundColor: '#E3F2FD' }]}>
+            {/* Built-in banners always stay in the carousel alongside admin banners. */}
+            <View style={[styles.banner, { backgroundColor: '#E3F2FD' }]}>
               <View style={styles.bannerTextContainer}>
                 <AppText style={{ color: theme.colors.textBlack, fontWeight: '900', fontSize: width < 360 ? 12 : 14, marginBottom: 4 }}>
                   WELCOME TO{'\n'}MY DOGGIE DEALS
@@ -343,15 +343,15 @@ const LandingScreen = ({ navigation }) => {
                 style={styles.bannerImage}
                 resizeMode="cover"
               />
-            </View>}
+            </View>
 
-            {promoBanners.length === 0 && <View style={[styles.banner, { paddingLeft: 0, backgroundColor: 'transparent' }]}>
+            <View style={[styles.banner, { paddingLeft: 0, backgroundColor: 'transparent' }]}>
               <Image
                 source={require('../../assets/AppHomepage.png')}
                 style={{ width: '100%', height: '100%', borderRadius: 16 }}
                 resizeMode="cover"
               />
-            </View>}
+            </View>
           </AutoScrollBanners>
 
           {/* My Pets Section */}

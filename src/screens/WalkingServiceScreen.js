@@ -272,10 +272,10 @@ export default function WalkingServiceScreen({ navigation }) {
       ? ['evening']
       : ['afternoon', 'evening'];
   const currentWalkSlots = availableSlots.filter(slot => {
-      if (timesPerDay > 1 && selectedSlots.includes(slot)) return false;
-      if (!currentPeriodKey || !isSlotInWalkPeriod(slot, currentPeriodKey)) return false;
-      return !previousSelectedSlot || getSlotMinutes(slot) > getSlotMinutes(previousSelectedSlot);
-    });
+    if (timesPerDay > 1 && selectedSlots.includes(slot)) return false;
+    if (!currentPeriodKey || !isSlotInWalkPeriod(slot, currentPeriodKey)) return false;
+    return !previousSelectedSlot || getSlotMinutes(slot) > getSlotMinutes(previousSelectedSlot);
+  });
 
   const getSelectionError = () => {
     if (!selectedSlots || selectedSlots.length !== timesPerDay) {
@@ -300,7 +300,6 @@ export default function WalkingServiceScreen({ navigation }) {
   let calculatedPrice = 0;
   if (pricingData && pricingData[frequency]) {
     const timesMap = pricingData[frequency];
-    // Find the correct timesPerDay tier (fallback to highest if exceeds map)
     const tier = timesMap[timesPerDay] || timesMap[Object.keys(timesMap).pop()];
     if (tier && tier[duration]) {
       calculatedPrice = tier[duration];

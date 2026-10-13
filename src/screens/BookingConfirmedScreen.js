@@ -218,11 +218,11 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
     ? (pet.photoUrl.startsWith('http') ? pet.photoUrl : `${BASE_URL}${pet.photoUrl}`)
     : 'https://images.unsplash.com/photo-1591160690555-5debfba289f0?q=80&w=256&auto=format&fit=crop';
 
-  const displayVendorName = bookingData?.vendorName || expert?.name || expert?.businessName || 'Assigned Scoober';
+  const displayVendorName = bookingData?.vendorName || expert?.name || expert?.businessName || 'Assigned Expert';
   const displayVendorImage = bookingData?.vendorImage || expert?.image || expert?.profilePhoto;
 
   const getInitials = (name) => {
-    if (!name || name === 'Assigned Scoober') return 'S';
+    if (!name || name === 'Assigned Expert') return 'E';
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
@@ -333,8 +333,8 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
                   </View>
                   <AppText style={styles.assignmentSubtitle}>
                     {isScoobyzMatch 
-                      ? `We are still looking for the best scoober for ${pet.name || 'Your Pet'}. You can safely leave this screen, we'll notify you once assigned.`
-                      : `We couldn't find an available scoober for ${pet.name || 'Your Pet'} at this time. Please try again later or choose another date.`}
+                      ? `We are still looking for the best expert for ${pet.name || 'Your Pet'}. You can safely leave this screen, we'll notify you once assigned.`
+                      : `We couldn't find an available expert for ${pet.name || 'Your Pet'} at this time. Please try again later or choose another date.`}
                   </AppText>
                 </>
               ) : (
@@ -343,10 +343,10 @@ const BookingConfirmedScreen = ({ navigation, route }) => {
                     <Animated.View style={{ transform: [{ rotate: spin }] }}>
                       <Ionicons name="hourglass-outline" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
                     </Animated.View>
-                    <AppText style={[styles.assignmentTitle, { color: '#F59E0B' }]} weight="bold">Assigning a scoober</AppText>
+                    <AppText style={[styles.assignmentTitle, { color: '#F59E0B' }]} weight="bold">Assigning an expert</AppText>
                   </View>
                   <AppText style={styles.assignmentSubtitle}>
-                    We're finding an available scoober for {pet.name || 'Your Pet'}. You'll be notified once a scoober is assigned.
+                    We're finding an available expert for {pet.name || 'Your Pet'}. You'll be notified once an expert is assigned.
                   </AppText>
                 </>
               )}

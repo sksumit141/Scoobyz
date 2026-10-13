@@ -3,12 +3,14 @@ import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from './AppText';
 import { theme } from '../styles/theme';
+import { formatMoney } from '../utils/money';
 
 export default function PaymentSummaryModal({
   visible, onClose, cart = [], total = 0, room = null, meal = null,
   frequency = '1x', nights = 1, isAggressive = false, aggressiveFee = 0,
   timesPerDay = 1, amountPaid = null, remainingAmount = null,
-  addons: passedAddons = [], isSlotBooking = false
+  addons: passedAddons = [], isSlotBooking = false,
+  couponCode = null, couponDiscount = 0,
 }) {
   const mainPackage = cart[0] || {};
   const addons = (passedAddons.length > 0 ? passedAddons : (mainPackage.addons || [])).map(a => ({
@@ -77,6 +79,9 @@ export default function PaymentSummaryModal({
     ...items,
     { label: 'Service Fee', value: 0 },
     { label: 'Platform Fee', value: 0 },
+    ...(couponCode && Number(couponDiscount) > 0
+      ? [{ label: `Coupon (${couponCode})`, value: Number(couponDiscount), isDiscount: true }]
+      : []),
   ];
 
   return (
@@ -96,9 +101,11 @@ export default function PaymentSummaryModal({
               <View key={index} style={styles.itemRow}>
                 <AppText style={styles.itemLabel}>{item.label}</AppText>
                 <AppText style={styles.itemValue}>
-                  {typeof item.value === 'string' && (item.value.startsWith('x') || item.value.startsWith('X')) 
-                    ? item.value 
-                    : `₹ ${item.value}`}
+                  {item.isDiscount
+                    ? `-₹ ${formatMoney(item.value)}`
+                    : typeof item.value === 'string' && (item.value.startsWith('x') || item.value.startsWith('X'))
+                    ? item.value
+                    : `₹ ${formatMoney(item.value)}`}
                 </AppText>
               </View>
             ))}
@@ -111,19 +118,19 @@ export default function PaymentSummaryModal({
               <AppText style={styles.totalLabel} weight="bold">Total (After Service)</AppText>
               <AppText style={styles.inclusiveText}>Incl. all fee</AppText>
             </View>
-            <AppText style={styles.totalValue} weight="bold">₹ {total}</AppText>
+            <AppText style={styles.totalValue} weight="bold">₹ {formatMoney(total)}</AppText>
           </View>
 
           {isSlotBooking ? (
             <>
               <View style={[styles.divider, { marginTop: 16, marginBottom: 16 }]} />
               <View style={[styles.itemRow, { backgroundColor: '#F3E8FF', borderRadius: 10, padding: 12, marginBottom: 8 }]}>
-                <AppText style={[styles.itemLabel, { color: '#4A148C' }]}>₹99 Slot Booking (Paid Now)</AppText>
-                <AppText style={[styles.itemValue, { color: '#4A148C' }]} weight="bold">₹ {amountPaid}</AppText>
+                <AppText style={[styles.itemLabel, { color: '#4A148C' }]}>Slot Booking (Paid Now)</AppText>
+                <AppText style={[styles.itemValue, { color: '#4A148C' }]} weight="bold">₹ {formatMoney(amountPaid)}</AppText>
               </View>
               <View style={[styles.itemRow, { paddingHorizontal: 4 }]}>
                 <AppText style={styles.itemLabel}>Remaining (Paid After Service)</AppText>
-                <AppText style={[styles.itemValue, { color: '#7B1FA2' }]} weight="bold">₹ {remainingAmount}</AppText>
+                <AppText style={[styles.itemValue, { color: '#7B1FA2' }]} weight="bold">₹ {formatMoney(remainingAmount)}</AppText>
               </View>
             </>
           ) : amountPaid !== null && remainingAmount !== null ? (
@@ -132,13 +139,13 @@ export default function PaymentSummaryModal({
               <View style={styles.itemRow}>
                 <AppText style={styles.itemLabel}>Amount Paid</AppText>
                 <AppText style={[styles.itemValue, { color: theme.colors.success }]} weight="bold">
-                  ₹ {amountPaid}
+                  ₹ {formatMoney(amountPaid)}
                 </AppText>
               </View>
               <View style={[styles.itemRow, { marginTop: 8 }]}>
                 <AppText style={styles.itemLabel}>Remaining Balance</AppText>
                 <AppText style={[styles.itemValue, { color: theme.colors.primaryDark }]} weight="bold">
-                  ₹ {remainingAmount}
+                  ₹ {formatMoney(remainingAmount)}
                 </AppText>
               </View>
             </>

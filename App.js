@@ -82,6 +82,7 @@ import BookVendorScreen from './src/screens/BookVendorScreen';
 import ReviewDetailsScreen from './src/screens/ReviewDetailsScreen';
 import BookingPendingScreen from './src/screens/BookingPendingScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import CouponsScreen from './src/screens/CouponsScreen';
 
 import { theme } from './src/styles/theme';
 
@@ -215,6 +216,7 @@ export default function App() {
             <Stack.Screen name="GroomingPackages" component={GroomingPackagesScreen} />
             <Stack.Screen name="ExpertProfile" component={ExpertProfileScreen} />
             <Stack.Screen name="ReviewDetails" component={ReviewDetailsScreen} />
+            <Stack.Screen name="Coupons" component={CouponsScreen} />
             <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
             <Stack.Screen name="BookingCardDetails" component={BookingCardDetailsScreen} />
             <Stack.Screen name="BookingCancelledStatus" component={BookingCancelledStatusScreen} />

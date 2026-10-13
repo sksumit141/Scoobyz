@@ -20,13 +20,19 @@ import AppText from '../components/AppText';
 import AppHeader from '../components/AppHeader';
 import AppScreen from '../components/AppScreen';
 import CustomAlert from '../components/CustomAlert';
-import { petsApi, BASE_URL } from '../services/api';
+import { customerApi, petsApi, BASE_URL } from '../services/api';
 import CustomCalendar from '../components/CustomCalendar';
 import { appendImageToFormData } from '../utils/formDataFile';
 import PawLoader from '../components/PawLoader';
 import BreedPickerModal from '../components/BreedPickerModal';
 
 const { width } = Dimensions.get('window');
+
+const petBirthDateForForm = (value) => {
+  const text = String(value || '');
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return isoMatch ? `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}` : text;
+};
 
 const AddPetProfileScreen = ({ navigation, route }) => {
   const [pets, setPets] = useState([]);
@@ -39,6 +45,7 @@ const AddPetProfileScreen = ({ navigation, route }) => {
   const [showBreedPicker, setShowBreedPicker] = useState(false);
   const [age, setAge] = useState(1);
   const [birthDate, setBirthDate] = useState('');
+  const [phone, setPhone] = useState('');
   const [weight, setWeight] = useState('');
   const [temperament, setTemperament] = useState(0.5);
   const [medicalConditions, setMedicalConditions] = useState('');
@@ -61,6 +68,12 @@ const AddPetProfileScreen = ({ navigation, route }) => {
     try {
       const res = await petsApi.list();
       setPets(res || []);
+      try {
+        const profile = await customerApi.getProfile();
+        setPhone(String(profile?.phone || '').replace(/\D/g, '').slice(-10));
+      } catch (profileError) {
+        console.warn('Could not prefill customer phone', profileError);
+      }
 
       const editPet = route.params?.pet;
       if (editPet) {
@@ -102,7 +115,7 @@ const AddPetProfileScreen = ({ navigation, route }) => {
     setBreed(pet.breed || '');
     setSize(pet.size || 'Medium');
     setAge(pet.age || 1);
-    setBirthDate(pet.birthDate || '');
+    setBirthDate(petBirthDateForForm(pet.birthDate));
     setWeight(pet.weight || '');
     setTemperament(parseFloat(pet.temperament) || 0.5);
     setMedicalConditions(pet.medicalNotes || '');
@@ -141,6 +154,19 @@ const AddPetProfileScreen = ({ navigation, route }) => {
       setAlertConfig({ visible: true, title: 'Missing Information', message: 'Please fill out pet name and breed.' });
       return;
     }
+    if (!birthDate) {
+      setAlertConfig({ visible: true, title: 'Date of Birth Required', message: 'Please select your pet’s date of birth.' });
+      return;
+    }
+    if (!weight.trim() || !Number.isFinite(Number(weight)) || Number(weight) <= 0) {
+      setAlertConfig({ visible: true, title: 'Weight Required', message: 'Please enter your pet’s valid weight in kilograms.' });
+      return;
+    }
+    const isFirstPetProfile = pets.length === 0 && !activePet;
+    if (isFirstPetProfile && !/^\d{10}$/.test(phone)) {
+      setAlertConfig({ visible: true, title: 'Phone Number Required', message: 'Please enter a valid 10-digit phone number.' });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -153,6 +179,7 @@ const AddPetProfileScreen = ({ navigation, route }) => {
       formData.append('weight', weight);
       formData.append('temperament', temperament.toString());
       formData.append('medicalNotes', medicalConditions);
+      if (isFirstPetProfile) formData.append('phone', phone);
 
       if (imageUri && !imageUri.startsWith('http')) {
         await appendImageToFormData(formData, 'photo', imageUri, {
@@ -360,6 +387,22 @@ const AddPetProfileScreen = ({ navigation, route }) => {
               </TouchableOpacity>
 
               <View style={styles.cardContent}>
+                {pets.length === 0 && !activePet && (
+                  <View style={styles.inputGroup}>
+                    <AppText style={styles.label}>Phone Number *</AppText>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter 10-digit phone number"
+                      placeholderTextColor="#A0AEC0"
+                      value={phone}
+                      onChangeText={(value) => setPhone(value.replace(/\D/g, '').slice(0, 10))}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
+                    <AppText style={styles.helperText}>Saved to your profile and used as the default number for addresses.</AppText>
+                  </View>
+                )}
+
                 {/* NAME */}
                 <View style={styles.inputGroup}>
                   <AppText style={styles.label}>Name</AppText>
@@ -428,7 +471,7 @@ const AddPetProfileScreen = ({ navigation, route }) => {
 
                 {/* BIRTHDAY */}
                 <View style={styles.inputGroup}>
-                  <AppText style={styles.label}>Birthday</AppText>
+                  <AppText style={styles.label}>Date of Birth *</AppText>
                   <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
                     <View pointerEvents="none">
                       <TextInput
@@ -477,7 +520,7 @@ const AddPetProfileScreen = ({ navigation, route }) => {
 
                 {/* WEIGHT */}
                 <View style={styles.inputGroup}>
-                  <AppText style={styles.label}>Weight (kg)</AppText>
+                  <AppText style={styles.label}>Weight (kg) *</AppText>
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. 15"
@@ -730,6 +773,12 @@ const styles = StyleSheet.create({
     color: '#000000ff',
     fontWeight: '500',
     marginBottom: 8,
+  },
+  helperText: {
+    marginTop: 6,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
   },
   input: {
     borderWidth: 1,

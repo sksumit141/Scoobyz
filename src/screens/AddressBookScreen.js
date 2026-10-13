@@ -14,15 +14,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppScreen from '../components/AppScreen';
 import AppText from '../components/AppText';
 import AppHeader from '../components/AppHeader';
 import AppButton from '../components/AppButton';
 import { theme } from '../styles/theme';
-import { addressApi, mapsApi } from '../services/api';
+import { addressApi, customerApi, mapsApi } from '../services/api';
 import CustomAlert from '../components/CustomAlert';
 import PawLoader from '../components/PawLoader';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -83,11 +83,8 @@ const AddressBookScreen = ({ navigation, route }) => {
 
   const fetchUserProfile = async () => {
     try {
-      const profile = await AsyncStorage.getItem('user_profile');
-      if (profile) {
-        const parsed = JSON.parse(profile);
-        setUserPhone(parsed.mobile || '');
-      }
+      const profile = await customerApi.getProfile();
+      setUserPhone(String(profile?.phone || '').replace(/\D/g, '').slice(-10));
     } catch (e) { }
   };
 
@@ -216,6 +213,7 @@ const AddressBookScreen = ({ navigation, route }) => {
           latitude: result.geometry?.location?.lat,
           longitude: result.geometry?.location?.lng,
           isDefault: true,
+          phone: formData.phone || userPhone,
         });
 
         setSearchQuery('');
@@ -278,6 +276,7 @@ const AddressBookScreen = ({ navigation, route }) => {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
           isDefault: true,
+          phone: formData.phone || userPhone,
         });
 
         if (openModal) {
@@ -677,6 +676,7 @@ const AddressBookScreen = ({ navigation, route }) => {
                   value={formData.phone}
                   onChangeText={(val) => setFormData({ ...formData, phone: val })}
                 />
+                <AppText style={styles.phoneHelper}>You can use a different contact number for this address.</AppText>
               </View>
 
               <TouchableOpacity
@@ -923,6 +923,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textBlack,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
+  },
+  phoneHelper: {
+    marginTop: 6,
+    color: theme.colors.textSecondary,
+    fontSize: 11,
   },
   checkboxRow: {
     flexDirection: 'row',

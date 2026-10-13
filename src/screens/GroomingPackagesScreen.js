@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import AppText from '../components/AppText';
 import { theme } from '../styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,21 +18,24 @@ export default function GroomingPackagesScreen({ route, navigation }) {
   const [packages, setPackages] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    const fetchPackages = async () => {
-      try {
-        const response = await discoverApi.scoobyzPackages();
-        if (response?.packages) {
-          setPackages(response.packages);
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchPackages = async () => {
+        setLoading(true);
+        try {
+          const response = await discoverApi.scoobyzPackages();
+          if (response?.packages) {
+            setPackages(response.packages);
+          }
+        } catch (error) {
+          console.error('Failed to fetch grooming packages:', error);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Failed to fetch grooming packages:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPackages();
-  }, []);
+      };
+      fetchPackages();
+    }, [])
+  );
 
   const handleSelectPackage = (pkg) => {
     // Navigate to ExplorePackagesScreen in "Standard Grooming" mode
